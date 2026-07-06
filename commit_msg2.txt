@@ -1,0 +1,4 @@
+FEATURE: Implement Phase 2 Ingest Gateway and Authz
+
+Added gRPC OTLP receiver for traces, metrics, and logs.
+Added zero-trust tenant verification via mTLS SAN/SPIFFE ID matching (Risk: §12 row 10).

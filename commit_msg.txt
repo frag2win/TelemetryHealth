@@ -1,9 +1,0 @@
-FEATURE: Implement Phase 1 Core Detection processor
-
-Added fail-open circuit breaker to safely wrap processor logic without blocking the primary telemetry pipeline (Risk: §12 row 1).
-Added cardinality HLL tracker with memory and key-space bounds.
-Added trace-chain orphan detector local foundation.
-Wired up Traces, Metrics, and Logs consumers.
-
-Closes-PRD-Section: §8.1
-Closes-PRD-Section: §8.2
