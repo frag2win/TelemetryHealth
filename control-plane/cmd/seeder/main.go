@@ -17,7 +17,7 @@ func main() {
 		Addr: []string{"localhost:9000"},
 		Auth: clickhouse.Auth{
 			Database: "telemetry_health",
-			Username: "default",
+			Username: "telemetry",
 			Password: "",
 		},
 		DialTimeout: 5 * time.Second,
@@ -32,8 +32,11 @@ func main() {
 
 	// --- Seed cardinality_signal ---
 	log.Println("Seeding cardinality_signal...")
-	cardBatch, _ := conn.PrepareBatch(ctx, `INSERT INTO telemetry_health.cardinality_signal 
+	cardBatch, err := conn.PrepareBatch(ctx, `INSERT INTO telemetry_health.cardinality_signal 
 		(tenant_id, service, attribute_key, window_start, unique_estimate)`)
+	if err != nil {
+		log.Fatalf("prepare cardinality batch: %v", err)
+	}
 
 	services := []string{"checkout", "payments", "user-service", "api-gateway", "notifications"}
 	attrs := []string{"user_id", "session_id", "request_id", "trace_id"}
@@ -57,8 +60,11 @@ func main() {
 
 	// --- Seed orphan_signal ---
 	log.Println("Seeding orphan_signal...")
-	orphanBatch, _ := conn.PrepareBatch(ctx, `INSERT INTO telemetry_health.orphan_signal 
+	orphanBatch, err := conn.PrepareBatch(ctx, `INSERT INTO telemetry_health.orphan_signal 
 		(tenant_id, trace_id, span_id, parent_span_id, collector_id, detected_at)`)
+	if err != nil {
+		log.Fatalf("prepare orphan batch: %v", err)
+	}
 
 	for i := 0; i < 432; i++ {
 		_ = orphanBatch.Append(
@@ -78,8 +84,11 @@ func main() {
 
 	// --- Seed coverage_signal ---
 	log.Println("Seeding coverage_signal...")
-	covBatch, _ := conn.PrepareBatch(ctx, `INSERT INTO telemetry_health.coverage_signal 
+	covBatch, err := conn.PrepareBatch(ctx, `INSERT INTO telemetry_health.coverage_signal 
 		(tenant_id, service, last_seen_at, baseline_expected)`)
+	if err != nil {
+		log.Fatalf("prepare coverage batch: %v", err)
+	}
 
 	for _, svc := range services {
 		_ = covBatch.Append(

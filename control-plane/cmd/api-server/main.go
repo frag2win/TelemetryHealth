@@ -22,7 +22,7 @@ func main() {
 	var healthRepo *ch.HealthRepository
 	client, err := ch.NewClient(
 		[]string{"localhost:9000"},
-		"telemetry_health", "default", "",
+		"telemetry_health", "telemetry", "",
 		logger,
 	)
 	if err != nil {
