@@ -311,6 +311,35 @@ Then open your 4 terminals and run the startup commands above.
 
 ---
 
+## 🚫 Running Without Docker (Bring Your Own Infra)
+
+If you cannot use Docker Desktop, you must run **Kafka (or Redpanda)** and **ClickHouse** natively on your OS or use managed cloud services (like Confluent Cloud or ClickHouse Cloud). 
+
+### 1. Install Infrastructure Natively
+* **ClickHouse:** Native installation is supported on Linux and macOS. See [official docs](https://clickhouse.com/docs/en/install). (On Windows, you must use WSL2).
+* **Kafka/Redpanda:** See [Redpanda native installation](https://docs.redpanda.com/docs/get-started/quick-start/).
+
+### 2. Configure Environment Variables
+By default, the Go services look for `localhost:9092` and `localhost:9000`. If your native or cloud infrastructure runs elsewhere or requires authentication, you must override these environment variables in **every terminal** running a Go service (`api-server`, `worker`, `ingest-gateway`, `seeder`):
+
+```bash
+# ClickHouse settings
+export CH_HOST="127.0.0.1"       # Or your cloud hostname
+export CH_PORT="9000"            # Native port
+export CH_USER="telemetry"       # Your database user
+export CH_PASSWORD=""            # Your database password
+export CH_DB="telemetry_health"  # Database name
+
+# Kafka/Redpanda settings
+export KAFKA_BROKERS="127.0.0.1:9092"  # Comma-separated list for cluster
+```
+
+*(On Windows PowerShell, use `$env:CH_HOST="127.0.0.1"` instead of `export`)*
+
+Once configured, run the 4 application commands as usual.
+
+---
+
 ## 🧪 Running Tests
 
 ### Processor (OTel Collector Plugin)
