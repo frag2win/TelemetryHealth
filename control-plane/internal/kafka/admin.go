@@ -3,7 +3,7 @@ package kafka
 import (
 	"context"
 	"net"
-	"time"
+	"strconv"
 
 	kafkago "github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
@@ -50,5 +50,5 @@ func EnsureTopics(ctx context.Context, broker string, logger *zap.Logger) error 
 }
 
 func itoa(i int) string {
-	return time.Unix(int64(i), 0).UTC().Format("5") // minimal int→string
+	return strconv.Itoa(i)
 }

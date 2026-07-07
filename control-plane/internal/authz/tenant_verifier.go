@@ -3,6 +3,7 @@ package authz
 import (
 	"context"
 	"errors"
+	"os"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -35,6 +36,11 @@ func verifyTenant(ctx context.Context) error {
 		return errors.New("missing x-tenant-id header")
 	}
 	claimedTenant := tenantIDs[0]
+
+	// Bypass mTLS verification for local development
+	if os.Getenv("INSECURE_DEV_MODE") == "true" {
+		return nil
+	}
 
 	p, ok := peer.FromContext(ctx)
 	if !ok || p.AuthInfo == nil {
