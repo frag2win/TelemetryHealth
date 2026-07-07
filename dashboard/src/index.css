@@ -10,8 +10,8 @@
   --phosphor-dim: rgba(92,225,165,0.14);
   --amber:#F5A623;
   --amber-dim: rgba(245,166,35,0.14);
-  --red:#E5484D;
-  --red-dim: rgba(229,72,77,0.14);
+  --red:#FF4D4D;
+  --red-dim: rgba(255,77,77,0.14);
   --paper:#E8ECE9;
   --muted:#7C8985;
   --muted-2:#576260;
@@ -20,9 +20,9 @@
 }
 
 *{box-sizing:border-box;}
-html,body{margin:0;padding:0;background:var(--ink);color:var(--paper);font-family:var(--sans);}
+html,body{margin:0;padding:0;background:var(--ink);color:var(--paper);font-family:var(--sans);font-size:16px;line-height:1.5;}
 body{display:flex;min-height:100vh;}
-#root{display:flex;min-height:100vh;width:100%;}
+#root{display:flex;min-height:100vh;width:100%;transition: background-color 0.3s ease;}
 ::selection{background:var(--phosphor-dim);color:var(--phosphor);}
 ::-webkit-scrollbar{width:10px;height:10px;}
 ::-webkit-scrollbar-track{background:var(--panel);}
@@ -106,6 +106,21 @@ body{display:flex;min-height:100vh;}
 .rled{width:7px;height:7px;border-radius:50%;flex-shrink:0;}
 .rled.r{background:var(--red);box-shadow:0 0 6px var(--red);}
 .rled.a{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+
+/* ---------- animations ---------- */
+@keyframes pulse-ring {
+  0% { transform: scale(0.9); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.8; }
+}
+
+.animate-pulse {
+  animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.transition-colors {
+  transition: stroke 0.3s ease, fill 0.3s ease, color 0.3s ease;
+}
 .rled.p{background:var(--phosphor);box-shadow:0 0 6px var(--phosphor);}
 .rack-svc{font-family:var(--mono);font-size:13px;font-weight:500;}
 .rack-desc{font-size:12px;color:var(--muted);margin-top:2px;}

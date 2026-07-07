@@ -4,6 +4,7 @@ import { Cardinality } from './components/views/Cardinality';
 import { TraceChains } from './components/views/TraceChains';
 import { Coverage } from './components/views/Coverage';
 import { Remediation } from './components/views/Remediation';
+import { AgentTraces } from './components/views/AgentTraces';
 import { Loader2 } from 'lucide-react';
 
 interface DashboardData {
@@ -24,7 +25,8 @@ const titles: Record<string, string> = {
   cardinality: '02 / CARDINALITY',
   tracechains: '03 / TRACE CHAINS',
   coverage: '04 / COVERAGE',
-  remediation: '05 / REMEDIATION'
+  remediation: '05 / REMEDIATION',
+  agenttraces: '06 / AI AGENTS'
 };
 
 function App() {
@@ -90,6 +92,7 @@ function App() {
           {navItem('tracechains', '03', 'Trace chains', 'on-r')}
           {navItem('coverage', '04', 'Coverage', 'on-a')}
           {navItem('remediation', '05', 'Remediation', 'on-p')}
+          {navItem('agenttraces', '06', 'AI Agents', 'on-p')}
         </nav>
         <div className="sidebar-foot">
           tenant: acme-prod<br/>
@@ -127,6 +130,7 @@ function App() {
           {activeView === 'tracechains' && <TraceChains />}
           {activeView === 'coverage' && <Coverage />}
           {activeView === 'remediation' && <Remediation apiRemediation={modifiedData.remediation} />}
+          {activeView === 'agenttraces' && <AgentTraces />}
         </div>
       </div>
     </>

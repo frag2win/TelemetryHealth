@@ -1,4 +1,26 @@
 
+const AnimatedHealthGauge = ({ score }: { score: number }) => {
+  const color = score > 80 ? 'var(--phosphor)' : score > 50 ? 'var(--amber)' : 'var(--red)';
+  return (
+    <div className="health-gauge animate-pulse" style={{ display: 'flex', justifyContent: 'center' }}>
+      <svg width="140" height="140" viewBox="0 0 200 200">
+        <circle cx="100" cy="100" r="80" stroke="var(--panel-2)" strokeWidth="15" fill="none" />
+        <circle 
+          cx="100" cy="100" r="80" 
+          stroke={color} strokeWidth="15" fill="none" 
+          strokeDasharray="502" 
+          strokeDashoffset={502 - (502 * score) / 100}
+          strokeLinecap="round"
+          transform="rotate(-90 100 100)"
+          className="transition-colors"
+        />
+        <text x="100" y="115" textAnchor="middle" fontSize="48" fontWeight="600" fill={color} className="transition-colors">
+          {score}
+        </text>
+      </svg>
+    </div>
+  );
+};
 
 interface MetricProps {
   label: string;
@@ -27,14 +49,16 @@ export function Overview({ data, setView }: { data: any, setView: (v: string) =>
 
   return (
     <section className="view active">
-      <div className="panel hero">
-        <div className="hero-score">
-          <div className="score-num" id="score-num">{score}</div>
-          <span className={`score-band ${bandClass}`} id="score-band">{bandText}</span>
-          <div className="score-delta">&#8599; +4 vs last week</div>
-          <div className="score-caption">composite &#183; org rollup</div>
+      <div className="panel hero" style={{ display: 'flex', alignItems: 'center' }}>
+        <div className="hero-score" style={{ flex: 1 }}>
+          <AnimatedHealthGauge score={score} />
+          <div style={{ textAlign: 'center', marginTop: '16px' }}>
+            <span className={`score-band ${bandClass}`} id="score-band">{bandText}</span>
+            <div className="score-delta">&#8599; +4 vs last week</div>
+            <div className="score-caption">composite &#183; org rollup</div>
+          </div>
         </div>
-        <div className="hero-chart">
+        <div className="hero-chart" style={{ flex: 2 }}>
           <div className="scanline"></div>
           <svg viewBox="0 0 640 190" style={{ width: '100%', height: '190px', display: 'block' }}>
             <line x1="0" y1="42" x2="640" y2="42" stroke="#5CE1A5" strokeWidth="1" strokeDasharray="4 4" opacity="0.45"/>
