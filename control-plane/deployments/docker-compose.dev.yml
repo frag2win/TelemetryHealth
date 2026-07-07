@@ -1,0 +1,83 @@
+version: '3.8'
+
+services:
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.2.2
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 256M
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --check=false
+    ports:
+      - "9092:9092"
+      - "19092:19092"
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.8-alpine
+    ports:
+      - "8123:8123"
+      - "9000:9000"
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+
+  api-server:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    command: ["/app/api-server"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - redpanda
+      - clickhouse
+    environment:
+      - INSECURE_DEV_MODE=true
+
+  ingest-gateway:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    command: ["/app/ingest-gateway"]
+    ports:
+      - "4317:4317"
+    depends_on:
+      - redpanda
+    environment:
+      - INSECURE_DEV_MODE=true
+
+  worker:
+    build:
+      context: ../
+      dockerfile: Dockerfile
+    command: ["/app/worker"]
+    depends_on:
+      - redpanda
+      - clickhouse
+    environment:
+      - KAFKA_BROKERS=redpanda:9092
+      - INSECURE_DEV_MODE=true
+
+  dashboard:
+    build:
+      context: ../../dashboard
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
