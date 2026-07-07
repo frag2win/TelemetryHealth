@@ -46,7 +46,7 @@ func TestConsumerOfflineGraceful(t *testing.T) {
 	consumer := kafka.NewConsumer(
 		[]string{"localhost:19092"}, // unreachable
 		"test.topic", "test-group",
-		func(ctx context.Context, e kafka.CoverageEvent) error { return nil },
+		func(ctx context.Context, e []kafka.CoverageEvent) error { return nil },
 		zap.NewNop(),
 	)
 	defer consumer.Close()

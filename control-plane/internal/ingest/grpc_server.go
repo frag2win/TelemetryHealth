@@ -11,6 +11,8 @@ import (
 	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"go.uber.org/zap"
 )
 
@@ -43,14 +45,17 @@ func (r *receiver) Export(ctx context.Context, req ptraceotlp.ExportRequest) (pt
 				span := rs.ScopeSpans().At(j).Spans().At(k)
 
 				// Publish orphan candidate — cross-collector correlation happens in the worker
-				_ = r.producer.PublishOrphan(ctx, kafka.OrphanEvent{
+				if err := r.producer.PublishOrphan(ctx, kafka.OrphanEvent{
 					TenantID:     tenantStr,
 					TraceID:      span.TraceID().String(),
 					SpanID:       span.SpanID().String(),
 					ParentSpanID: span.ParentSpanID().String(),
 					CollectorID:  defaultCollectorID,
 					DetectedAt:   time.Now(),
-				})
+				}); err != nil {
+					r.logger.Error("failed to publish orphan event", zap.Error(err))
+					return ptraceotlp.NewExportResponse(), status.Errorf(codes.Unavailable, "failed to publish telemetry: %v", err)
+				}
 			}
 		}
 	}
@@ -73,11 +78,14 @@ func (r *metricsReceiver) Export(ctx context.Context, req pmetricotlp.ExportRequ
 		service, _ := rm.Resource().Attributes().AsRaw()["service.name"].(string)
 
 		// Publish coverage heartbeat per service
-		_ = r.producer.PublishCoverage(ctx, kafka.CoverageEvent{
+		if err := r.producer.PublishCoverage(ctx, kafka.CoverageEvent{
 			TenantID:   tenantID,
 			Service:    service,
 			LastSeenAt: time.Now(),
-		})
+		}); err != nil {
+			r.logger.Error("failed to publish coverage event", zap.Error(err))
+			return pmetricotlp.NewExportResponse(), status.Errorf(codes.Unavailable, "failed to publish telemetry: %v", err)
+		}
 	}
 
 	r.logger.Debug("Metrics exported to Kafka", zap.Int("resource_metrics", rms.Len()))
