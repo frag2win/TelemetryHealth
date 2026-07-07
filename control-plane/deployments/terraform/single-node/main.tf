@@ -78,10 +78,12 @@ resource "aws_key_pair" "deploy_key" {
   public_key = tls_private_key.deploy_key.public_key_openssh
 }
 
+
+
 # Save private key to local file
 resource "local_file" "private_key" {
   content         = tls_private_key.deploy_key.private_key_pem
-  filename        = "${path.module}/telemetry-health-key.pem"
+  filename        = "${path.module}/telemetry-health-key-v2.pem"
   file_permission = "0400"
 }
 

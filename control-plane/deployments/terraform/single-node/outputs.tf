@@ -15,5 +15,5 @@ output "api_url" {
 
 output "ssh_command" {
   description = "Command to SSH into the instance"
-  value       = "ssh -i telemetry-health-key.pem ubuntu@${aws_instance.app_server.public_ip}"
+  value       = "ssh -i telemetry-health-key-v2.pem ubuntu@${aws_instance.app_server.public_ip}"
 }
