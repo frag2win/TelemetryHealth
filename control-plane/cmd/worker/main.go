@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/kafka"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -46,7 +48,16 @@ func main() {
 	runCtx, runCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer runCancel()
 
-	logger.Info("Stream worker started — consuming from Kafka, writing to ClickHouse")
+	// Start Prometheus metrics server
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(":9091", mux); err != nil {
+			logger.Error("Metrics server failed", zap.Error(err))
+		}
+	}()
+
+	logger.Info("Stream worker started — consuming from Kafka, writing to ClickHouse, metrics on :9091")
 	workers.Run(runCtx)
 	logger.Info("Stream worker stopped cleanly")
 }

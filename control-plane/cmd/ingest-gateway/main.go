@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/ingest"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/kafka"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -43,7 +45,16 @@ func main() {
 		}
 	}()
 
-	logger.Info("Ingest Gateway started on :4317")
+	// Start Prometheus metrics server
+	go func() {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.Handler())
+		if err := http.ListenAndServe(":9090", mux); err != nil {
+			logger.Error("Metrics server failed", zap.Error(err))
+		}
+	}()
+
+	logger.Info("Ingest Gateway started on :4317, metrics on :9090")
 
 	// Wait for termination signal
 	sigChan := make(chan os.Signal, 1)

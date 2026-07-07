@@ -7,6 +7,7 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/authz"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/kafka"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
 	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
 	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
@@ -43,6 +44,8 @@ func (r *receiver) Export(ctx context.Context, req ptraceotlp.ExportRequest) (pt
 		for j := 0; j < rs.ScopeSpans().Len(); j++ {
 			for k := 0; k < rs.ScopeSpans().At(j).Spans().Len(); k++ {
 				span := rs.ScopeSpans().At(j).Spans().At(k)
+				
+				telemetry.IngestedSpansTotal.WithLabelValues(tenantStr).Inc()
 
 				// Publish orphan candidate — cross-collector correlation happens in the worker
 				if err := r.producer.PublishOrphan(ctx, kafka.OrphanEvent{

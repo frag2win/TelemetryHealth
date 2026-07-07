@@ -7,6 +7,9 @@ import (
 	"strings"
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -59,10 +62,23 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// metricsMiddleware tracks API requests for Prometheus.
+func metricsMiddleware(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		timer := prometheus.NewTimer(telemetry.ApiRequestDuration.WithLabelValues(r.Method, r.URL.Path, "200"))
+		defer timer.ObserveDuration()
+
+		telemetry.ApiRequestsTotal.WithLabelValues(r.Method, r.URL.Path, "200").Inc()
+		next(w, r)
+	}
+}
+
 func (s *Server) Start(addr string) error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/api/v1/tenant/", corsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.Handle("/metrics", promhttp.Handler())
+
+	mux.HandleFunc("/api/v1/tenant/", corsMiddleware(metricsMiddleware(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/health") {
 			http.NotFound(w, r)
 			return
@@ -137,7 +153,7 @@ func (s *Server) Start(addr string) error {
         action: "delete"`,
 			},
 		})
-	}))
+	})))
 
 	s.logger.Info("Starting API Server", zap.String("addr", addr))
 	return http.ListenAndServe(addr, mux)

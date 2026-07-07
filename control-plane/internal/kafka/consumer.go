@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	kafkago "github.com/segmentio/kafka-go"
 	"go.uber.org/zap"
 )
@@ -126,6 +127,7 @@ func (c *Consumer[T]) flush(ctx context.Context, batch []T, msgs []kafkago.Messa
 		}
 
 		// Success! Commit all messages in the batch.
+		telemetry.KafkaMessagesProcessedTotal.WithLabelValues(c.reader.Config().Topic).Add(float64(len(batch)))
 		if err := c.reader.CommitMessages(ctx, msgs...); err != nil {
 			c.logger.Error("failed to commit messages", zap.Error(err))
 		}
