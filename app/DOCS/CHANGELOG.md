@@ -13,3 +13,5 @@ All notable changes to this project will be documented in this file.
 ### Changed
 
 ### Internal
+
+- Fix github actions permissions for docs-bot ([9f64431](https://github.com/frag2win/TelemetryHealth/commit/9f64431ffbef197b19f8363510c1dd43a268d9ed))
