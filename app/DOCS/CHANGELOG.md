@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add AnimatedHealthGauge, AI Agent Traces view, and Dark Mode polish ([bb127fa](https://github.com/frag2win/TelemetryHealth/commit/bb127fa0fb7bbbcb624ad5aea32caa86f10f13b0))
+
 - Add OpenAPI/Swagger specs and UI to REST API ([2dab09b](https://github.com/frag2win/TelemetryHealth/commit/2dab09b44fce3bf911adfcf148f964c0041fc20c))
 
 - Add Prometheus /metrics endpoint to control-plane services ([4532f2f](https://github.com/frag2win/TelemetryHealth/commit/4532f2fcb68d2d09348eeb9fdc2bb62fd497c8ee))
