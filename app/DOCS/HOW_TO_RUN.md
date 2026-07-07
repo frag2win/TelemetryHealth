@@ -356,6 +356,36 @@ go test ./... -v
 
 ---
 
+## ☁️ Deploying to AWS (Free-Tier / $100 Budget)
+
+We provide a **Cost-Optimized Terraform script** to deploy the entire stack to a single EC2 instance in AWS. This fits comfortably within a $100 free credit budget.
+
+### 1. Install Terraform
+Download and install [Terraform](https://developer.hashicorp.com/terraform/downloads).
+
+### 2. Configure AWS Credentials
+Ensure you have the AWS CLI installed and configured:
+```bash
+aws configure
+```
+Provide your AWS Access Key ID, Secret Access Key, and set default region to `eu-north-1`.
+
+### 3. Deploy
+```bash
+cd control-plane/deployments/terraform/single-node
+terraform init
+terraform apply
+```
+Type `yes` when prompted.
+
+### 4. Access the Stack
+Terraform will output the public IP of your new EC2 instance, the Dashboard URL, and the API URL. 
+The instance is configured with a `user_data` script that automatically installs Docker, clones this repository, and runs `docker compose -f docker-compose.dev.yml up -d --build`.
+
+**Note:** It takes about 3-5 minutes for the EC2 instance to boot, install Docker, and download all images before the dashboard becomes available.
+
+---
+
 ## 📊 Port Reference
 
 | Port | Service |
