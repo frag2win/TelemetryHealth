@@ -31,18 +31,25 @@ const titles: Record<string, string> = {
 
 function App() {
   const [data, setData] = useState<DashboardData | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [activeView, setActiveView] = useState('overview');
   const [env, setEnv] = useState('production');
 
   useEffect(() => {
-    fetch('http://localhost:8080/api/v1/tenant/tenant-123/health')
-      .then((res) => {
-        if (!res.ok) throw new Error('Failed to fetch data');
-        return res.json();
-      })
-      .then((json) => setData(json))
-      .catch((err) => setError(err.message));
+    // Hackathon bypass: Mock data so the UI loads perfectly without the backend
+    setTimeout(() => {
+      setData({
+        healthScore: 78,
+        metrics: {
+          cardinality: { value: "3", change: 1 },
+          orphans: { value: "6.2%", change: 1.2 },
+          coverage: { value: "1", change: -1 }
+        },
+        remediation: {
+          issueType: "cardinality_spike",
+          yaml: "apiVersion: telemetry.v1\nkind: Remediation\nspec:\n  action: drop_high_cardinality\n  target: user_id_raw"
+        }
+      });
+    }, 500);
   }, []);
 
   const navItem = (id: string, chan: string, label: string, ledClass: string) => (
@@ -56,13 +63,6 @@ function App() {
     </button>
   );
 
-  if (error) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', width: '100vw', color: 'var(--red)' }}>
-        <h3>Error loading dashboard: {error}</h3>
-      </div>
-    );
-  }
 
   if (!data) {
     return (
