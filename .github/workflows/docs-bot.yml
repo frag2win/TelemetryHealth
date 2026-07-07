@@ -1,0 +1,39 @@
+name: docs-bot
+on:
+  workflow_run:
+    workflows: ["ci"]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  update-docs:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 2
+          # Uses the default GITHUB_TOKEN if no custom token is provided
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Parse commit + update docs
+        run: |
+          cd tools/docs-bot
+          go run . --sha ${{ github.event.workflow_run.head_sha }}
+
+      - name: Commit changes
+        run: |
+          git config user.name "telemetryhealth-docs-bot"
+          git config user.email "docs-bot@telemetryhealth.internal"
+          git add app/DOCS
+          # Only commit if there are changes
+          if ! git diff --cached --quiet; then
+            git commit -m "DOCS: automated changelog/status update for ${{ github.event.workflow_run.head_sha }}"
+            git push || (git pull --rebase && git push)
+          else
+            echo "No documentation changes to commit."
+          fi
