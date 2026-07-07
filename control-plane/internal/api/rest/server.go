@@ -1,5 +1,11 @@
 package rest
 
+// @title TelemetryHealth API
+// @version 1.0
+// @description REST API for TelemetryHealth control plane
+// @host localhost:8080
+// @BasePath /api/v1
+
 import (
 	"encoding/json"
 	"fmt"
@@ -10,7 +16,10 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/zap"
+
+	_ "github.com/frag2win/TelemetryHealth/control-plane/docs" // imported for swagger
 )
 
 // HealthResponse is the JSON shape consumed by the React dashboard.
@@ -77,8 +86,23 @@ func (s *Server) Start(addr string) error {
 	mux := http.NewServeMux()
 
 	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
-	mux.HandleFunc("/api/v1/tenant/", corsMiddleware(metricsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/tenant/", corsMiddleware(metricsMiddleware(s.GetTenantHealth)))
+
+	s.logger.Info("Starting API Server", zap.String("addr", addr))
+	return http.ListenAndServe(addr, mux)
+}
+
+// GetTenantHealth godoc
+// @Summary Get Health Metrics for a Tenant
+// @Description Returns the composite health score, signal metrics, and auto-generated OTel remediation for a given tenant.
+// @Produce json
+// @Param tenant_id path string true "Tenant UUID"
+// @Success 200 {object} HealthResponse
+// @Failure 400 {string} string "invalid path"
+// @Router /tenant/{tenant_id}/health [get]
+func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasSuffix(r.URL.Path, "/health") {
 			http.NotFound(w, r)
 			return
@@ -153,10 +177,6 @@ func (s *Server) Start(addr string) error {
         action: "delete"`,
 			},
 		})
-	})))
-
-	s.logger.Info("Starting API Server", zap.String("addr", addr))
-	return http.ListenAndServe(addr, mux)
 }
 
 func fmtLarge(n uint64) string {

@@ -1,0 +1,64 @@
+basePath: /api/v1
+definitions:
+  rest.HealthResponse:
+    properties:
+      healthScore:
+        type: number
+      metrics:
+        $ref: '#/definitions/rest.MetricsPayload'
+      remediation:
+        $ref: '#/definitions/rest.RemediationPayload'
+    type: object
+  rest.MetricValue:
+    properties:
+      change:
+        type: number
+      value:
+        type: string
+    type: object
+  rest.MetricsPayload:
+    properties:
+      cardinality:
+        $ref: '#/definitions/rest.MetricValue'
+      coverage:
+        $ref: '#/definitions/rest.MetricValue'
+      orphans:
+        $ref: '#/definitions/rest.MetricValue'
+    type: object
+  rest.RemediationPayload:
+    properties:
+      issueType:
+        type: string
+      yaml:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: REST API for TelemetryHealth control plane
+  title: TelemetryHealth API
+  version: "1.0"
+paths:
+  /tenant/{tenant_id}/health:
+    get:
+      description: Returns the composite health score, signal metrics, and auto-generated
+        OTel remediation for a given tenant.
+      parameters:
+      - description: Tenant UUID
+        in: path
+        name: tenant_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/rest.HealthResponse'
+        "400":
+          description: invalid path
+          schema:
+            type: string
+      summary: Get Health Metrics for a Tenant
+swagger: "2.0"
