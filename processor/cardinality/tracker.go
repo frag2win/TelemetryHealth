@@ -78,6 +78,8 @@ func (t *Tracker) Observe(service, attrKey, attrValue string) {
 }
 
 // Flush returns the current tracking state and resets it (for rolling window export).
+// Note: The returned map and its underlying sketches should be treated as read-only.
+// Inserting new values into the returned sketches will bypass memory accounting.
 func (t *Tracker) Flush() map[string]map[string]*hyperloglog.Sketch {
 	t.mu.Lock()
 	defer t.mu.Unlock()

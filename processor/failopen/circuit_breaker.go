@@ -52,6 +52,7 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func(context.Context) 
 		if time.Since(time.Unix(0, last)) >= cb.resetTimeout {
 			// Transition to HalfOpen to test
 			if atomic.CompareAndSwapInt32(&cb.state, int32(StateOpen), int32(StateHalfOpen)) {
+				atomic.StoreInt64(&cb.failureCount, 0)
 				cb.logger.Warn("Circuit breaker half-open, testing recovery")
 				currentState = StateHalfOpen
 			} else {

@@ -39,6 +39,7 @@ func (r *receiver) Export(ctx context.Context, req ptraceotlp.ExportRequest) (pt
 		tenantStr, _ := tenantID.(string)
 		if tenantStr == "" {
 			tenantStr = "unknown"
+			r.logger.Warn("missing tenant_id on resource span, defaulting to unknown")
 		}
 
 		for j := 0; j < rs.ScopeSpans().Len(); j++ {
@@ -56,8 +57,7 @@ func (r *receiver) Export(ctx context.Context, req ptraceotlp.ExportRequest) (pt
 					CollectorID:  defaultCollectorID,
 					DetectedAt:   time.Now(),
 				}); err != nil {
-					r.logger.Error("failed to publish orphan event", zap.Error(err))
-					return ptraceotlp.NewExportResponse(), status.Errorf(codes.Unavailable, "failed to publish telemetry: %v", err)
+					r.logger.Warn("failed to publish orphan event, skipping", zap.Error(err))
 				}
 			}
 		}
@@ -78,6 +78,10 @@ func (r *metricsReceiver) Export(ctx context.Context, req pmetricotlp.ExportRequ
 	for i := 0; i < rms.Len(); i++ {
 		rm := rms.At(i)
 		tenantID, _ := rm.Resource().Attributes().AsRaw()["tenant_id"].(string)
+		if tenantID == "" {
+			tenantID = "unknown"
+			r.logger.Warn("missing tenant_id on resource metric, defaulting to unknown")
+		}
 		service, _ := rm.Resource().Attributes().AsRaw()["service.name"].(string)
 
 		// Publish coverage heartbeat per service
@@ -86,8 +90,7 @@ func (r *metricsReceiver) Export(ctx context.Context, req pmetricotlp.ExportRequ
 			Service:    service,
 			LastSeenAt: time.Now(),
 		}); err != nil {
-			r.logger.Error("failed to publish coverage event", zap.Error(err))
-			return pmetricotlp.NewExportResponse(), status.Errorf(codes.Unavailable, "failed to publish telemetry: %v", err)
+			r.logger.Warn("failed to publish coverage event, skipping", zap.Error(err))
 		}
 	}
 
@@ -101,8 +104,8 @@ type logsReceiver struct {
 }
 
 func (r *logsReceiver) Export(ctx context.Context, req plogotlp.ExportRequest) (plogotlp.ExportResponse, error) {
-	r.logger.Debug("Logs received", zap.Int("resource_logs", req.Logs().ResourceLogs().Len()))
-	return plogotlp.NewExportResponse(), nil
+	r.logger.Warn("Logs telemetry ingestion is not implemented yet", zap.Int("resource_logs", req.Logs().ResourceLogs().Len()))
+	return plogotlp.NewExportResponse(), status.Errorf(codes.Unimplemented, "logs ingestion is not implemented")
 }
 
 // NewServer creates a new Ingest Gateway server with tenant verification and Kafka producer.

@@ -36,10 +36,9 @@ func (d *OrphanDetector) ObserveSpan(spanID string, now time.Time) {
 // CheckOrphans evaluates expired tuples to see if their parents were observed locally.
 // It also cleans up the seenSpans map to bound memory.
 func (d *OrphanDetector) CheckOrphans(expiredTuples []SpanTuple, now time.Time, retention time.Duration) []SpanTuple {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	var orphans []SpanTuple
+
+	d.mu.Lock()
 	for _, t := range expiredTuples {
 		// Only check spans that have a parent
 		if t.ParentSpanID != "" {
@@ -48,12 +47,23 @@ func (d *OrphanDetector) CheckOrphans(expiredTuples []SpanTuple, now time.Time, 
 			}
 		}
 	}
+	d.mu.Unlock()
 
-	// Memory bound: remove entries older than the retention window
+	d.mu.Lock()
+	var toDelete []string
 	for id, timestamp := range d.seenSpans {
 		if now.Sub(timestamp) > retention*2 {
+			toDelete = append(toDelete, id)
+		}
+	}
+	d.mu.Unlock()
+
+	if len(toDelete) > 0 {
+		d.mu.Lock()
+		for _, id := range toDelete {
 			delete(d.seenSpans, id)
 		}
+		d.mu.Unlock()
 	}
 
 	if len(orphans) > 0 {

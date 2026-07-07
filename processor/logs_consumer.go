@@ -2,9 +2,7 @@ package processor
 
 import (
 	"context"
-	"time"
 
-	"github.com/frag2win/TelemetryHealth/processor/failopen"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/plog"
@@ -12,15 +10,14 @@ import (
 )
 
 type logsConsumer struct {
+	baseConsumer
 	next consumer.Logs
-	cb   *failopen.CircuitBreaker
 }
 
 func newLogsConsumer(set processor.Settings, cfg component.Config, next consumer.Logs) (processor.Logs, error) {
-	cb := failopen.NewCircuitBreaker(5, 30*time.Second, set.Logger)
 	return &logsConsumer{
-		next: next,
-		cb:   cb,
+		baseConsumer: newBaseConsumer(cfg, set.Logger),
+		next:         next,
 	}, nil
 }
 
