@@ -5,7 +5,7 @@ variable "aws_region" {
 }
 
 variable "instance_type" {
-  description = "EC2 Instance type (must have at least 4GB RAM)"
+  description = "EC2 Instance type (Free Tier eligible)"
   type        = string
-  default     = "t3.medium"
+  default     = "t3.micro"
 }
