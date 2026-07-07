@@ -1,0 +1,73 @@
+import { useState } from 'react';
+
+export function Remediation({ apiRemediation }: { apiRemediation?: { issueType: string, yaml: string } }) {
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyCode = (id: string, text: string) => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).catch(() => {});
+    }
+    setCopied(id);
+    setTimeout(() => setCopied(null), 1300);
+  };
+
+  const renderCard = (id: string, badgeType: string, svc: string, code: string) => (
+    <div className="rem-card" id={id}>
+      <div className="rem-head">
+        <span className="badge badge-type">{badgeType}</span>
+        <span className="rem-svc">{svc}</span>
+        <span className="badge badge-ok">validated in sandbox</span>
+        <div className="rem-actions">
+          <button 
+            className={`btn copy-btn ${copied === id ? 'flash' : ''}`}
+            onClick={() => copyCode(id, code)}
+          >
+            {copied === id ? 'copied' : 'copy config'}
+          </button>
+          <button className="btn btn-disabled" title="requires GitHub integration">open PR &#8599;</button>
+        </div>
+      </div>
+      <pre className="code">
+        {code.split('\n').map((line, i) => (
+          <div key={i}>{line}</div>
+        ))}
+      </pre>
+    </div>
+  );
+
+  return (
+    <section className="view active">
+      <div className="eyebrow">05 &#183; remediation generator &#183; §8.5 &#183; propose-only in v1</div>
+
+      {apiRemediation && renderCard(
+        'rem-api',
+        apiRemediation.issueType,
+        'API Suggestion',
+        apiRemediation.yaml
+      )}
+
+      {renderCard(
+        'rem-1',
+        'cardinality redaction',
+        'checkout-service · user_id_raw',
+        `processors:\n  attributes/redact_user_id:\n    actions:\n      - key: user_id_raw\n        action: delete`
+      )}
+
+      {renderCard(
+        'rem-2',
+        'sampling adjustment',
+        'payments-api · high orphan rate',
+        `processors:\n  probabilistic_sampler/payments:\n    sampling_percentage: 100\n    # deterministic hash on trace_id, applies fleet-wide`
+      )}
+
+      {renderCard(
+        'rem-3',
+        'coverage · instrumentation',
+        'inventory-worker · silent 14m',
+        `receivers:\n  otlp/inventory_worker:\n    protocols:\n      grpc:\n        endpoint: inventory-worker:4317`
+      )}
+
+      <div className="footnote">every snippet above ran through the shadow-collector dry-run (zero egress, 500m cpu / 128mb ram cap) before appearing here &#183; §8.5</div>
+    </section>
+  );
+}
