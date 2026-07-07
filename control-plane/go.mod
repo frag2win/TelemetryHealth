@@ -6,6 +6,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.47.0
 	github.com/axiomhq/hyperloglog v0.2.6
 	github.com/google/uuid v1.6.0
+	github.com/segmentio/kafka-go v0.4.51
 	go.opentelemetry.io/collector/pdata v1.11.0
 	go.uber.org/zap v1.28.0
 	google.golang.org/grpc v1.82.0

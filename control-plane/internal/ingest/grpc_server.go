@@ -3,14 +3,18 @@ package ingest
 import (
 	"context"
 	"net"
+	"time"
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/authz"
-	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
-	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/kafka"
 	"go.opentelemetry.io/collector/pdata/plog/plogotlp"
+	"go.opentelemetry.io/collector/pdata/pmetric/pmetricotlp"
+	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 	"google.golang.org/grpc"
 	"go.uber.org/zap"
 )
+
+const defaultCollectorID = "ingest-gateway"
 
 // Server represents the Ingest Gateway gRPC server.
 type Server struct {
@@ -20,22 +24,63 @@ type Server struct {
 
 type receiver struct {
 	ptraceotlp.UnimplementedGRPCServer
-	logger *zap.Logger
+	producer *kafka.Producer
+	logger   *zap.Logger
 }
 
 func (r *receiver) Export(ctx context.Context, req ptraceotlp.ExportRequest) (ptraceotlp.ExportResponse, error) {
-	// TODO: Route traces to Kafka/Stream processing
-	r.logger.Debug("Received traces export request")
+	spans := req.Traces().ResourceSpans()
+	for i := 0; i < spans.Len(); i++ {
+		rs := spans.At(i)
+		tenantID := rs.Resource().Attributes().AsRaw()["tenant_id"]
+		tenantStr, _ := tenantID.(string)
+		if tenantStr == "" {
+			tenantStr = "unknown"
+		}
+
+		for j := 0; j < rs.ScopeSpans().Len(); j++ {
+			for k := 0; k < rs.ScopeSpans().At(j).Spans().Len(); k++ {
+				span := rs.ScopeSpans().At(j).Spans().At(k)
+
+				// Publish orphan candidate — cross-collector correlation happens in the worker
+				_ = r.producer.PublishOrphan(ctx, kafka.OrphanEvent{
+					TenantID:     tenantStr,
+					TraceID:      span.TraceID().String(),
+					SpanID:       span.SpanID().String(),
+					ParentSpanID: span.ParentSpanID().String(),
+					CollectorID:  defaultCollectorID,
+					DetectedAt:   time.Now(),
+				})
+			}
+		}
+	}
+
+	r.logger.Debug("Traces exported to Kafka", zap.Int("resource_spans", spans.Len()))
 	return ptraceotlp.NewExportResponse(), nil
 }
 
 type metricsReceiver struct {
 	pmetricotlp.UnimplementedGRPCServer
-	logger *zap.Logger
+	producer *kafka.Producer
+	logger   *zap.Logger
 }
 
 func (r *metricsReceiver) Export(ctx context.Context, req pmetricotlp.ExportRequest) (pmetricotlp.ExportResponse, error) {
-	r.logger.Debug("Received metrics export request")
+	rms := req.Metrics().ResourceMetrics()
+	for i := 0; i < rms.Len(); i++ {
+		rm := rms.At(i)
+		tenantID, _ := rm.Resource().Attributes().AsRaw()["tenant_id"].(string)
+		service, _ := rm.Resource().Attributes().AsRaw()["service.name"].(string)
+
+		// Publish coverage heartbeat per service
+		_ = r.producer.PublishCoverage(ctx, kafka.CoverageEvent{
+			TenantID:   tenantID,
+			Service:    service,
+			LastSeenAt: time.Now(),
+		})
+	}
+
+	r.logger.Debug("Metrics exported to Kafka", zap.Int("resource_metrics", rms.Len()))
 	return pmetricotlp.NewExportResponse(), nil
 }
 
@@ -45,12 +90,12 @@ type logsReceiver struct {
 }
 
 func (r *logsReceiver) Export(ctx context.Context, req plogotlp.ExportRequest) (plogotlp.ExportResponse, error) {
-	r.logger.Debug("Received logs export request")
+	r.logger.Debug("Logs received", zap.Int("resource_logs", req.Logs().ResourceLogs().Len()))
 	return plogotlp.NewExportResponse(), nil
 }
 
-// NewServer creates a new Ingest Gateway server with tenant verification.
-func NewServer(logger *zap.Logger) *Server {
+// NewServer creates a new Ingest Gateway server with tenant verification and Kafka producer.
+func NewServer(logger *zap.Logger, producer *kafka.Producer) *Server {
 	if logger == nil {
 		logger = zap.NewNop()
 	}
@@ -60,8 +105,8 @@ func NewServer(logger *zap.Logger) *Server {
 	}
 	grpcServer := grpc.NewServer(opts...)
 
-	ptraceotlp.RegisterGRPCServer(grpcServer, &receiver{logger: logger})
-	pmetricotlp.RegisterGRPCServer(grpcServer, &metricsReceiver{logger: logger})
+	ptraceotlp.RegisterGRPCServer(grpcServer, &receiver{producer: producer, logger: logger})
+	pmetricotlp.RegisterGRPCServer(grpcServer, &metricsReceiver{producer: producer, logger: logger})
 	plogotlp.RegisterGRPCServer(grpcServer, &logsReceiver{logger: logger})
 
 	return &Server{
@@ -76,7 +121,6 @@ func (s *Server) Start(addr string) error {
 	if err != nil {
 		return err
 	}
-
 	s.logger.Info("Starting Ingest Gateway", zap.String("address", addr))
 	return s.grpcServer.Serve(listener)
 }
