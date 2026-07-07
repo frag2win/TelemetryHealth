@@ -16,4 +16,6 @@ All notable changes to this project will be documented in this file.
 
 ### Internal
 
+- Remove committed .exe binaries and add .gitignore ([7c222e3](https://github.com/frag2win/TelemetryHealth/commit/7c222e38c2d36789575a94bfbca3dbbd82b740f8))
+
 - Fix github actions permissions for docs-bot ([9f64431](https://github.com/frag2win/TelemetryHealth/commit/9f64431ffbef197b19f8363510c1dd43a268d9ed))
