@@ -1,9 +1,13 @@
 
 
-export function Coverage() {
+export function Coverage({ data }: { data?: any }) {
+  const coverageCount = data?.metrics?.coverage?.value || 1;
   return (
     <section className="view active">
       <div className="eyebrow">04 &#183; coverage &#183; sampling gap detector &#183; §8.3</div>
+      <div className="tag-row">
+        <span className="tag">active services <b>{coverageCount}</b></span>
+      </div>
       <div className="panel panel-tight">
         <table>
           <thead>

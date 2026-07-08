@@ -24,7 +24,13 @@ export function Remediation({ apiRemediation }: { apiRemediation?: { issueType: 
           >
             {copied === id ? 'copied' : 'copy config'}
           </button>
-          <button className="btn btn-disabled" title="requires GitHub integration">open PR &#8599;</button>
+          <button 
+            className="btn" 
+            title="Open a PR on GitHub with this configuration"
+            onClick={() => window.open('https://github.com/frag2win/TelemetryHealth/new/main?filename=remediation.yaml&value=' + encodeURIComponent(code), '_blank')}
+          >
+            open PR &#8599;
+          </button>
         </div>
       </div>
       <pre className="code">

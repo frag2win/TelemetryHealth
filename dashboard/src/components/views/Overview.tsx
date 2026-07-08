@@ -41,11 +41,29 @@ function Metric({ label, value, sub, percent, color }: MetricProps) {
   );
 }
 
+import { useEffect, useState } from 'react';
+
 export function Overview({ data, setView }: { data: any, setView: (v: string) => void }) {
+  const [issues, setIssues] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/v1/tenant/acme-prod/issues')
+      .then(r => r.json())
+      .then(setIssues)
+      .catch(console.error);
+  }, []);
   if (!data) return null;
   const score = data.healthScore || 78;
   const bandClass = score > 90 ? 'band-healthy' : score > 50 ? 'band-degraded' : 'band-critical';
   const bandText = score > 90 ? 'healthy' : score > 50 ? 'degraded' : 'critical';
+
+  const calcY = (p: number) => Math.round(150 - (p / 100) * 140);
+  const createPath = (points: number[]) => {
+    if (points.length === 0) return '';
+    const step = 640 / (points.length - 1);
+    return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${Math.round(i * step)},${calcY(p)}`).join(' ');
+  };
+  const history = data.history || [Math.max(0, score-12), Math.max(0, score-5), score-8, score-2, score-10, score-3, score, score];
 
   return (
     <section className="view active">
@@ -61,12 +79,12 @@ export function Overview({ data, setView }: { data: any, setView: (v: string) =>
         <div className="hero-chart" style={{ flex: 2 }}>
           <div className="scanline"></div>
           <svg viewBox="0 0 640 190" style={{ width: '100%', height: '190px', display: 'block' }}>
-            <line x1="0" y1="42" x2="640" y2="42" stroke="#5CE1A5" strokeWidth="1" strokeDasharray="4 4" opacity="0.45"/>
-            <text x="6" y="36" className="trace-text dim">80 &#183; healthy</text>
-            <line x1="0" y1="96" x2="640" y2="96" stroke="#E5484D" strokeWidth="1" strokeDasharray="4 4" opacity="0.45"/>
-            <text x="6" y="90" className="trace-text dim">50 &#183; critical</text>
-            <path d="M0,34 L91,38 L182,50 L273,60 L365,67 L456,58 L548,52 L640,43" fill="none" stroke="#5CE1A5" strokeWidth="2"/>
-            <circle cx="640" cy="43" r="4" fill="#F5A623"/>
+            <line x1="0" y1={calcY(80)} x2="640" y2={calcY(80)} stroke="#5CE1A5" strokeWidth="1" strokeDasharray="4 4" opacity="0.45"/>
+            <text x="6" y={calcY(80) - 6} className="trace-text dim">80 &#183; healthy</text>
+            <line x1="0" y1={calcY(50)} x2="640" y2={calcY(50)} stroke="#E5484D" strokeWidth="1" strokeDasharray="4 4" opacity="0.45"/>
+            <text x="6" y={calcY(50) - 6} className="trace-text dim">50 &#183; critical</text>
+            <path d={createPath(history)} fill="none" stroke="#5CE1A5" strokeWidth="2"/>
+            <circle cx="640" cy={calcY(history[history.length-1])} r="4" fill="#F5A623"/>
             <text x="0" y="182" className="trace-text dim">7d ago</text>
             <text x="602" y="182" className="trace-text dim">now</text>
           </svg>
@@ -82,33 +100,21 @@ export function Overview({ data, setView }: { data: any, setView: (v: string) =>
 
       <h2 className="section-title">Active issues</h2>
       <div className="panel panel-tight">
-        <div className="rack-row">
-          <span className="rled r"></span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="rack-svc">payments-api</div>
-            <div className="rack-desc">Broken trace chain &#183; 18% orphan rate &#183; §8.2</div>
+        {issues.length > 0 ? issues.map(iss => (
+          <div className="rack-row" key={iss.id}>
+            <span className={`rled ${iss.impact < -15 ? 'r' : 'a'}`}></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div className="rack-svc">{iss.service}</div>
+              <div className="rack-desc">{iss.description}</div>
+            </div>
+            <div className="rack-impact">{iss.impact > 0 ? `+${iss.impact}` : `\u2212${Math.abs(iss.impact)}`}</div>
+            <button className="btn" onClick={() => setView('remediation')}>remediate &#9656;</button>
           </div>
-          <div className="rack-impact">&minus;18</div>
-          <button className="btn" onClick={() => setView('remediation')}>remediate &#9656;</button>
-        </div>
-        <div className="rack-row">
-          <span className="rled a"></span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="rack-svc">checkout-service</div>
-            <div className="rack-desc">Cardinality spike &#183; user_id_raw &#183; §8.1</div>
+        )) : (
+          <div className="rack-row">
+            <div className="rack-desc" style={{ padding: '12px' }}>No active issues detected.</div>
           </div>
-          <div className="rack-impact">&minus;12</div>
-          <button className="btn" onClick={() => setView('remediation')}>remediate &#9656;</button>
-        </div>
-        <div className="rack-row">
-          <span className="rled a"></span>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="rack-svc">inventory-worker</div>
-            <div className="rack-desc">Coverage gap &#183; silent 14m &#183; §8.3</div>
-          </div>
-          <div className="rack-impact">&minus;8</div>
-          <button className="btn" onClick={() => setView('remediation')}>remediate &#9656;</button>
-        </div>
+        )}
       </div>
     </section>
   );

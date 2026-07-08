@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Casting
+metadata:
+  name: telemetry-health
+  description: Pipeline Health Monitor
+spec:
+  services:
+    - name: control-plane
+      port: 8080
+    - name: processor
+    - name: dashboard
+      port: 5173

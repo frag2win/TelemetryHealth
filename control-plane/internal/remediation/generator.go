@@ -34,6 +34,30 @@ processors:
     hash_seed: 22
     sampling_percentage: 100
 `
+	case "broken_trace_chain":
+		yaml = `
+processors:
+  tail_sampling/repair:
+    policies:
+      [ { name: repair-chain, type: always_sample } ]
+`
+	case "coverage_gap":
+		yaml = `
+receivers:
+  otlp/missing_service:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+`
+	case "semantic_convention_violation":
+		yaml = `
+processors:
+  transform/remediation:
+    trace_statements:
+      - context: span
+        statements:
+          - set(attributes["http.method"], attributes["http.request.method"])
+`
 	default:
 		return "", fmt.Errorf("unknown issue type: %s", issueType)
 	}

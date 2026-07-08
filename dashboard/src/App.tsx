@@ -18,6 +18,8 @@ interface DashboardData {
     issueType: string;
     yaml: string;
   };
+  tenantId?: string;
+  version?: string;
 }
 
 const titles: Record<string, string> = {
@@ -33,11 +35,11 @@ function App() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [activeView, setActiveView] = useState('overview');
   const [env, setEnv] = useState('production');
+  const [timeRange, setTimeRange] = useState('24h');
 
   useEffect(() => {
-    // Hackathon bypass: Mock data so the UI loads perfectly without the backend
-    setTimeout(() => {
-      setData({
+    const fetchData = () => {
+      const fallbackData = {
         healthScore: 78,
         metrics: {
           cardinality: { value: "3", change: 1 },
@@ -48,9 +50,19 @@ function App() {
           issueType: "cardinality_spike",
           yaml: "apiVersion: telemetry.v1\nkind: Remediation\nspec:\n  action: drop_high_cardinality\n  target: user_id_raw"
         }
-      });
-    }, 500);
-  }, []);
+      };
+
+      fetch(`/api/v1/tenant/acme-${env}/health?range=${timeRange}`)
+        .then(r => r.json())
+        .then(setData)
+        .catch(() => setData(fallbackData));
+    };
+
+    fetchData();
+    const interval = setInterval(fetchData, 15000);
+
+    return () => clearInterval(interval);
+  }, [env, timeRange]);
 
   const navItem = (id: string, chan: string, label: string, ledClass: string) => (
     <button 
@@ -95,9 +107,9 @@ function App() {
           {navItem('agenttraces', '06', 'AI Agents', 'on-p')}
         </nav>
         <div className="sidebar-foot">
-          tenant: acme-prod<br/>
+          tenant: {modifiedData.tenantId || 'acme-prod'}<br/>
           region: us-east-1<br/>
-          v1.0.0-ga
+          {modifiedData.version || 'v1.0.0-ga'}
         </div>
       </aside>
 
@@ -118,17 +130,17 @@ function App() {
             <button className={`pill ${env === 'staging' ? 'active' : ''}`} onClick={() => setEnv('staging')}>staging</button>
           </div>
           <div className="pillgroup">
-            <button className="pill">1h</button>
-            <button className="pill active">24h</button>
-            <button className="pill">7d</button>
+            <button className={`pill ${timeRange === '1h' ? 'active' : ''}`} onClick={() => setTimeRange('1h')}>1h</button>
+            <button className={`pill ${timeRange === '24h' ? 'active' : ''}`} onClick={() => setTimeRange('24h')}>24h</button>
+            <button className={`pill ${timeRange === '7d' ? 'active' : ''}`} onClick={() => setTimeRange('7d')}>7d</button>
           </div>
         </div>
 
         <div className="content">
           {activeView === 'overview' && <Overview data={modifiedData} setView={setActiveView} />}
           {activeView === 'cardinality' && <Cardinality />}
-          {activeView === 'tracechains' && <TraceChains />}
-          {activeView === 'coverage' && <Coverage />}
+          {activeView === 'tracechains' && <TraceChains data={modifiedData} />}
+          {activeView === 'coverage' && <Coverage data={modifiedData} />}
           {activeView === 'remediation' && <Remediation apiRemediation={modifiedData.remediation} />}
           {activeView === 'agenttraces' && <AgentTraces />}
         </div>

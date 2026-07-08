@@ -12,10 +12,11 @@ import (
 
 // HealthMetrics is the structured result returned from the health query.
 type HealthMetrics struct {
-	TenantID         string
-	CardinalityMax   uint64
-	OrphanCount      uint64
-	ActiveServices   uint64
+	TenantID            string
+	CardinalityMax      uint64
+	OrphanCount         uint64
+	PreviousOrphanCount uint64
+	ActiveServices      uint64
 	CompositeScore   float64
 	RemediationIssue string
 	Window           time.Time
@@ -59,6 +60,17 @@ func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID stri
 	if err := row2.Scan(&metrics.OrphanCount); err != nil {
 		r.logger.Warn("orphan query failed, defaulting to 0", zap.Error(err))
 		metrics.OrphanCount = 0
+	}
+
+	orphanPrevQuery := `
+		SELECT count() AS orphan_count
+		FROM telemetry_health.orphan_signal
+		WHERE tenant_id = {tenant_id:UUID}
+		  AND detected_at >= now() - INTERVAL 60 MINUTE
+		  AND detected_at < now() - INTERVAL 30 MINUTE`
+	rowPrev := r.conn.QueryRow(ctx, orphanPrevQuery, ch.Named("tenant_id", tenantID))
+	if err := rowPrev.Scan(&metrics.PreviousOrphanCount); err != nil {
+		metrics.PreviousOrphanCount = 0
 	}
 
 	// --- 3. Active Services: distinct services seen in last 10 min ---

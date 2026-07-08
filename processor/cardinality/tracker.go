@@ -19,7 +19,8 @@ type Tracker struct {
 	maxKeys        int
 
 	// map of service -> attribute_key -> HLL sketch
-	sketches map[string]map[string]*hyperloglog.Sketch
+	sketches         map[string]map[string]*hyperloglog.Sketch
+	previousSketches map[string]map[string]*hyperloglog.Sketch
 	
 	logger *zap.Logger
 }
@@ -33,10 +34,11 @@ func NewTracker(maxMemoryBytes int64, maxKeys int, logger *zap.Logger) *Tracker 
 		logger = zap.NewNop()
 	}
 	return &Tracker{
-		maxMemoryBytes: maxMemoryBytes,
-		maxKeys:        maxKeys,
-		sketches:       make(map[string]map[string]*hyperloglog.Sketch),
-		logger:         logger,
+		maxMemoryBytes:   maxMemoryBytes,
+		maxKeys:          maxKeys,
+		sketches:         make(map[string]map[string]*hyperloglog.Sketch),
+		previousSketches: make(map[string]map[string]*hyperloglog.Sketch),
+		logger:           logger,
 	}
 }
 
@@ -85,6 +87,7 @@ func (t *Tracker) Flush() map[string]map[string]*hyperloglog.Sketch {
 	defer t.mu.Unlock()
 
 	current := t.sketches
+	t.previousSketches = current
 	t.sketches = make(map[string]map[string]*hyperloglog.Sketch)
 	t.currentMemory = 0
 

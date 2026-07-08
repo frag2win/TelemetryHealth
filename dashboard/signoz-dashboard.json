@@ -1,0 +1,15 @@
+{
+  "title": "TelemetryHealth",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Pipeline Health Score",
+      "type": "time_series",
+      "targets": [
+        {
+          "expr": "telemetryhealth_pipeline_health_score"
+        }
+      ]
+    }
+  ]
+}

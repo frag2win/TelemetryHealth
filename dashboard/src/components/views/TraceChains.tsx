@@ -1,12 +1,13 @@
 
 
-export function TraceChains() {
+export function TraceChains({ data }: { data?: any }) {
+  const orphanRate = data?.metrics?.orphans?.value || '6.2%';
   return (
     <section className="view active">
       <div className="eyebrow">03 &#183; broken trace-chain detector &#183; §8.2</div>
 
       <div className="tag-row">
-        <span className="tag">orphan rate <b style={{ color: 'var(--amber)' }}>6.2%</b></span>
+        <span className="tag">orphan rate <b style={{ color: 'var(--amber)' }}>{orphanRate}</b></span>
         <span className="tag">threshold <b>5%</b></span>
         <span className="tag">correlation window <b>30s</b></span>
         <span className="tag">clock skew tolerance <b>5s</b></span>

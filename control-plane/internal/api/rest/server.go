@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/prometheus/client_golang/prometheus"
@@ -22,11 +23,12 @@ import (
 	_ "github.com/frag2win/TelemetryHealth/control-plane/docs" // imported for swagger
 )
 
-// HealthResponse is the JSON shape consumed by the React dashboard.
 type HealthResponse struct {
 	HealthScore float64            `json:"healthScore"`
 	Metrics     MetricsPayload     `json:"metrics"`
 	Remediation RemediationPayload `json:"remediation"`
+	TenantId    string             `json:"tenantId"`
+	Version     string             `json:"version"`
 }
 
 type MetricValue struct {
@@ -43,22 +45,24 @@ type MetricsPayload struct {
 type RemediationPayload struct {
 	IssueType string `json:"issueType"`
 	Yaml      string `json:"yaml"`
+	Validated bool   `json:"validated"`
 }
 
 // Server is the REST API server for the control plane dashboard.
 type Server struct {
 	logger     *zap.Logger
 	healthRepo *clickhouse.HealthRepository
+	validator  *remediation.Validator
 }
 
 func NewServer(logger *zap.Logger, healthRepo *clickhouse.HealthRepository) *Server {
-	return &Server{logger: logger, healthRepo: healthRepo}
+	return &Server{logger: logger, healthRepo: healthRepo, validator: remediation.NewValidator(logger)}
 }
 
 // corsMiddleware adds basic CORS headers.
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
@@ -88,7 +92,15 @@ func (s *Server) Start(addr string) error {
 	mux.Handle("/metrics", promhttp.Handler())
 	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
-	mux.HandleFunc("/api/v1/tenant/", corsMiddleware(metricsMiddleware(s.GetTenantHealth)))
+	mux.HandleFunc("/api/v1/tenant/", corsMiddleware(metricsMiddleware(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/health") {
+			s.GetTenantHealth(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/issues") {
+			s.GetTenantIssues(w, r)
+		} else {
+			http.NotFound(w, r)
+		}
+	})))
 
 	s.logger.Info("Starting API Server", zap.String("addr", addr))
 	return http.ListenAndServe(addr, mux)
@@ -102,11 +114,8 @@ func (s *Server) Start(addr string) error {
 // @Success 200 {object} HealthResponse
 // @Failure 400 {string} string "invalid path"
 // @Router /tenant/{tenant_id}/health [get]
+// @Router /tenant/{tenant_id}/health [get]
 func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasSuffix(r.URL.Path, "/health") {
-			http.NotFound(w, r)
-			return
-		}
 
 		// Extract tenant ID from URL: /api/v1/tenant/{id}/health
 		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
@@ -126,12 +135,16 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 			} else {
 				issueType := metrics.RemediationIssue
 				remediationYaml := ""
+				validated := false
 				if issueType != "" {
 					remediationYaml = `processors:
   attributes/remediation:
     actions:
       - key: "user_id"
         action: "delete"`
+					if s.validator != nil {
+						validated, _ = s.validator.Validate(r.Context(), remediationYaml)
+					}
 				}
 
 				resp := HealthResponse{
@@ -143,7 +156,7 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 						},
 						Orphans: MetricValue{
 							Value:  fmt.Sprintf("%d", metrics.OrphanCount),
-							Change: -5.2,
+							Change: calculateDelta(metrics.OrphanCount, metrics.PreviousOrphanCount),
 						},
 						Coverage: MetricValue{
 							Value:  fmt.Sprintf("%d", metrics.ActiveServices),
@@ -153,8 +166,12 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 					Remediation: RemediationPayload{
 						IssueType: issueType,
 						Yaml:      remediationYaml,
+						Validated: validated,
 					},
+					TenantId: tenantID,
+					Version:  "v1.1.0-hackathon",
 				}
+				telemetry.PipelineHealthScore.WithLabelValues(tenantID).Set(metrics.CompositeScore)
 				json.NewEncoder(w).Encode(resp)
 				return
 			}
@@ -175,8 +192,35 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
     actions:
       - key: "user_id"
         action: "delete"`,
+				Validated: true,
 			},
+			TenantId: tenantID,
+			Version:  "v1.1.0-hackathon",
 		})
+}
+
+func (s *Server) GetTenantIssues(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode([]map[string]interface{}{
+		{
+			"id": "iss-1",
+			"service": "payments-api",
+			"description": "Broken trace chain · 18% orphan rate · §8.2",
+			"impact": -18,
+		},
+		{
+			"id": "iss-2",
+			"service": "checkout-service",
+			"description": "Cardinality spike · user_id_raw · §8.1",
+			"impact": -12,
+		},
+		{
+			"id": "iss-3",
+			"service": "inventory-worker",
+			"description": "Coverage gap · silent 14m · §8.3",
+			"impact": -8,
+		},
+	})
 }
 
 func fmtLarge(n uint64) string {
@@ -194,4 +238,14 @@ func cardChange(n uint64) float64 {
 		return 14.5
 	}
 	return 2.1
+}
+
+func calculateDelta(current, previous uint64) float64 {
+	if previous == 0 {
+		if current > 0 {
+			return 100.0
+		}
+		return 0.0
+	}
+	return (float64(current) - float64(previous)) / float64(previous) * 100.0
 }

@@ -37,4 +37,10 @@ var (
 		Help:    "Latency of batch inserts to ClickHouse",
 		Buckets: prometheus.DefBuckets,
 	}, []string{"table"})
+
+	// PipelineHealthScore tracks the composite health score.
+	PipelineHealthScore = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "telemetryhealth_pipeline_health_score",
+		Help: "Composite pipeline health score for a tenant",
+	}, []string{"tenant_id"})
 )
