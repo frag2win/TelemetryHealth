@@ -28,11 +28,12 @@ interface MetricProps {
   sub: string;
   percent: number;
   color: string;
+  tooltip: string;
 }
 
-function Metric({ label, value, sub, percent, color }: MetricProps) {
+function Metric({ label, value, sub, percent, color, tooltip }: MetricProps) {
   return (
-    <div className="panel metric">
+    <div className="panel metric" title={tooltip} style={{ cursor: 'help' }}>
       <div className="metric-label">{label}</div>
       <div className="metric-val" style={{ color: `var(--${color})` }}>{value}</div>
       <div className="metric-sub">{sub}</div>
@@ -92,10 +93,10 @@ export function Overview({ data, setView }: { data: any, setView: (v: string) =>
       </div>
 
       <div className="grid4">
-        <Metric label="Cardinality alerts" value={data.metrics?.cardinality?.value || 3} sub="1 key-space anomaly" percent={70} color="red" />
-        <Metric label="Orphan rate" value={data.metrics?.orphans?.value || '6.2%'} sub="above 5% threshold" percent={62} color="amber" />
-        <Metric label="Coverage gaps" value={data.metrics?.coverage?.value || 1} sub="service silent 14m" percent={20} color="amber" />
-        <Metric label="Est. cost impact" value="$4.1k/mo" sub="from cardinality alone" percent={44} color="phosphor" />
+        <Metric label="Cardinality alerts" value={data.metrics?.cardinality?.value || 3} sub="1 key-space anomaly" percent={70} color="red" tooltip="Max cardinality across all service/attribute pairs in a rolling 15m window" />
+        <Metric label="Orphan rate" value={data.metrics?.orphans?.value || '6.2%'} sub="above 5% threshold" percent={62} color="amber" tooltip="Percentage of spans missing a parent trace context within a 30s arrival window" />
+        <Metric label="Coverage gaps" value={data.metrics?.coverage?.value || 1} sub="service silent 14m" percent={20} color="amber" tooltip="Active services reporting telemetry compared to baseline expectations" />
+        <Metric label="Est. cost impact" value="$4.1k/mo" sub="from cardinality alone" percent={44} color="phosphor" tooltip="Estimated wasted infra spend due to bloated metric dimensions or duplicate traces" />
       </div>
 
       <h2 className="section-title">Active issues</h2>

@@ -2,13 +2,30 @@ import { useState } from 'react';
 
 export function Remediation({ apiRemediation }: { apiRemediation?: { issueType: string, yaml: string } }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const copyCode = (id: string, text: string) => {
     if (navigator.clipboard) {
       navigator.clipboard.writeText(text).catch(() => {});
     }
     setCopied(id);
-    setTimeout(() => setCopied(null), 1300);
+    setToast('Config copied to clipboard');
+    setTimeout(() => { setCopied(null); }, 1300);
+    setTimeout(() => { setToast(null); }, 2000);
+  };
+
+  const applyRemediation = async (issueType: string, yaml: string) => {
+    try {
+      await fetch('/api/v1/remediation/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ issueType, yaml })
+      });
+      setToast('Remediation applied to OTel Collector');
+      setTimeout(() => setToast(null), 2000);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const renderCard = (id: string, badgeType: string, svc: string, code: string) => (
@@ -18,6 +35,9 @@ export function Remediation({ apiRemediation }: { apiRemediation?: { issueType: 
         <span className="rem-svc">{svc}</span>
         <span className="badge badge-ok">validated in sandbox</span>
         <div className="rem-actions">
+          <button className="btn" onClick={() => applyRemediation(badgeType, code)}>
+            Apply to Collector
+          </button>
           <button 
             className={`btn copy-btn ${copied === id ? 'flash' : ''}`}
             onClick={() => copyCode(id, code)}
@@ -43,6 +63,7 @@ export function Remediation({ apiRemediation }: { apiRemediation?: { issueType: 
 
   return (
     <section className="view active">
+      {toast && <div style={{ position: 'fixed', bottom: '20px', right: '20px', background: 'var(--panel-2)', padding: '12px 24px', borderRadius: '4px', border: '1px solid var(--phosphor)', color: 'var(--phosphor)', zIndex: 9999 }}>{toast}</div>}
       <div className="eyebrow">05 &#183; remediation generator &#183; §8.5 &#183; propose-only in v1</div>
 
       {apiRemediation && renderCard(

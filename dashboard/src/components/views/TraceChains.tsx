@@ -1,13 +1,22 @@
-
+import { useState, useEffect } from 'react';
 
 export function TraceChains({ data }: { data?: any }) {
+  const [traceData, setTraceData] = useState<any>(null);
   const orphanRate = data?.metrics?.orphans?.value || '6.2%';
+
+  useEffect(() => {
+    fetch('/api/v1/tenant/acme-prod/traces/orphans')
+      .then(r => r.json())
+      .then(setTraceData)
+      .catch(console.error);
+  }, []);
+
   return (
     <section className="view active">
       <div className="eyebrow">03 &#183; broken trace-chain detector &#183; §8.2</div>
 
       <div className="tag-row">
-        <span className="tag">orphan rate <b style={{ color: 'var(--amber)' }}>{orphanRate}</b></span>
+        <span className="tag">orphan rate <b style={{ color: 'var(--amber)' }}>{traceData?.orphanRate || orphanRate}</b></span>
         <span className="tag">threshold <b>5%</b></span>
         <span className="tag">correlation window <b>30s</b></span>
         <span className="tag">clock skew tolerance <b>5s</b></span>
@@ -15,7 +24,7 @@ export function TraceChains({ data }: { data?: any }) {
 
       <div className="grid2">
         <div className="panel">
-          <div className="metric-label" style={{ marginBottom: '14px' }}>trace 9f3a2c &#183; payments-api</div>
+          <div className="metric-label" style={{ marginBottom: '14px' }}>trace 9f3a2c &#183; {traceData?.topOrphanedService || 'payments-api'}</div>
           <svg viewBox="0 0 460 200" style={{ width: '100%', height: '200px' }}>
             <rect className="trace-box" x="10" y="14" width="120" height="30" rx="3"/>
             <text x="20" y="33" className="trace-text">gateway</text>

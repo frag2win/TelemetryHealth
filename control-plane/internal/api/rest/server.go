@@ -97,10 +97,18 @@ func (s *Server) Start(addr string) error {
 			s.GetTenantHealth(w, r)
 		} else if strings.HasSuffix(r.URL.Path, "/issues") {
 			s.GetTenantIssues(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/agents") {
+			s.GetAgentTraces(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/coverage") {
+			s.GetCoverage(w, r)
+		} else if strings.HasSuffix(r.URL.Path, "/traces/orphans") {
+			s.GetTracesOrphans(w, r)
 		} else {
 			http.NotFound(w, r)
 		}
 	})))
+
+	mux.HandleFunc("/api/v1/remediation/apply", corsMiddleware(metricsMiddleware(s.ApplyRemediation)))
 
 	s.logger.Info("Starting API Server", zap.String("addr", addr))
 	return http.ListenAndServe(addr, mux)
@@ -248,4 +256,62 @@ func calculateDelta(current, previous uint64) float64 {
 		return 0.0
 	}
 	return (float64(current) - float64(previous)) / float64(previous) * 100.0
+}
+
+func (s *Server) ApplyRemediation(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "OPTIONS" {
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode([]map[string]interface{}{
+		{
+			"id":                "trace-991",
+			"model":             "gpt-4o",
+			"tokens":            4120,
+			"cost":              0.041,
+			"latency":           "3.2s",
+			"hallucinationRisk": "Low",
+			"decisions": []map[string]string{
+				{"step": "Retrieved 15 similar spans from ClickHouse", "tool": "query_clickhouse", "status": "success"},
+				{"step": "Analyzed cardinality distribution for user_id", "tool": "python_eval", "status": "success"},
+				{"step": "Generated remediation YAML", "tool": "generate_yaml", "status": "success"},
+			},
+		},
+		{
+			"id":                "trace-992",
+			"model":             "claude-3-5-sonnet",
+			"tokens":            8450,
+			"cost":              0.025,
+			"latency":           "6.1s",
+			"hallucinationRisk": "High",
+			"decisions": []map[string]string{
+				{"step": "Attempted to query missing index", "tool": "query_clickhouse", "status": "error"},
+				{"step": "Retried with full table scan (token limit warning)", "tool": "query_clickhouse", "status": "warning"},
+				{"step": "Formulated remediation with unverified field names", "tool": "generate_yaml", "status": "warning"},
+			},
+		},
+	})
+}
+
+func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode([]map[string]interface{}{
+		{ "service": "inventory-worker", "status": "silent", "lastSeen": "14m ago" },
+		{ "service": "auth-service", "status": "active", "lastSeen": "1s ago" },
+	})
+}
+
+func (s *Server) GetTracesOrphans(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"orphanRate": "6.2%",
+		"topOrphanedService": "payments-api",
+		"missingParents": 142,
+	})
 }

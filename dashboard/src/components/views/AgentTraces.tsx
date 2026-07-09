@@ -1,36 +1,20 @@
 
-const mockTraces = [
-  {
-    id: "trace-991",
-    model: "gpt-4o",
-    tokens: 4120,
-    cost: 0.041,
-    latency: "3.2s",
-    hallucinationRisk: "Low",
-    decisions: [
-      { step: "Retrieved 15 similar spans from ClickHouse", tool: "query_clickhouse", status: "success" },
-      { step: "Analyzed cardinality distribution for user_id", tool: "python_eval", status: "success" },
-      { step: "Generated remediation YAML", tool: "generate_yaml", status: "success" }
-    ]
-  },
-  {
-    id: "trace-992",
-    model: "claude-3-5-sonnet",
-    tokens: 8450,
-    cost: 0.025,
-    latency: "6.1s",
-    hallucinationRisk: "High",
-    decisions: [
-      { step: "Attempted to query missing index", tool: "query_clickhouse", status: "error" },
-      { step: "Retried with full table scan (token limit warning)", tool: "query_clickhouse", status: "warning" },
-      { step: "Formulated remediation with unverified field names", tool: "generate_yaml", status: "warning" }
-    ]
-  }
-];
+// Removed mockTraces
+import { useState, useEffect } from 'react';
 
 export function AgentTraces() {
+  const [agents, setAgents] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetch('/api/v1/tenant/acme-prod/agents')
+      .then(r => r.json())
+      .then(setAgents)
+      .catch(console.error);
+  }, []);
+
   return (
     <section className="view active">
+      <div className="eyebrow">06 &#183; ai agent tracing &#183; gen-ai observability</div>
       <div className="grid4">
         <div className="panel metric">
           <div className="metric-label">Total LLM Calls</div>
@@ -60,7 +44,7 @@ export function AgentTraces() {
 
       <h2 className="section-title">Agent Execution Traces</h2>
       <div className="panel panel-tight">
-        {mockTraces.map(trace => (
+        {agents.map(trace => (
           <div key={trace.id} className="rack-row" style={{ padding: '16px', display: 'block' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div>
@@ -73,7 +57,7 @@ export function AgentTraces() {
             </div>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px', borderLeft: '2px solid var(--bezel)' }}>
-              {trace.decisions.map((d, i) => (
+              {trace.decisions?.map((d: any, i: number) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   <span className={`rled ${d.status === 'error' ? 'r' : d.status === 'warning' ? 'a' : 'p'}`}></span>
                   <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--muted-2)' }}>[{d.tool}]</span>

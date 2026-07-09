@@ -36,6 +36,27 @@ function App() {
   const [activeView, setActiveView] = useState('overview');
   const [env, setEnv] = useState('production');
   const [timeRange, setTimeRange] = useState('24h');
+  const [dataSource, setDataSource] = useState<'live'|'mock'>('live');
+  const [theme, setTheme] = useState('dark');
+  const [lastFetched, setLastFetched] = useState<Date | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey) {
+        switch (e.key) {
+          case '1': e.preventDefault(); setActiveView('overview'); break;
+          case '2': e.preventDefault(); setActiveView('cardinality'); break;
+          case '3': e.preventDefault(); setActiveView('tracechains'); break;
+          case '4': e.preventDefault(); setActiveView('coverage'); break;
+          case '5': e.preventDefault(); setActiveView('remediation'); break;
+          case '6': e.preventDefault(); setActiveView('agenttraces'); break;
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const fetchData = () => {
@@ -53,16 +74,28 @@ function App() {
       };
 
       fetch(`/api/v1/tenant/acme-${env}/health?range=${timeRange}`)
-        .then(r => r.json())
-        .then(setData)
-        .catch(() => setData(fallbackData));
+        .then(r => {
+          if (!r.ok) throw new Error('API Error');
+          return r.json();
+        })
+        .then(resData => {
+          setData(resData);
+          setDataSource('live');
+          setLastFetched(new Date());
+        })
+        .catch(err => {
+          console.error(err);
+          setData(fallbackData);
+          setDataSource('mock');
+          setLastFetched(new Date());
+        });
     };
 
     fetchData();
     const interval = setInterval(fetchData, 15000);
 
     return () => clearInterval(interval);
-  }, [env, timeRange]);
+  }, [env, timeRange, refreshTrigger]);
 
   const navItem = (id: string, chan: string, label: string, ledClass: string) => (
     <button 
@@ -123,8 +156,37 @@ function App() {
               </span>
             ))}
           </div>
-          <div className="live"><span className="live-dot"></span>LIVE</div>
+          <div className={`pill ${dataSource === 'live' ? 'live' : 'mock'}`} style={{ marginLeft: '12px', border: '1px solid var(--panel-3)' }}>
+            {dataSource === 'live' ? '🟢 Live' : '🔶 Mock fallback'}
+          </div>
           <div className="spacer"></div>
+          
+          <div className="text-muted" style={{ fontSize: '12px', marginRight: '12px' }}>
+            Last updated: {lastFetched?.toLocaleTimeString() || '...'}
+          </div>
+          
+          <button className="btn" style={{ padding: '4px 8px', marginRight: '8px' }} onClick={() => setRefreshTrigger(t => t + 1)} title="Refresh data">
+            🔄
+          </button>
+          
+          <button className="btn" style={{ padding: '4px 8px', marginRight: '8px' }} onClick={() => {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `telemetry-health-${env}-${timeRange}.json`;
+            a.click();
+          }} title="Export JSON">
+            Export
+          </button>
+          
+          <button className="btn" style={{ padding: '4px 8px', marginRight: '16px' }} onClick={() => {
+            const newTheme = theme === 'dark' ? 'light' : 'dark';
+            setTheme(newTheme);
+            document.documentElement.setAttribute('data-theme', newTheme);
+          }} title="Toggle Theme">
+            {theme === 'dark' ? '☀️' : '🌙'}
+          </button>
           <div className="pillgroup">
             <button className={`pill ${env === 'production' ? 'active' : ''}`} onClick={() => setEnv('production')}>production</button>
             <button className={`pill ${env === 'staging' ? 'active' : ''}`} onClick={() => setEnv('staging')}>staging</button>
