@@ -52,8 +52,8 @@ function App() {
         }
       };
 
-      // Hybrid integration: Try real SigNoz / TelemetryHealth API first, fallback to demo data if offline
-      fetch(`http://localhost:8080/api/v1/tenant/00000000-0000-0000-0000-000000000001/health?range=${timeRange}`)
+      // Hybrid integration: Try real SigNoz / TelemetryHealth API first via Vite proxy, fallback to demo data if offline
+      fetch(`/api/v1/tenant/${env}/health?range=${timeRange}`)
         .then(r => {
           if (!r.ok) throw new Error("API status not OK");
           return r.json();

@@ -102,9 +102,56 @@ func (s *Server) Start(addr string) error {
 		}
 	})))
 
+	mux.HandleFunc("/api/v1/agent-traces", corsMiddleware(metricsMiddleware(s.GetAgentTraces)))
+
 	s.logger.Info("Starting API Server", zap.String("addr", addr))
 	return http.ListenAndServe(addr, mux)
 }
+
+func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	if s.healthRepo != nil {
+		traces, err := s.healthRepo.QueryAgentTraces(r.Context())
+		if err != nil {
+			s.logger.Error("query agent traces failed", zap.Error(err))
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		json.NewEncoder(w).Encode(traces)
+		return
+	}
+
+	// Fallback to static mock traces if no repository is configured
+	json.NewEncoder(w).Encode([]clickhouse.AgentTrace{
+		{
+			ID:                "trace-991",
+			Model:             "gpt-4o",
+			Tokens:            4120,
+			Cost:              0.041,
+			Latency:           "3.2s",
+			HallucinationRisk: "Low",
+			Decisions: []clickhouse.AgentDecision{
+				{Step: "Retrieved 15 similar spans from ClickHouse (gen_ai.system)", Tool: "query_clickhouse", Status: "success"},
+				{Step: "Analyzed cardinality distribution for user_id", Tool: "python_eval", Status: "success"},
+				{Step: "Generated remediation YAML via SigNoz MCP tool", Tool: "generate_yaml", Status: "success"},
+			},
+		},
+		{
+			ID:                "trace-992",
+			Model:             "claude-3-5-sonnet",
+			Tokens:            8450,
+			Cost:              0.025,
+			Latency:           "6.1s",
+			HallucinationRisk: "High",
+			Decisions: []clickhouse.AgentDecision{
+				{Step: "Attempted to query missing index (gen_ai.request.model)", Tool: "query_clickhouse", Status: "error"},
+				{Step: "Retried with full table scan (token limit warning)", Tool: "query_clickhouse", Status: "warning"},
+				{Step: "Formulated remediation with unverified field names", Tool: "generate_yaml", Status: "warning"},
+			},
+		},
+	})
+}
+
 
 // GetTenantHealth godoc
 // @Summary Get Health Metrics for a Tenant

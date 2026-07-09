@@ -35,7 +35,7 @@ export function AgentTraces() {
 
   useEffect(() => {
     // Attempt to query real SigNoz traces with gen_ai.* attributes
-    fetch('http://localhost:8080/api/v1/agent-traces')
+    fetch('/api/v1/agent-traces')
       .then(r => {
         if (!r.ok) throw new Error("offline");
         return r.json();
