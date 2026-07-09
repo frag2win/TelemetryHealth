@@ -1,0 +1,22 @@
+alerts:
+  - name: "High Cardinality Detected"
+    condition: "cardinality_max > 100000"
+    severity: "critical"
+    description: "Attribute cardinality estimate exceeded 100k unique values within window"
+    labels:
+      team: "platform-observability"
+      category: "cardinality"
+  - name: "Orphan Rate > 5%"
+    condition: "orphan_rate > 0.05"
+    severity: "warning"
+    description: "More than 5% of incoming trace spans are orphaned without parent span"
+    labels:
+      team: "platform-observability"
+      category: "trace-chain"
+  - name: "Coverage Gap (silent 15m)"
+    condition: "service_silent_minutes > 15"
+    severity: "warning"
+    description: "Expected service has emitted zero telemetry spans or metrics in last 15 minutes"
+    labels:
+      team: "platform-observability"
+      category: "coverage"

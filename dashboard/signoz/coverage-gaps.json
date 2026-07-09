@@ -1,0 +1,36 @@
+{
+  "title": "Telemetry Coverage Gaps",
+  "version": "v1",
+  "description": "SigNoz native dashboard highlighting silent services and telemetry coverage drops",
+  "tags": ["telemetryhealth", "coverage", "signoz"],
+  "widgets": [
+    {
+      "id": "silent-services-table",
+      "title": "Services with Zero Telemetry (>15m)",
+      "panelTypes": "TABLE",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "A",
+            "legend": "Silent Services",
+            "query": "SELECT service, last_seen_at, dateDiff('minute', last_seen_at, NOW()) AS silent_minutes FROM telemetry_health.coverage_signal WHERE last_seen_at < NOW() - INTERVAL 15 MINUTE ORDER BY silent_minutes DESC"
+          }
+        ]
+      }
+    },
+    {
+      "id": "active-services-coverage",
+      "title": "Active vs Expected Baseline Services",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "B",
+            "legend": "Active Services",
+            "query": "SELECT toStartOfMinute(last_seen_at) AS time, count(DISTINCT service) AS active_services FROM telemetry_health.coverage_signal WHERE last_seen_at >= NOW() - INTERVAL 24 HOUR GROUP BY time ORDER BY time"
+          }
+        ]
+      }
+    }
+  ]
+}

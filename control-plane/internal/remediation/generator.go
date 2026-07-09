@@ -19,7 +19,7 @@ func NewGenerator(logger *zap.Logger) *Generator {
 func (g *Generator) Generate(ctx context.Context, issueType string) (string, error) {
 	var yaml string
 	switch issueType {
-	case "cardinality_explosion":
+	case "cardinality_explosion", "cardinality_spike":
 		yaml = `
 processors:
   attributes/remediation:

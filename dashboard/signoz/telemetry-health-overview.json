@@ -1,0 +1,50 @@
+{
+  "title": "TelemetryHealth Overview",
+  "version": "v1",
+  "description": "SigNoz native dashboard for pipeline health score, cardinality trends, and orphan rates",
+  "tags": ["telemetryhealth", "pipeline-health", "signoz"],
+  "widgets": [
+    {
+      "id": "health-score-gauge",
+      "title": "Overall Pipeline Health Score",
+      "panelTypes": "GRAPH",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "A",
+            "legend": "Health Score",
+            "query": "SELECT window_start AS time, 100 - (count() * 5) AS health_score FROM telemetry_health.cardinality_signal WHERE window_start >= NOW() - INTERVAL 24 HOUR GROUP BY time ORDER BY time"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cardinality-trend",
+      "title": "Cardinality Estimates by Service",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "B",
+            "legend": "{{service}} - {{attribute_key}}",
+            "query": "SELECT window_start AS time, service, attribute_key, max(unique_estimate) AS cardinality FROM telemetry_health.cardinality_signal WHERE window_start >= NOW() - INTERVAL 24 HOUR GROUP BY time, service, attribute_key ORDER BY time"
+          }
+        ]
+      }
+    },
+    {
+      "id": "orphan-rate",
+      "title": "Orphaned Traces Detected Over Time",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "C",
+            "legend": "Orphan Spans",
+            "query": "SELECT toStartOfMinute(detected_at) AS time, count() AS orphan_count FROM telemetry_health.orphan_signal WHERE detected_at >= NOW() - INTERVAL 24 HOUR GROUP BY time ORDER BY time"
+          }
+        ]
+      }
+    }
+  ]
+}

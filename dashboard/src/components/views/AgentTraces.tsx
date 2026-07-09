@@ -1,4 +1,6 @@
 
+import { useEffect, useState } from 'react';
+
 const mockTraces = [
   {
     id: "trace-991",
@@ -8,9 +10,9 @@ const mockTraces = [
     latency: "3.2s",
     hallucinationRisk: "Low",
     decisions: [
-      { step: "Retrieved 15 similar spans from ClickHouse", tool: "query_clickhouse", status: "success" },
+      { step: "Retrieved 15 similar spans from ClickHouse (gen_ai.system)", tool: "query_clickhouse", status: "success" },
       { step: "Analyzed cardinality distribution for user_id", tool: "python_eval", status: "success" },
-      { step: "Generated remediation YAML", tool: "generate_yaml", status: "success" }
+      { step: "Generated remediation YAML via SigNoz MCP tool", tool: "generate_yaml", status: "success" }
     ]
   },
   {
@@ -21,7 +23,7 @@ const mockTraces = [
     latency: "6.1s",
     hallucinationRisk: "High",
     decisions: [
-      { step: "Attempted to query missing index", tool: "query_clickhouse", status: "error" },
+      { step: "Attempted to query missing index (gen_ai.request.model)", tool: "query_clickhouse", status: "error" },
       { step: "Retried with full table scan (token limit warning)", tool: "query_clickhouse", status: "warning" },
       { step: "Formulated remediation with unverified field names", tool: "generate_yaml", status: "warning" }
     ]
@@ -29,6 +31,25 @@ const mockTraces = [
 ];
 
 export function AgentTraces() {
+  const [traces, setTraces] = useState(mockTraces);
+
+  useEffect(() => {
+    // Attempt to query real SigNoz traces with gen_ai.* attributes
+    fetch('http://localhost:8080/api/v1/agent-traces')
+      .then(r => {
+        if (!r.ok) throw new Error("offline");
+        return r.json();
+      })
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setTraces(data);
+        }
+      })
+      .catch(() => {
+        // Fallback to mockTraces when offline
+      });
+  }, []);
+
   return (
     <section className="view active">
       <div className="grid4">
@@ -60,7 +81,7 @@ export function AgentTraces() {
 
       <h2 className="section-title">Agent Execution Traces</h2>
       <div className="panel panel-tight">
-        {mockTraces.map(trace => (
+        {traces.map(trace => (
           <div key={trace.id} className="rack-row" style={{ padding: '16px', display: 'block' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
               <div>

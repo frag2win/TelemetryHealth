@@ -1,12 +1,16 @@
-apiVersion: v1
-kind: Casting
-metadata:
-  name: telemetry-health
-  description: Pipeline Health Monitor
-spec:
-  services:
-    - name: control-plane
-      port: 8080
-    - name: processor
-    - name: dashboard
-      port: 5173
+version: 1
+name: telemetryhealth-signoz
+target: kubernetes
+flavor: kustomize
+variables:
+  signoz:
+    version: "0.112.0"
+  clickhouse:
+    mode: single-node
+  pipeline:
+    receivers:
+      otlp:
+        enabled: true
+    processors:
+      telemetryhealth:
+        enabled: true

@@ -1,0 +1,36 @@
+{
+  "title": "Cardinality Offenders & Alerts",
+  "version": "v1",
+  "description": "SigNoz native dashboard tracking high cardinality attributes across services",
+  "tags": ["telemetryhealth", "cardinality", "signoz"],
+  "widgets": [
+    {
+      "id": "top-cardinality-offenders",
+      "title": "Top High-Cardinality Attributes",
+      "panelTypes": "TABLE",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "A",
+            "legend": "Top Offenders",
+            "query": "SELECT service, attribute_key, max(unique_estimate) AS peak_cardinality FROM telemetry_health.cardinality_signal WHERE window_start >= NOW() - INTERVAL 24 HOUR GROUP BY service, attribute_key ORDER BY peak_cardinality DESC LIMIT 25"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cardinality-spike-timeline",
+      "title": "Cardinality Spikes (>10,000 unique values)",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "B",
+            "legend": "{{service}} - {{attribute_key}}",
+            "query": "SELECT window_start AS time, service, attribute_key, unique_estimate FROM telemetry_health.cardinality_signal WHERE unique_estimate > 10000 AND window_start >= NOW() - INTERVAL 24 HOUR ORDER BY time"
+          }
+        ]
+      }
+    }
+  ]
+}

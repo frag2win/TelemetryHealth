@@ -52,10 +52,23 @@ function App() {
         }
       };
 
-      fetch(`/api/v1/tenant/acme-${env}/health?range=${timeRange}`)
-        .then(r => r.json())
-        .then(setData)
-        .catch(() => setData(fallbackData));
+      // Hybrid integration: Try real SigNoz / TelemetryHealth API first, fallback to demo data if offline
+      fetch(`http://localhost:8080/api/v1/tenant/00000000-0000-0000-0000-000000000001/health?range=${timeRange}`)
+        .then(r => {
+          if (!r.ok) throw new Error("API status not OK");
+          return r.json();
+        })
+        .then(apiData => {
+          if (apiData && typeof apiData.healthScore === 'number') {
+            setData(apiData);
+          } else {
+            setData(fallbackData);
+          }
+        })
+        .catch(() => {
+          // Fallback so UI remains functional during demo
+          setData(fallbackData);
+        });
     };
 
     fetchData();
