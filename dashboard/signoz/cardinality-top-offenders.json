@@ -1,0 +1,22 @@
+{
+  "title": "Top Cardinality Offenders",
+  "version": "v1",
+  "description": "SigNoz native dashboard showing top 10 services and attributes by cardinality",
+  "tags": ["telemetryhealth", "cardinality", "signoz"],
+  "widgets": [
+    {
+      "id": "top-10-cardinality-offenders",
+      "title": "Top 10 High-Cardinality Attributes",
+      "panelTypes": "TABLE",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "A",
+            "legend": "Top Offenders",
+            "query": "SELECT service, attribute_key, max(unique_estimate) AS peak_cardinality FROM telemetry_health.cardinality_signal WHERE window_start >= NOW() - INTERVAL 24 HOUR GROUP BY service, attribute_key ORDER BY peak_cardinality DESC LIMIT 10"
+          }
+        ]
+      }
+    }
+  ]
+}
