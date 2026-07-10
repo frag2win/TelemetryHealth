@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- Complete rewrite of dashboard implementing useTenantData hook, AbortController, proxy relative paths, and resolving all audit bugs ([2a0259b](https://github.com/frag2win/TelemetryHealth/commit/2a0259b2ae061a26151a9947761737108ec2a435))
+
 ### Internal
 
 - Remove committed .exe binaries and add .gitignore ([7c222e3](https://github.com/frag2win/TelemetryHealth/commit/7c222e38c2d36789575a94bfbca3dbbd82b740f8))
