@@ -1,10 +1,16 @@
-import { AlertCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { AlertCircle, X, Cpu, Database, Play } from 'lucide-react';
 import { useTenantData, Metric, ErrorBanner, SkeletonLoader } from '../Shared';
 
-interface AgentDecision {
-  step: string;
+interface GanttSpan {
+  id: string;
+  name: string;
   tool: string;
-  status: string;
+  start: number; // percentage offset
+  duration: number; // percentage width
+  latency: string;
+  status: 'success' | 'warning' | 'error';
+  attributes: Record<string, string>;
 }
 
 interface AgentTrace {
@@ -14,7 +20,7 @@ interface AgentTrace {
   cost: number;
   latency: string;
   hallucinationRisk: string;
-  decisions: AgentDecision[];
+  spans: GanttSpan[];
 }
 
 interface AgentTracesProps {
@@ -22,6 +28,9 @@ interface AgentTracesProps {
 }
 
 export function AgentTraces({ tenantId }: AgentTracesProps) {
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [activeSpan, setActiveSpan] = useState<GanttSpan | null>(null);
+
   const fallbackAgents: AgentTrace[] = [
     {
       id: 'trace-991',
@@ -30,10 +39,52 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
       cost: 0.041,
       latency: '3.2s',
       hallucinationRisk: 'Low',
-      decisions: [
-        { step: 'Retrieved 15 similar spans from ClickHouse (gen_ai.system)', tool: 'query_clickhouse', status: 'success' },
-        { step: 'Analyzed cardinality distribution for user_id', tool: 'python_eval', status: 'success' },
-        { step: 'Generated remediation YAML via SigNoz MCP tool', tool: 'generate_yaml', status: 'success' }
+      spans: [
+        {
+          id: 's1',
+          name: 'query_clickhouse: get_similar_spans',
+          tool: 'query_clickhouse',
+          start: 0,
+          duration: 35,
+          latency: '1.1s',
+          status: 'success',
+          attributes: {
+            'db.system': 'clickhouse',
+            'db.statement': 'SELECT * FROM telemetry_spans WHERE service_name = ? LIMIT 15',
+            'db.response.rows': '15',
+            'otel.status_code': 'OK'
+          }
+        },
+        {
+          id: 's2',
+          name: 'python_eval: analyze_cardinality',
+          tool: 'python_eval',
+          start: 35,
+          duration: 25,
+          latency: '0.8s',
+          status: 'success',
+          attributes: {
+            'code.language': 'python',
+            'code.eval_statement': 'df.groupby("attr_key").count()',
+            'code.status': 'completed',
+            'otel.status_code': 'OK'
+          }
+        },
+        {
+          id: 's3',
+          name: 'generate_yaml: generate_remediation',
+          tool: 'generate_yaml',
+          start: 60,
+          duration: 40,
+          latency: '1.3s',
+          status: 'success',
+          attributes: {
+            'gen_ai.model': 'gpt-4o',
+            'gen_ai.usage.prompt_tokens': '3100',
+            'gen_ai.usage.completion_tokens': '1020',
+            'otel.status_code': 'OK'
+          }
+        }
       ]
     },
     {
@@ -43,10 +94,50 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
       cost: 0.025,
       latency: '6.1s',
       hallucinationRisk: 'High',
-      decisions: [
-        { step: 'Attempted to query missing index (gen_ai.request.model)', tool: 'query_clickhouse', status: 'error' },
-        { step: 'Retried with full table scan (token limit warning)', tool: 'query_clickhouse', status: 'warning' },
-        { step: 'Formulated remediation with unverified field names', tool: 'generate_yaml', status: 'warning' }
+      spans: [
+        {
+          id: 's4',
+          name: 'query_clickhouse: get_index_schema',
+          tool: 'query_clickhouse',
+          start: 0,
+          duration: 20,
+          latency: '1.2s',
+          status: 'error',
+          attributes: {
+            'db.system': 'clickhouse',
+            'db.error': 'Table index schema missing',
+            'otel.status_code': 'ERROR'
+          }
+        },
+        {
+          id: 's5',
+          name: 'query_clickhouse: scan_full_table',
+          tool: 'query_clickhouse',
+          start: 20,
+          duration: 50,
+          latency: '3.1s',
+          status: 'warning',
+          attributes: {
+            'db.system': 'clickhouse',
+            'db.warning': 'Full table scan fallback triggered (slow response)',
+            'otel.status_code': 'WARNING'
+          }
+        },
+        {
+          id: 's6',
+          name: 'generate_yaml: formulate_remediation',
+          tool: 'generate_yaml',
+          start: 70,
+          duration: 30,
+          latency: '1.8s',
+          status: 'warning',
+          attributes: {
+            'gen_ai.model': 'claude-3-5-sonnet',
+            'gen_ai.usage.prompt_tokens': '6200',
+            'gen_ai.usage.completion_tokens': '2250',
+            'otel.status_code': 'WARNING'
+          }
+        }
       ]
     }
   ];
@@ -60,8 +151,15 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
 
   const agents = agentsData ?? [];
 
-  // Dynamically compute metrics from loaded agent trace data (Bug 12)
-  const totalCalls = agents.reduce((acc, curr) => acc + curr.decisions.length, 0) + 1400;
+  // Auto-select first trace on mount/update
+  useEffect(() => {
+    if (agents.length > 0) {
+      setSelectedTraceId(agents[0].id);
+    }
+  }, [agents]);
+
+  // Dynamically compute metrics from loaded agent trace data
+  const totalCalls = agents.reduce((acc, curr) => acc + curr.spans.length, 0) + 1400;
   const totalCost = agents.reduce((acc, curr) => acc + curr.cost, 0) + 12.50;
   
   const avgLatencyVal = agents.length > 0
@@ -71,11 +169,13 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
   
   const hallucinations = agents.filter(a => a.hallucinationRisk === 'High').length;
 
+  const activeTrace = agents.find(t => t.id === selectedTraceId) ?? agents[0];
+
   return (
     <section className="view active">
       <div className="eyebrow">06 • ai agent tracing • gen-ai observability</div>
-      
-      {/* Dynamic metric summaries utilizing shared Component (Dup 5) */}
+
+      {/* Dynamic metric summaries utilizing shared Component */}
       <div className="grid4">
         <Metric
           label="Total LLM Calls"
@@ -121,65 +221,180 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
         <ErrorBanner message={`Error loading agent traces: ${errorMsg ?? 'Unknown Error'}. Showing local fallback.`} />
       )}
 
-      <div className="panel panel-tight">
-        {loading ? (
-          <SkeletonLoader rows={4} />
-        ) : agents.length > 0 ? (
-          agents.map((trace) => (
-            // Swapped key from index to unique trace ID (Bug 20)
-            <div key={trace.id} className="rack-row" style={{ padding: '16px', display: 'block', borderBottom: '1px solid var(--bezel-soft)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
-                <div>
-                  <span className="rack-svc">{trace.id}</span>
-                  <span className="dim" style={{ marginLeft: '8px', fontSize: '12px', color: 'var(--muted)' }}>
-                    {trace.model}
-                  </span>
+      {loading ? (
+        <SkeletonLoader rows={4} />
+      ) : (
+        <div className="grid2" style={{ gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+          {/* Left panel: Traces List & Gantt Chart */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {agents.map((trace) => (
+              <div
+                key={trace.id}
+                className="panel metric-interactive"
+                style={{
+                  padding: '16px',
+                  cursor: 'pointer',
+                  borderColor: selectedTraceId === trace.id ? 'var(--phosphor)' : undefined,
+                  background: selectedTraceId === trace.id ? 'var(--panel-2)' : undefined
+                }}
+                onClick={() => {
+                  setSelectedTraceId(trace.id);
+                  setActiveSpan(null);
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span className="rack-svc" style={{ fontSize: '13px' }}>{trace.id}</span>
+                  <span className="dim" style={{ fontSize: '11px', color: 'var(--muted)' }}>{trace.model}</span>
                 </div>
-                <div style={{ fontSize: '12px', color: 'var(--muted)' }}>
-                  {trace.tokens} tokens • ${trace.cost.toFixed(3)} • {trace.latency}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginBottom: '14px' }}>
+                  <span>{trace.tokens} tokens • ${trace.cost.toFixed(3)}</span>
+                  <span>Latency: {trace.latency}</span>
+                </div>
+
+                {/* Mini Gantt trace waterfall chart preview */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.15)', padding: '6px', borderRadius: '4px' }}>
+                  {trace.spans.map((span) => {
+                    const barColor =
+                      span.status === 'error'
+                        ? 'var(--red)'
+                        : span.status === 'warning'
+                        ? 'var(--amber)'
+                        : 'var(--phosphor)';
+                    return (
+                      <div key={span.id} style={{ display: 'flex', alignItems: 'center', height: '8px' }}>
+                        <div style={{ width: `${span.start}%` }}></div>
+                        <div
+                          style={{
+                            width: `${span.duration}%`,
+                            background: barColor,
+                            height: '4px',
+                            borderRadius: '2px',
+                            opacity: activeSpan?.id === span.id ? 1 : 0.65
+                          }}
+                        ></div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '16px', borderLeft: '2px solid var(--bezel)', margin: '8px 0' }}>
-                {trace.decisions?.map((d) => (
-                  // Swapped key from index to unique step text (Bug 20)
-                  <div key={d.step} style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px' }}>
-                    <span className={`rled ${d.status === 'error' ? 'r' : d.status === 'warning' ? 'a' : 'p'}`}></span>
-                    <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--muted-2)' }}>
-                      [{d.tool}]
-                    </span>
-                    <span style={{ color: 'var(--paper)' }}>{d.step}</span>
-                  </div>
-                ))}
-              </div>
-
-              {trace.hallucinationRisk === 'High' && (
-                <div
-                  style={{
-                    marginTop: '12px',
-                    padding: '6px 12px',
-                    background: 'var(--red-dim)',
-                    color: 'var(--red)',
-                    fontSize: '12px',
-                    borderRadius: '4px',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    fontWeight: '500'
-                  }}
-                >
-                  <AlertCircle size={14} />
-                  <span>High Hallucination Risk Detected</span>
-                </div>
-              )}
-            </div>
-          ))
-        ) : (
-          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--muted)' }}>
-            No agent traces available.
+            ))}
           </div>
-        )}
-      </div>
+
+          {/* Right panel: Expanded Gantt timeline or side attributes drawer */}
+          <div className="panel" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {activeTrace ? (
+              <>
+                <div className="metric-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Trace Spans: {activeTrace.id}</span>
+                  {activeTrace.hallucinationRisk === 'High' && (
+                    <span className="badge badge-err" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                      <AlertCircle size={10} /> risk high
+                    </span>
+                  )}
+                </div>
+
+                {/* Comprehensive Gantt Waterfall representation */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--panel-2)', padding: '12px', borderRadius: '4px' }}>
+                  {activeTrace.spans.map((span) => {
+                    const barColor =
+                      span.status === 'error'
+                        ? 'var(--red)'
+                        : span.status === 'warning'
+                        ? 'var(--amber)'
+                        : 'var(--phosphor)';
+                    
+                    const isSelected = activeSpan?.id === span.id;
+                    const Icon = span.tool === 'query_clickhouse' ? Database : span.tool === 'python_eval' ? Cpu : Play;
+
+                    return (
+                      <div
+                        key={span.id}
+                        className="metric-interactive"
+                        style={{
+                          padding: '8px',
+                          borderRadius: '4px',
+                          background: isSelected ? 'var(--bezel-soft)' : 'transparent',
+                          cursor: 'pointer',
+                          border: isSelected ? '1px solid var(--bezel)' : '1px solid transparent'
+                        }}
+                        onClick={() => setActiveSpan(span)}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                          <span style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--paper)', fontFamily: 'var(--mono)' }}>
+                            <Icon size={12} style={{ color: barColor }} />
+                            {span.name}
+                          </span>
+                          <span style={{ fontSize: '10px', color: 'var(--muted)' }}>{span.latency}</span>
+                        </div>
+
+                        {/* Visual Timeline bar */}
+                        <div style={{ width: '100%', background: 'rgba(255,255,255,0.05)', height: '14px', borderRadius: '3px', position: 'relative' }}>
+                          <div
+                            style={{
+                              position: 'absolute',
+                              left: `${span.start}%`,
+                              width: `${span.duration}%`,
+                              background: barColor,
+                              height: '100%',
+                              borderRadius: '3px',
+                              opacity: isSelected ? 1 : 0.75
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Attributes slide-down detail box */}
+                {activeSpan ? (
+                  <div
+                    style={{
+                      background: 'rgba(0,0,0,0.2)',
+                      padding: '12px',
+                      borderRadius: '4px',
+                      borderLeft: `3px solid ${
+                        activeSpan.status === 'error'
+                          ? 'var(--red)'
+                          : activeSpan.status === 'warning'
+                          ? 'var(--amber)'
+                          : 'var(--phosphor)'
+                      }`
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '11px', textTransform: 'uppercase', color: 'var(--paper)', fontWeight: '600' }}>
+                        Span Attributes: {activeSpan.tool}
+                      </span>
+                      <button className="btn" style={{ padding: '2px' }} onClick={() => setActiveSpan(null)}>
+                        <X size={12} />
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {Object.entries(activeSpan.attributes).map(([k, v]) => (
+                        <div key={k} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', borderBottom: '1px dashed var(--bezel-soft)', paddingBottom: '4px' }}>
+                          <span style={{ fontFamily: 'var(--mono)', color: 'var(--muted)' }}>{k}</span>
+                          <span style={{ fontFamily: 'var(--mono)', color: 'var(--paper)', textAlign: 'right', wordBreak: 'break-all' }}>{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '20px 0', fontSize: '11px' }}>
+                    Click any timeline span bar to inspect semantic attributes
+                  </div>
+                )}
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', color: 'var(--muted)', padding: '40px 0' }}>
+                No execution trace selected.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

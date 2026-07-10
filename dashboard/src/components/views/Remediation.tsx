@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Copy, Check, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Copy, Check, ExternalLink, AlertTriangle, Play } from 'lucide-react';
 import type { RemediationPayload } from '../../App';
 
 interface RemediationProps {
@@ -11,6 +11,7 @@ interface RemediationCardProps {
   badgeType: string;
   svc: string;
   code: string;
+  onChange: (newVal: string) => void;
   activeTab: 'yaml' | 'diff';
   onTabChange: (tab: 'yaml' | 'diff') => void;
   copiedId: string | null;
@@ -19,12 +20,13 @@ interface RemediationCardProps {
   isApplying: boolean;
 }
 
-// 1. Formal React component for Remediation Card to ensure Virtual DOM reconciliation
+// 1. Formal React component for Remediation Card with live textarea editing & lint warnings
 function RemediationCard({
   id,
   badgeType,
   svc,
   code,
+  onChange,
   activeTab,
   onTabChange,
   copiedId,
@@ -32,39 +34,25 @@ function RemediationCard({
   onApply,
   isApplying
 }: RemediationCardProps) {
-  // Safe YAML Syntax highlighting without false positives
-  const highlightYamlLine = (line: string, index: number) => {
-    if (line.trim().startsWith('#')) {
-      return <div key={index} className="yaml-comment">{line}</div>;
-    }
-    const colonIndex = line.indexOf(':');
-    if (colonIndex !== -1) {
-      const key = line.slice(0, colonIndex);
-      const rest = line.slice(colonIndex);
-      const restTrimmed = rest.trim();
-      
-      // Strict matching for values to prevent broad string contains warnings
-      const isQuotedString = (restTrimmed.startsWith('"') && restTrimmed.endsWith('"')) || 
-                           (restTrimmed.startsWith("'") && restTrimmed.endsWith("'"));
-      const isSpecificKeyword = restTrimmed === 'delete' || restTrimmed === '100' || restTrimmed === 'true' || restTrimmed === 'false';
-      
-      if (isQuotedString || isSpecificKeyword) {
-        return (
-          <div key={index}>
-            <span className="yaml-key">{key}</span>
-            <span className="yaml-value">{rest}</span>
-          </div>
-        );
+  
+  // Real-time YAML Syntax validation logic (Bug 21)
+  const getLintWarnings = (textVal: string) => {
+    const warnings: string[] = [];
+    const lines = textVal.split('\n');
+    lines.forEach((line, index) => {
+      if (line.includes('\t')) {
+        warnings.push(`Line ${index + 1}: Tab character detected. YAML requires spaces.`);
       }
-      return (
-        <div key={index}>
-          <span className="yaml-key">{key}</span>
-          <span className="yaml-text">{rest}</span>
-        </div>
-      );
-    }
-    return <div key={index} className="yaml-text">{line}</div>;
+      if (line.trim() && !line.trim().startsWith('#') && !line.includes(':')) {
+        warnings.push(`Line ${index + 1}: Missing colon ':' key-value separator.`);
+      }
+    });
+    return warnings;
   };
+
+  const warnings = getLintWarnings(code);
+  const totalLines = code.split('\n').length;
+  const lineNumbers = Array.from({ length: Math.max(5, totalLines) }).map((_, i) => i + 1);
 
   const getDiffLines = (cardId: string) => {
     if (cardId === 'rem-1' || cardId === 'rem-api') {
@@ -100,11 +88,11 @@ function RemediationCard({
   };
 
   return (
-    <div className="rem-card" id={id}>
-      <div className="rem-head">
+    <div className="rem-card" id={id} style={{ marginBottom: '16px' }}>
+      <div className="rem-head" style={{ flexWrap: 'wrap', gap: '8px' }}>
         <span className="badge badge-type">{badgeType}</span>
         <span className="rem-svc">{svc}</span>
-        <span className="badge badge-ok">validated in sandbox</span>
+        <span className="badge badge-ok">sandbox verified</span>
         
         <div className="pillgroup" style={{ marginLeft: '12px', padding: '2px' }}>
           <button
@@ -112,7 +100,7 @@ function RemediationCard({
             style={{ padding: '3px 8px', fontSize: '10px' }}
             onClick={() => onTabChange('yaml')}
           >
-            YAML Patch
+            YAML Editor
           </button>
           <button
             className={`pill ${activeTab === 'diff' ? 'active' : ''}`}
@@ -123,13 +111,15 @@ function RemediationCard({
           </button>
         </div>
 
-        <div className="rem-actions">
+        <div className="rem-actions" style={{ marginLeft: 'auto' }}>
           <button 
             className="btn" 
             onClick={() => onApply(badgeType, code)}
-            disabled={isApplying}
+            disabled={isApplying || warnings.length > 0}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
           >
-            {isApplying ? 'Applying...' : 'Apply to Collector'}
+            <Play size={12} />
+            {isApplying ? 'Applying...' : 'Apply Patch'}
           </button>
           <button
             className="btn copy-btn"
@@ -151,9 +141,31 @@ function RemediationCard({
       </div>
 
       {activeTab === 'yaml' ? (
-        <pre className="code">
-          {code.split('\n').map((line, i) => highlightYamlLine(line, i))}
-        </pre>
+        <div className="yaml-editor-layout" style={{ display: 'flex', background: 'var(--panel)', border: '1px solid var(--bezel)', borderRadius: '4px', overflow: 'hidden' }}>
+          {/* Editor Line Numbers */}
+          <div className="line-numbers" style={{ background: 'var(--panel-2)', padding: '12px 8px', textAlign: 'right', borderRight: '1px solid var(--bezel)', color: 'var(--muted)', fontSize: '12px', fontFamily: 'var(--mono)', userSelect: 'none', minWidth: '30px' }}>
+            {lineNumbers.map(n => <div key={n}>{n}</div>)}
+          </div>
+          {/* Code Textarea Sandbox */}
+          <textarea
+            value={code}
+            onChange={(e) => onChange(e.target.value)}
+            spellCheck={false}
+            style={{
+              flex: 1,
+              background: 'transparent',
+              border: 'none',
+              outline: 'none',
+              resize: 'none',
+              padding: '12px',
+              color: 'var(--paper)',
+              fontSize: '12px',
+              fontFamily: 'var(--mono)',
+              lineHeight: '1.5',
+              height: '140px'
+            }}
+          />
+        </div>
       ) : (
         <div className="diff-container" style={{ padding: '12px 0' }}>
           {getDiffLines(id).map((line, i) => (
@@ -175,6 +187,31 @@ function RemediationCard({
           ))}
         </div>
       )}
+
+      {/* Editor Lint Warnings Display */}
+      {warnings.length > 0 && activeTab === 'yaml' && (
+        <div
+          style={{
+            margin: '8px 12px 12px',
+            background: 'rgba(245, 166, 35, 0.08)',
+            border: '1px solid var(--amber)',
+            borderRadius: '4px',
+            padding: '8px 12px',
+            fontSize: '11px',
+            color: 'var(--amber)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '4px'
+          }}
+        >
+          {warnings.map((warn, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <AlertTriangle size={12} />
+              <span>{warn}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -189,6 +226,23 @@ export function Remediation({ apiRemediation }: RemediationProps) {
     'rem-2': 'yaml',
     'rem-3': 'yaml'
   });
+
+  // Slider State representing percentage of redundant spans dropped
+  const [dropRatio, setDropRatio] = useState<number>(75);
+
+  // Dynamic state for editable code snippets
+  const [snippets, setSnippets] = useState<Record<string, string>>({
+    'rem-api': '',
+    'rem-1': `processors:\n  attributes/redact_user_id:\n    actions:\n      - key: user_id_raw\n        action: delete`,
+    'rem-2': `processors:\n  probabilistic_sampler/payments:\n    sampling_percentage: 100\n    # deterministic hash on trace_id, applies fleet-wide`,
+    'rem-3': `receivers:\n  otlp/inventory_worker:\n    protocols:\n      grpc:\n        endpoint: inventory-worker:4317`
+  });
+
+  useEffect(() => {
+    if (apiRemediation?.yaml) {
+      setSnippets(prev => ({ ...prev, 'rem-api': apiRemediation.yaml }));
+    }
+  }, [apiRemediation]);
 
   // refs for timeout tracking to prevent unmount memory leaks
   const copiedTimeoutRef = useRef<number | null>(null);
@@ -289,6 +343,15 @@ export function Remediation({ apiRemediation }: RemediationProps) {
     }
   };
 
+  const handleCodeChange = (id: string, newVal: string) => {
+    setSnippets(prev => ({ ...prev, [id]: newVal }));
+  };
+
+  // Anomaly Impact Simulation formulas
+  const estSavings = Math.round((dropRatio / 100) * 1800);
+  const estIngest = (12.4 - (dropRatio / 100) * 4.8).toFixed(1);
+  const cardinalityReduction = Math.round(dropRatio * 0.9);
+
   return (
     <section className="view active">
       {/* Toast Alert situated fixed overlay standards */}
@@ -315,14 +378,68 @@ export function Remediation({ apiRemediation }: RemediationProps) {
         </div>
       )}
 
-      <div className="eyebrow">05 • remediation generator • §8.5 • propose-only in v1</div>
+      <div className="eyebrow">05 • remediation generator • sandbox sandbox • v1.2</div>
+
+      {/* Anomaly Impact Simulator Panel */}
+      <div className="panel" style={{ marginBottom: '20px', borderLeft: '3px solid var(--phosphor)' }}>
+        <div className="metric-label" style={{ marginBottom: '14px', textTransform: 'uppercase', fontSize: '12px' }}>
+          Remediation Impact & Cost Simulator
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+          <div style={{ background: 'var(--panel-2)', padding: '12px', borderRadius: '4px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>est cost savings</div>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--phosphor)', marginTop: '4px' }}>
+              ${estSavings}/mo
+            </div>
+            <div style={{ fontSize: '9px', color: 'var(--muted)', marginTop: '4px' }}>Wasted billing stopped</div>
+          </div>
+          <div style={{ background: 'var(--panel-2)', padding: '12px', borderRadius: '4px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>projected ingest</div>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--paper)', marginTop: '4px' }}>
+              {estIngest} GB/day
+            </div>
+            <div style={{ fontSize: '9px', color: 'var(--muted)', marginTop: '4px' }}>Down from 12.4 GB/day</div>
+          </div>
+          <div style={{ background: 'var(--panel-2)', padding: '12px', borderRadius: '4px' }}>
+            <div style={{ fontSize: '10px', color: 'var(--muted)', textTransform: 'uppercase' }}>cardinality reduction</div>
+            <div style={{ fontSize: '18px', fontWeight: '700', color: 'var(--amber)', marginTop: '4px' }}>
+              -{cardinalityReduction}%
+            </div>
+            <div style={{ fontSize: '9px', color: 'var(--muted)', marginTop: '4px' }}>Reduced dimension index</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--paper)' }}>
+            <span>Drop Redundant Span Attributes Ratio</span>
+            <span style={{ fontFamily: 'var(--mono)', fontWeight: '600' }}>{dropRatio}%</span>
+          </div>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            value={dropRatio}
+            onChange={(e) => setDropRatio(parseInt(e.target.value))}
+            style={{
+              width: '100%',
+              cursor: 'pointer',
+              accentColor: 'var(--phosphor)',
+              background: 'var(--panel-2)',
+              height: '6px',
+              borderRadius: '3px'
+            }}
+          />
+        </div>
+      </div>
 
       {apiRemediation && apiRemediation.yaml && (
         <RemediationCard
           id="rem-api"
           badgeType={apiRemediation.issueType || 'sandbox auto-healing'}
           svc="API Suggestion"
-          code={apiRemediation.yaml}
+          code={snippets['rem-api']}
+          onChange={(val) => handleCodeChange('rem-api', val)}
           activeTab={activeTabs['rem-api'] || 'yaml'}
           onTabChange={(tab) => handleTabChange('rem-api', tab)}
           copiedId={copiedId}
@@ -336,7 +453,8 @@ export function Remediation({ apiRemediation }: RemediationProps) {
         id="rem-1"
         badgeType="cardinality redaction"
         svc="checkout-service · user_id_raw"
-        code={`processors:\n  attributes/redact_user_id:\n    actions:\n      - key: user_id_raw\n        action: delete`}
+        code={snippets['rem-1']}
+        onChange={(val) => handleCodeChange('rem-1', val)}
         activeTab={activeTabs['rem-1'] || 'yaml'}
         onTabChange={(tab) => handleTabChange('rem-1', tab)}
         copiedId={copiedId}
@@ -349,7 +467,8 @@ export function Remediation({ apiRemediation }: RemediationProps) {
         id="rem-2"
         badgeType="sampling adjustment"
         svc="payments-api · high orphan rate"
-        code={`processors:\n  probabilistic_sampler/payments:\n    sampling_percentage: 100\n    # deterministic hash on trace_id, applies fleet-wide`}
+        code={snippets['rem-2']}
+        onChange={(val) => handleCodeChange('rem-2', val)}
         activeTab={activeTabs['rem-2'] || 'yaml'}
         onTabChange={(tab) => handleTabChange('rem-2', tab)}
         copiedId={copiedId}
@@ -362,7 +481,8 @@ export function Remediation({ apiRemediation }: RemediationProps) {
         id="rem-3"
         badgeType="coverage · instrumentation"
         svc="inventory-worker · silent 14m"
-        code={`receivers:\n  otlp/inventory_worker:\n    protocols:\n      grpc:\n        endpoint: inventory-worker:4317`}
+        code={snippets['rem-3']}
+        onChange={(val) => handleCodeChange('rem-3', val)}
         activeTab={activeTabs['rem-3'] || 'yaml'}
         onTabChange={(tab) => handleTabChange('rem-3', tab)}
         copiedId={copiedId}
@@ -371,7 +491,7 @@ export function Remediation({ apiRemediation }: RemediationProps) {
         isApplying={isApplying}
       />
 
-      <div className="footnote">every snippet above ran through the shadow-collector dry-run (zero egress, 500m cpu / 128mb ram cap) before appearing here · §8.5</div>
+      <div className="footnote">sandbox patch visualizer checks YAML structure automatically before application dry-run · §8.5</div>
     </section>
   );
 }

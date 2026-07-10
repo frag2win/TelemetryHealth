@@ -307,3 +307,51 @@ pre.code { margin: 0; padding: 14px 16px; background: var(--ink); font-family: v
   .topbar { padding: 0 12px; gap: 8px; }
   .topbar-title { font-size: 11px; }
 }
+
+/* ---------- Premium Glassmorphism & Cyber Glows ---------- */
+.panel {
+  background: rgba(22, 29, 27, 0.65) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(92, 225, 165, 0.1) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+}
+
+.select-dropdown {
+  background: var(--panel-2);
+  color: var(--paper);
+  border: 1px solid var(--bezel);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.select-dropdown:hover {
+  border-color: var(--phosphor);
+  color: var(--phosphor);
+}
+.select-dropdown option {
+  background: var(--panel);
+  color: var(--paper);
+}
+
+@keyframes topo-glow {
+  0% { filter: drop-shadow(0 0 1px rgba(229, 72, 77, 0.4)); }
+  50% { filter: drop-shadow(0 0 8px rgba(229, 72, 77, 0.8)); }
+  100% { filter: drop-shadow(0 0 1px rgba(229, 72, 77, 0.4)); }
+}
+
+.trace-line.broken {
+  stroke-dasharray: 4 4;
+  animation: dash 1s linear infinite;
+}
+
+@keyframes dash {
+  to {
+    stroke-dashoffset: -8;
+  }
+}
+
