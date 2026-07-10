@@ -1,8 +1,14 @@
 package authz
 
+// tenant_verifier.go — mTLS-based cryptographic tenant identity verification for the Ingest Gateway.
+// PRD §10 Security, Goal G8: "100% of ingested control-plane telemetry cryptographically verified
+// against client mTLS certificates before entering the stream pipeline."
+// Improvement #2.1: Dev-mode bypass is now production-guarded.
+
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 
 	"google.golang.org/grpc"
@@ -13,8 +19,24 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ValidateStartupConfig checks for dangerous configurations at startup time.
+// Call this from main() before starting the gRPC server.
+// If INSECURE_DEV_MODE is set AND ENV=production, this function panics with a clear message.
+// This prevents the dev-mode bypass from silently appearing in production (PRD §10, Improvement #2.1).
+func ValidateStartupConfig() {
+	if os.Getenv("INSECURE_DEV_MODE") == "true" && os.Getenv("ENV") == "production" {
+		panic(
+			"FATAL: INSECURE_DEV_MODE=true is set in a production environment (ENV=production). " +
+				"This completely bypasses mTLS tenant verification and violates PRD Goal G8. " +
+				"Remove INSECURE_DEV_MODE from your production deployment config and configure " +
+				"mTLS certificates via GRPC_TLS_CERT, GRPC_TLS_KEY, and GRPC_TLS_CA env vars.",
+		)
+	}
+}
+
 // TenantAuthInterceptor validates that the tenant_id in the gRPC metadata
 // matches the SAN/SPIFFE ID presented in the client's mTLS certificate.
+// PRD §10, Goal G8: cryptographic verification before any data enters the stream pipeline.
 func TenantAuthInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		if err := verifyTenant(ctx); err != nil {
@@ -24,65 +46,72 @@ func TenantAuthInterceptor() grpc.UnaryServerInterceptor {
 	}
 }
 
-// verifyTenant extracts peer TLS info and metadata
+// verifyTenant extracts peer TLS info and metadata and cryptographically matches
+// the claimed tenant_id to the mTLS certificate's SAN/SPIFFE ID.
 func verifyTenant(ctx context.Context) error {
 	md, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
-		return errors.New("missing metadata")
+		return errors.New("missing gRPC metadata")
 	}
 
 	tenantIDs := md.Get("x-tenant-id")
 	if len(tenantIDs) == 0 || tenantIDs[0] == "" {
-		return errors.New("missing x-tenant-id header")
+		return errors.New("missing x-tenant-id header in gRPC metadata")
 	}
 	claimedTenant := tenantIDs[0]
 
-	// Bypass mTLS verification for local development
+	// INSECURE_DEV_MODE bypass — ONLY permitted when ENV != production.
+	// In production this code path is blocked by ValidateStartupConfig() panicking at startup.
 	if os.Getenv("INSECURE_DEV_MODE") == "true" {
-		os.Stderr.WriteString("WARNING: INSECURE_DEV_MODE is enabled. Tenant verification is bypassed!\n")
+		if os.Getenv("ENV") == "production" {
+			// Belt-and-suspenders: even if startup check somehow passed, refuse here too.
+			return fmt.Errorf("INSECURE_DEV_MODE is forbidden in production (ENV=production)")
+		}
+		// Log a prominent warning to stderr so it's visible in any log aggregator.
+		fmt.Fprintln(os.Stderr, "WARNING: INSECURE_DEV_MODE is enabled — mTLS tenant verification is BYPASSED. Do NOT use in production!")
 		return nil
 	}
 
+	// Production path: require mTLS peer info.
 	p, ok := peer.FromContext(ctx)
 	if !ok || p.AuthInfo == nil {
-		return errors.New("no peer auth info found (mTLS required)")
+		return errors.New("no peer auth info found; mTLS is required for all collector connections")
 	}
 
 	tlsInfo, ok := p.AuthInfo.(credentials.TLSInfo)
 	if !ok {
-		return errors.New("peer auth info is not TLS")
+		return errors.New("peer auth info is not TLS; only mTLS connections are accepted")
 	}
 
 	if len(tlsInfo.State.VerifiedChains) == 0 || len(tlsInfo.State.VerifiedChains[0]) == 0 {
-		return errors.New("no verified certificate chain")
+		return errors.New("no verified certificate chain; client certificate must be signed by a trusted CA")
 	}
 
 	cert := tlsInfo.State.VerifiedChains[0][0]
 
-	valid := false
-	
-	// Check URIs for SPIFFE ID matching the tenant.
-	// Canonical format: spiffe://telemetryhealth.internal/tenant/<uuid> (PRD §8, G8)
-	// The verified tenant claim must match the SPIFFE ID path segment, not just any URI.
+	// Step 1: Check SPIFFE URIs (canonical format for this system).
+	// Expected: spiffe://telemetryhealth.internal/tenant/<uuid>
+	// PRD §10: "SPIFFE/SPIRE or mTLS for collector→control-plane identity"
 	for _, uri := range cert.URIs {
-		// Full SPIFFE URI match: spiffe://telemetryhealth.internal/tenant/<claimedTenant> or spiffe://telemetryhealth.internal/<claimedTenant>
-		if uri.Scheme == "spiffe" && (uri.Path == "/tenant/"+claimedTenant || uri.Path == "/"+claimedTenant) {
-			valid = true
-			break
+		if uri.Scheme == "spiffe" {
+			// Accept either /tenant/<id> or /<id> path formats.
+			if uri.Path == "/tenant/"+claimedTenant || uri.Path == "/"+claimedTenant {
+				return nil // Verified via SPIFFE ID
+			}
 		}
 	}
 
-	// Check DNSNames (SANs) for the tenant
+	// Step 2: Fallback to DNS SAN matching (for non-SPIFFE PKI setups).
 	for _, san := range cert.DNSNames {
 		if san == claimedTenant {
-			valid = true
-			break
+			return nil // Verified via DNS SAN
 		}
 	}
 
-	if !valid {
-		return errors.New("tenant_id claim does not match mTLS certificate SAN/SPIFFE ID")
-	}
-
-	return nil
+	return fmt.Errorf(
+		"tenant_id claim %q does not match any SAN or SPIFFE ID in the client mTLS certificate; "+
+			"verify the collector's mTLS certificate is issued with the correct SPIFFE ID "+
+			"(spiffe://telemetryhealth.internal/tenant/%s)",
+		claimedTenant, claimedTenant,
+	)
 }

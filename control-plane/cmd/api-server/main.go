@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/authz"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/api/rest"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
@@ -16,6 +17,9 @@ import (
 )
 
 func main() {
+	// PRD §10 Security, Improvement #2.1: panic immediately if INSECURE_DEV_MODE is set in production.
+	authz.ValidateStartupConfig()
+
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("init logger: %v", err)
