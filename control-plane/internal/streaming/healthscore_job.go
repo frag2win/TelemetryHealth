@@ -16,6 +16,6 @@ func NewHealthScoreJob(logger *zap.Logger) *HealthScoreJob {
 
 // Compute computes the score using the PRD §8.4 formula:
 // HealthScore = 100 - Σ(weight_i × normalized_signal_i)
-func (j *HealthScoreJob) Compute(cardinalityViolation, orphanRate, coverageDrop float64) float64 {
-	return telemetry.CalculateHealthScoreFromViolations(cardinalityViolation, orphanRate, coverageDrop)
+func (j *HealthScoreJob) Compute(cardinalityViolation, orphanRate, coverageDrop float64, weights telemetry.TenantWeights) float64 {
+	return telemetry.CalculateHealthScoreFromViolations(cardinalityViolation, orphanRate, coverageDrop, weights)
 }

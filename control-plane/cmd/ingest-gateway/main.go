@@ -12,6 +12,7 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/ingest"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/kafka"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
@@ -22,6 +23,18 @@ func main() {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 	defer logger.Sync()
+
+	// Initialize OTel Self-Instrumentation SDK (PRD §10, Improvement #16)
+	otelShutdown, err := telemetry.InitOTelSDK(context.Background(), "ingest-gateway")
+	if err != nil {
+		logger.Warn("Failed to initialize OTel self-instrumentation SDK", zap.Error(err))
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = otelShutdown(ctx)
+		}()
+	}
 
 	brokers := []string{"localhost:9092"}
 

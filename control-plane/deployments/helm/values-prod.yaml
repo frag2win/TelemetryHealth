@@ -1,0 +1,18 @@
+replicaCount: 5
+
+resources:
+  limits:
+    cpu: 2000m
+    memory: 2048Mi
+  requests:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 5
+  maxReplicas: 20
+
+env:
+  CORS_ORIGIN: "https://dashboard.telemetryhealth.internal"
+  INSECURE_DEV_MODE: "false"

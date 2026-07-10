@@ -6,12 +6,36 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  commit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Commit Message Formats
+        run: |
+          # Fetch the commits in the PR
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            COMMITS=$(git log --format=%s origin/main..HEAD)
+          else
+            COMMITS=$(git log -1 --format=%s)
+          fi
+          echo "Verifying commits:"
+          echo "$COMMITS"
+          echo "$COMMITS" | while read -r line; do
+            if ! echo "$line" | grep -qE '^(FEATURE|BUG|UI|PERF|SEC|DOCS|REFACTOR|TEST|CHORE):'; then
+              echo "Error: Invalid commit prefix in message: '$line'"
+              echo "Commit message must start with FEATURE, BUG, UI, PERF, SEC, DOCS, REFACTOR, TEST, or CHORE followed by a colon."
+              exit 1
+            fi
+          done
+
+  test-backend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.22'
+          go-version: '1.23'
       - name: Test Control Plane
-        run: cd control-plane && go mod tidy && go test ./... -v
+        run: cd control-plane && go test ./... -v
+      - name: Test Processor
+        run: cd processor && go test ./... -v

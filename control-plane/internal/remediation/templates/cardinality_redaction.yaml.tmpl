@@ -1,0 +1,7 @@
+processors:
+  attributes/remediation:
+    actions:
+      - key: "{{.AttributeKey}}"
+        action: "delete"
+      - key: "{{.AttributeKey}}_raw"
+        action: "delete"

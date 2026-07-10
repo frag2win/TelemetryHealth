@@ -48,7 +48,7 @@ func TestHealthScore_Formula(t *testing.T) {
 			_ = context.Background()
 			_ = time.Now()
 
-			score := telemetry.CalculateHealthScore(tt.cardMax, tt.orphanCount, tt.activeServices)
+			score := telemetry.CalculateHealthScore(tt.cardMax, tt.orphanCount, tt.activeServices, telemetry.DefaultWeights())
 
 			if score < tt.wantMin || score > tt.wantMax {
 				t.Errorf("score=%.1f, want [%.0f, %.0f]", score, tt.wantMin, tt.wantMax)

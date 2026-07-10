@@ -11,6 +11,7 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/api/rest"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -20,6 +21,18 @@ func main() {
 		log.Fatalf("init logger: %v", err)
 	}
 	defer logger.Sync()
+
+	// Initialize OTel Self-Instrumentation SDK (PRD §10, Improvement #16)
+	otelShutdown, err := telemetry.InitOTelSDK(context.Background(), "api-server")
+	if err != nil {
+		logger.Warn("Failed to initialize OTel self-instrumentation SDK", zap.Error(err))
+	} else {
+		defer func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = otelShutdown(ctx)
+		}()
+	}
 
 	// Attempt ClickHouse connection (optional — graceful fallback to mock if unavailable)
 	var healthRepo *ch.HealthRepository

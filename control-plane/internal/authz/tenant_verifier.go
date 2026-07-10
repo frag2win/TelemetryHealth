@@ -61,10 +61,12 @@ func verifyTenant(ctx context.Context) error {
 
 	valid := false
 	
-	// Check URIs for SPIFFE ID matching the tenant
+	// Check URIs for SPIFFE ID matching the tenant.
+	// Canonical format: spiffe://telemetryhealth.internal/tenant/<uuid> (PRD §8, G8)
+	// The verified tenant claim must match the SPIFFE ID path segment, not just any URI.
 	for _, uri := range cert.URIs {
-		// e.g. spiffe://telemetryhealth.internal/tenant/<uuid>
-		if uri.String() == claimedTenant || uri.Path == "/tenant/"+claimedTenant || uri.Path == "/"+claimedTenant {
+		// Full SPIFFE URI match: spiffe://telemetryhealth.internal/tenant/<claimedTenant> or spiffe://telemetryhealth.internal/<claimedTenant>
+		if uri.Scheme == "spiffe" && (uri.Path == "/tenant/"+claimedTenant || uri.Path == "/"+claimedTenant) {
 			valid = true
 			break
 		}

@@ -1,0 +1,31 @@
+replicaCount: 2
+
+image:
+  repository: telemetryhealth/controlplane
+  pullPolicy: IfNotPresent
+  tag: "1.0.0"
+
+service:
+  type: ClusterIP
+  port: 8080
+
+ingress:
+  enabled: false
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 1024Mi
+  requests:
+    cpu: 200m
+    memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+
+env:
+  CORS_ORIGIN: "http://localhost:5173"
+  INSECURE_DEV_MODE: "false"

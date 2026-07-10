@@ -88,7 +88,12 @@ func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID stri
 	}
 
 	// --- 4. Composite Health Score ---
-	metrics.CompositeScore = telemetry.CalculateHealthScore(metrics.CardinalityMax, metrics.OrphanCount, metrics.ActiveServices)
+	weights, err := r.GetTenantWeights(ctx, tenantID)
+	if err != nil {
+		r.logger.Warn("Failed to fetch tenant weights, using defaults", zap.String("tenant_id", tenantID), zap.Error(err))
+		weights = telemetry.DefaultWeights()
+	}
+	metrics.CompositeScore = telemetry.CalculateHealthScore(metrics.CardinalityMax, metrics.OrphanCount, metrics.ActiveServices, weights)
 
 	if metrics.CardinalityMax > 1_000_000 {
 		metrics.RemediationIssue = fmt.Sprintf("High cardinality detected: %d unique values", metrics.CardinalityMax)
@@ -199,6 +204,80 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]AgentTrace, 
 	}
 
 	return traces, nil
+}
+
+// GetTenantWeights fetches the configurable health score weights for a tenant, falling back to defaults if not configured (PRD §8.4).
+func (r *HealthRepository) GetTenantWeights(ctx context.Context, tenantID string) (telemetry.TenantWeights, error) {
+	weights := telemetry.DefaultWeights()
+	query := `
+		SELECT cardinality_weight, orphan_weight, coverage_weight
+		FROM telemetry_health.tenant_config
+		WHERE tenant_id = {tenant_id:UUID}
+		LIMIT 1`
+	row := r.conn.QueryRow(ctx, query, ch.Named("tenant_id", tenantID))
+	if err := row.Scan(&weights.CardinalityWeight, &weights.OrphanWeight, &weights.CoverageWeight); err != nil {
+		// Log but return defaults
+		r.logger.Debug("Using default weights for tenant", zap.String("tenant_id", tenantID), zap.Error(err))
+	}
+	return weights, nil
+}
+
+// SaveTenantConfig saves the health score weights for a tenant (PRD §8.4).
+func (r *HealthRepository) SaveTenantConfig(ctx context.Context, tenantID string, weights telemetry.TenantWeights) error {
+	query := `
+		INSERT INTO telemetry_health.tenant_config (tenant_id, cardinality_weight, orphan_weight, coverage_weight, updated_at)
+		VALUES ({tenant_id:UUID}, {card_w:Float64}, {orphan_w:Float64}, {cov_w:Float64}, {now:DateTime64})`
+	err := r.conn.Exec(ctx, query,
+		ch.Named("tenant_id", tenantID),
+		ch.Named("card_w", weights.CardinalityWeight),
+		ch.Named("orphan_w", weights.OrphanWeight),
+		ch.Named("cov_w", weights.CoverageWeight),
+		ch.Named("now", time.Now()),
+	)
+	if err != nil {
+		r.logger.Error("Failed to save tenant config", zap.String("tenant_id", tenantID), zap.Error(err))
+		return err
+	}
+	return nil
+}
+
+// LogRemediationEvent logs a remediation event to the ClickHouse audit table (PRD §10, Improvement #19).
+func (r *HealthRepository) LogRemediationEvent(ctx context.Context, tenantID string, issueType string, yamlConfig string, validated, applied bool, actorID, actorRole, sourceIP, action, resourceID string) error {
+	query := `
+		INSERT INTO telemetry_health.remediation_event (
+			tenant_id, issue_type, generated_yaml, validated, applied, actor_id, actor_role, source_ip, action, resource_id, ts
+		) VALUES (
+			{tenant_id:UUID}, {issue_type:LowCardinality(String)}, {yaml:String}, {validated:UInt8}, {applied:UInt8},
+			{actor_id:String}, {actor_role:LowCardinality(String)}, {source_ip:String}, {action:LowCardinality(String)}, {resource_id:String}, {ts:DateTime64}
+		)`
+	
+	valVal := uint8(0)
+	if validated {
+		valVal = 1
+	}
+	appVal := uint8(0)
+	if applied {
+		appVal = 1
+	}
+
+	err := r.conn.Exec(ctx, query,
+		ch.Named("tenant_id", tenantID),
+		ch.Named("issue_type", issueType),
+		ch.Named("yaml", yamlConfig),
+		ch.Named("validated", valVal),
+		ch.Named("applied", appVal),
+		ch.Named("actor_id", actorID),
+		ch.Named("actor_role", actorRole),
+		ch.Named("source_ip", sourceIP),
+		ch.Named("action", action),
+		ch.Named("resource_id", resourceID),
+		ch.Named("ts", time.Now()),
+	)
+	if err != nil {
+		r.logger.Error("Failed to log remediation audit event", zap.String("tenant_id", tenantID), zap.Error(err))
+		return err
+	}
+	return nil
 }
 
 // Ensure driver package is used.
