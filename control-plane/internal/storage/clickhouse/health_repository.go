@@ -99,8 +99,11 @@ func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID stri
 	return metrics, nil
 }
 
-// clickhouse.Named is used for named parameters — this helper is in the driver package directly.
-// The import alias below ensures we can use it.
+// Named wraps clickhouse.Named for query parameterization.
+func Named(name string, value interface{}) interface{} {
+	return ch.Named(name, value)
+}
+
 // AgentDecision represents a single decision step in an agent trace.
 type AgentDecision struct {
 	Step   string `json:"step"`
