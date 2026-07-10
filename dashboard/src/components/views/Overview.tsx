@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, ArrowDownRight, Info, AlertTriangle } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, AlertTriangle } from 'lucide-react';
 import type { DashboardData } from '../../App';
+import { Metric, useTenantData, ErrorBanner, SkeletonLoader } from '../Shared';
 
-const AnimatedHealthGauge = ({ score }: { score: number }) => {
+interface AnimatedHealthGaugeProps {
+  score: number;
+}
+
+const AnimatedHealthGauge = ({ score }: AnimatedHealthGaugeProps) => {
   const [displayScore, setDisplayScore] = useState<number>(score);
   const color = score > 80 ? 'var(--phosphor)' : score > 50 ? 'var(--amber)' : 'var(--red)';
 
-  // Safe React-state interval timer animation complying with instructions
+  // Safe state-driven interval counter without displayScore dependency (prevents infinite loop)
   useEffect(() => {
     if (displayScore === score) return;
     const stepCount = Math.abs(score - displayScore);
@@ -28,7 +33,7 @@ const AnimatedHealthGauge = ({ score }: { score: number }) => {
     }, intervalTime);
 
     return () => clearInterval(interval);
-  }, [score, displayScore]);
+  }, [score]);
 
   return (
     <div className="health-gauge" style={{ display: 'flex', justifyContent: 'center' }}>
@@ -52,57 +57,6 @@ const AnimatedHealthGauge = ({ score }: { score: number }) => {
   );
 };
 
-interface MetricProps {
-  label: string;
-  value: string | number;
-  sub: string;
-  percent: number;
-  color: string;
-  tooltip: string;
-  change: number;
-  isInteractive?: boolean;
-  isActive?: boolean;
-  onClick?: () => void;
-}
-
-function Metric({ label, value, sub, percent, color, tooltip, change, isInteractive, isActive, onClick }: MetricProps) {
-  // Arrow and color styling logic based on target metric types
-  const isGood = label.toLowerCase().includes('coverage') ? change >= 0 : change <= 0;
-  const isNeutral = change === 0;
-
-  return (
-    <div
-      className={`panel metric ${isInteractive ? 'metric-interactive' : ''}`}
-      onClick={isInteractive ? onClick : undefined}
-      style={{
-        cursor: isInteractive ? 'pointer' : 'default',
-        borderColor: isActive ? 'var(--phosphor)' : undefined,
-        background: isActive ? 'var(--panel-2)' : undefined
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div className="metric-label">{label}</div>
-        <div title={tooltip} style={{ cursor: 'help', color: 'var(--muted)' }}>
-          <Info size={12} />
-        </div>
-      </div>
-      <div className="metric-val" style={{ color: `var(--${color})` }}>
-        <span>{value}</span>
-        {!isNeutral && (
-          <span style={{ display: 'inline-flex', alignItems: 'center', fontSize: '12px', fontWeight: '500', color: isGood ? 'var(--phosphor)' : 'var(--red)', marginLeft: '4px' }}>
-            {change > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-            {Math.abs(change)}%
-          </span>
-        )}
-      </div>
-      <div className="metric-sub">{sub}</div>
-      <div className="metric-bar">
-        <div style={{ width: `${percent}%`, background: `var(--${color})` }}></div>
-      </div>
-    </div>
-  );
-}
-
 interface IssueItem {
   id: string;
   service: string;
@@ -117,56 +71,46 @@ interface OverviewProps {
 }
 
 export function Overview({ data, setView, tenantId }: OverviewProps) {
-  const [issues, setIssues] = useState<IssueItem[]>([]);
   const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null);
-  const [issuesLoading, setIssuesLoading] = useState<boolean>(true);
 
-  useEffect(() => {
-    setIssuesLoading(true);
-    const fallbackIssues: IssueItem[] = [
-      { id: 'iss-1', service: 'payments-api', description: 'Broken trace chain · 18% orphan rate · §8.2', impact: -18 },
-      { id: 'iss-2', service: 'checkout-service', description: 'Cardinality spike · user_id_raw · §8.1', impact: -12 },
-      { id: 'iss-3', service: 'inventory-worker', description: 'Coverage gap · silent 14m · §8.3', impact: -8 }
-    ];
+  const fallbackIssues: IssueItem[] = [
+    { id: 'iss-1', service: 'payments-api', description: 'Broken trace chain · 18% orphan rate · §8.2', impact: -18 },
+    { id: 'iss-2', service: 'checkout-service', description: 'Cardinality spike · user_id_raw · §8.1', impact: -12 },
+    { id: 'iss-3', service: 'inventory-worker', description: 'Coverage gap · silent 14m · §8.3', impact: -8 }
+  ];
 
-    fetch(`http://localhost:8080/api/v1/tenant/${tenantId}/issues`)
-      .then((r) => {
-        if (!r.ok) throw new Error('API status not OK');
-        return r.json();
-      })
-      .then(setIssues)
-      .catch(() => {
-        setIssues(fallbackIssues);
-      })
-      .finally(() => {
-        setIssuesLoading(false);
-      });
-  }, [tenantId]);
+  // useTenantData custom hook safely retrieves dynamic issues utilizing AbortController
+  const { data: issues, loading: issuesLoading, error: issuesError } = useTenantData<IssueItem[]>(
+    tenantId,
+    'issues',
+    fallbackIssues
+  );
 
-  if (!data) return null;
-  const score = data.healthScore || 78;
+  const score = data.healthScore ?? 78;
   const bandClass = score > 90 ? 'band-healthy' : score > 50 ? 'band-degraded' : 'band-critical';
   const bandText = score > 90 ? 'healthy' : score > 50 ? 'degraded' : 'critical';
 
-  const calcY = (p: number) => Math.round(150 - (p / 100) * 140);
+  // Math.max protection to prevent vertical SVG rendering overflows
+  const calcY = (p: number) => Math.max(0, Math.round(150 - (p / 100) * 140));
+
   const createPath = (points: number[]) => {
-    if (points.length === 0) return '';
+    // Array length guards to prevent division-by-zero Infinity steps
+    if (points.length <= 1) return '';
     const step = 640 / (points.length - 1);
     return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${Math.round(i * step)},${calcY(p)}`).join(' ');
   };
   
-  const history = data.history || [
+  const history = data.history ?? [
     Math.max(0, score - 12),
     Math.max(0, score - 5),
-    score - 8,
-    score - 2,
-    score - 10,
-    score - 3,
+    Math.max(0, score - 8),
+    Math.max(0, score - 2),
+    Math.max(0, score - 10),
+    Math.max(0, score - 3),
     score,
     score
   ];
 
-  // Dynamic score history delta calculations
   const firstScore = history[0];
   const lastScore = history[history.length - 1];
   const delta = lastScore - firstScore;
@@ -174,6 +118,8 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
   const toggleDrilldown = (type: string) => {
     setActiveDrilldown((prev) => (prev === type ? null : type));
   };
+
+  const activeIssuesList = issues ?? [];
 
   return (
     <section className="view active">
@@ -216,40 +162,40 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
         </div>
       </div>
 
-      {/* Grid containing metric cards */}
+      {/* Grid containing metric cards reusing Shared component */}
       <div className="grid4">
         <Metric
           label="Cardinality alerts"
-          value={data.metrics?.cardinality?.value || '3'}
+          value={data.metrics?.cardinality?.value ?? '3'}
           sub="key-space anomalies"
           percent={70}
           color="red"
           tooltip="Max cardinality across all service/attribute pairs in a rolling 15m window"
-          change={data.metrics?.cardinality?.change || 14.5}
+          change={data.metrics?.cardinality?.change ?? 14.5}
           isInteractive
           isActive={activeDrilldown === 'cardinality'}
           onClick={() => toggleDrilldown('cardinality')}
         />
         <Metric
           label="Orphan rate"
-          value={data.metrics?.orphans?.value || '6.2%'}
+          value={data.metrics?.orphans?.value ?? '6.2%'}
           sub="above 5% threshold"
           percent={62}
           color="amber"
           tooltip="Percentage of spans missing a parent trace context within a 30s arrival window"
-          change={data.metrics?.orphans?.change || 1.2}
+          change={data.metrics?.orphans?.change ?? 1.2}
           isInteractive
           isActive={activeDrilldown === 'orphans'}
           onClick={() => toggleDrilldown('orphans')}
         />
         <Metric
           label="Coverage gaps"
-          value={data.metrics?.coverage?.value || '1'}
+          value={data.metrics?.coverage?.value ?? '1'}
           sub="services silent"
           percent={20}
           color="amber"
           tooltip="Active services reporting telemetry compared to baseline expectations"
-          change={data.metrics?.coverage?.change || 0.0}
+          change={data.metrics?.coverage?.change ?? 0.0}
           isInteractive
           isActive={activeDrilldown === 'coverage'}
           onClick={() => toggleDrilldown('coverage')}
@@ -327,15 +273,16 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
 
       {/* Active issues list */}
       <h2 className="section-title">Active issues</h2>
+
+      {issuesError && (
+        <ErrorBanner message={`Error loading live issues: ${issuesError}. Showing fallback records.`} />
+      )}
+
       <div className="panel panel-tight">
         {issuesLoading ? (
-          <div className="animate-pulse" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <div style={{ height: '14px', background: 'var(--bezel-soft)', borderRadius: '4px', width: '60%' }}></div>
-            <div style={{ height: '14px', background: 'var(--bezel-soft)', borderRadius: '4px', width: '80%' }}></div>
-            <div style={{ height: '14px', background: 'var(--bezel-soft)', borderRadius: '4px', width: '40%' }}></div>
-          </div>
-        ) : issues.length > 0 ? (
-          issues.map((iss) => (
+          <SkeletonLoader rows={3} />
+        ) : activeIssuesList.length > 0 ? (
+          activeIssuesList.map((iss) => (
             <div className="rack-row" key={iss.id}>
               <span className={`rled ${iss.impact < -15 ? 'r' : 'a'}`}></span>
               <div style={{ flex: 1, minWidth: 0 }}>

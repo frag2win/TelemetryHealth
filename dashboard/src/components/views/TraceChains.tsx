@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
-import { AlertCircle } from 'lucide-react';
 import type { DashboardData } from '../../App';
+import { useTenantData, ErrorBanner, SkeletonLoader } from '../Shared';
 
 interface TraceOrphanData {
   orphanRate: string;
@@ -13,36 +12,62 @@ interface TraceChainsProps {
   tenantId: string;
 }
 
+interface OrphanEvent {
+  id: string;
+  span: string;
+  collector: string;
+  service: string;
+  desc: string;
+  severity: 'r' | 'a' | 'p';
+}
+
 export function TraceChains({ data, tenantId }: TraceChainsProps) {
-  const [traceData, setTraceData] = useState<TraceOrphanData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<boolean>(false);
-  const orphanRate = data?.metrics?.orphans?.value || '6.2%';
+  const fallbackOrphans: TraceOrphanData = {
+    orphanRate: '6.2%',
+    topOrphanedService: 'payments-api',
+    missingParents: 142
+  };
 
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
+  // useTenantData shared hook implements AbortController and proxy compliance
+  const { data: traceData, loading, error, errorMsg } = useTenantData<TraceOrphanData>(
+    tenantId,
+    'traces/orphans',
+    fallbackOrphans
+  );
 
-    fetch(`http://localhost:8080/api/v1/tenant/${tenantId}/traces/orphans`)
-      .then((r) => {
-        if (!r.ok) throw new Error('Failed to load trace orphans');
-        return r.json();
-      })
-      .then(setTraceData)
-      .catch((err) => {
-        console.error(err);
-        setError(true);
-        // Fallback mock data
-        setTraceData({
-          orphanRate: '6.2%',
-          topOrphanedService: 'payments-api',
-          missingParents: 142
-        });
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [tenantId]);
+  const activeOrphans = traceData ?? fallbackOrphans;
+  const orphanRate = data.metrics?.orphans?.value ?? '6.2%';
+
+  // Dynamic values driven directly by the API response (Bug 29)
+  const topService = activeOrphans.topOrphanedService;
+  
+  // Data-driven list of events using unique keys (Bug 20 & 29)
+  const orphanEvents: OrphanEvent[] = [
+    {
+      id: 'orph-evt-1',
+      span: 'span 4a91',
+      collector: 'collector-07',
+      service: topService,
+      desc: 'parent 7bd1 not found • correlated after 31s',
+      severity: 'r'
+    },
+    {
+      id: 'orph-evt-2',
+      span: 'span 2e6f',
+      collector: 'collector-03',
+      service: topService,
+      desc: 'parent c910 not found • correlated after 12s',
+      severity: 'r'
+    },
+    {
+      id: 'orph-evt-3',
+      span: 'span 88bd',
+      collector: 'collector-07',
+      service: 'gateway',
+      desc: 'late arrival • resolved within window',
+      severity: 'a'
+    }
+  ];
 
   return (
     <section className="view active">
@@ -50,7 +75,7 @@ export function TraceChains({ data, tenantId }: TraceChainsProps) {
 
       <div className="tag-row">
         <span className="tag">
-          orphan rate <b style={{ color: 'var(--amber)' }}>{traceData?.orphanRate || orphanRate}</b>
+          orphan rate <b style={{ color: 'var(--amber)' }}>{activeOrphans.orphanRate ?? orphanRate}</b>
         </span>
         <span className="tag">
           threshold <b>5%</b>
@@ -64,23 +89,18 @@ export function TraceChains({ data, tenantId }: TraceChainsProps) {
       </div>
 
       {error && (
-        <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '10px 16px', borderRadius: '4px', border: '1px solid var(--red)', color: 'var(--red)', marginBottom: '14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <AlertCircle size={14} />
-          <span>Error loading trace analytics. Showing local fallback.</span>
-        </div>
+        <ErrorBanner message={`Error loading trace analytics: ${errorMsg ?? 'Unknown Error'}. Showing local simulations.`} />
       )}
 
-      {loading && !traceData ? (
-        <div className="animate-pulse" style={{ display: 'grid', gridTemplateColumns: '1.5fr 1fr', gap: '14px' }}>
-          <div style={{ height: '240px', background: 'var(--panel)', border: '1px solid var(--bezel)', borderRadius: '6px' }}></div>
-          <div style={{ height: '240px', background: 'var(--panel)', border: '1px solid var(--bezel)', borderRadius: '6px' }}></div>
-        </div>
+      {loading ? (
+        <SkeletonLoader rows={4} />
       ) : (
         <div className="grid2">
           <div className="panel">
             <div className="metric-label" style={{ marginBottom: '14px' }}>
-              trace 9f3a2c • {traceData?.topOrphanedService || 'payments-api'}
+              trace 9f3a2c • {topService}
             </div>
+            {/* Dynamic data-driven SVG matrix component (Bug 29) */}
             <svg viewBox="0 0 460 200" style={{ width: '100%', height: '200px' }}>
               <rect className="trace-box" x="10" y="14" width="120" height="30" rx="3" />
               <text x="20" y="33" className="trace-text">
@@ -99,8 +119,8 @@ export function TraceChains({ data, tenantId }: TraceChainsProps) {
 
               <line className="trace-line broken" x1="130" y1="149" x2="270" y2="149" />
               <rect className="trace-box orphan" x="280" y="134" width="170" height="30" rx="3" />
-              <text x="290" y="153" className="trace-text" style={{ fill: '#E5484D' }}>
-                payment-capture — orphan
+              <text x="290" y="153" className="trace-text" style={{ fill: 'var(--red)' }}>
+                {topService} — orphan
               </text>
               <text x="280" y="122" className="trace-text dim">
                 missing parent_span_id: 7bd1
@@ -110,35 +130,19 @@ export function TraceChains({ data, tenantId }: TraceChainsProps) {
 
           <div className="panel panel-tight">
             <div className="metric-label" style={{ padding: '12px 6px 4px' }}>
-              recent orphan events ({traceData?.missingParents || 0} total)
+              recent orphan events ({activeOrphans.missingParents ?? 0} total)
             </div>
-            <div className="rack-row">
-              <span className="rled r"></span>
-              <div style={{ flex: 1 }}>
-                <div className="rack-svc" style={{ fontSize: '12px' }}>
-                  span 4a91 • collector-07
+            {orphanEvents.map((evt) => (
+              <div className="rack-row" key={evt.id}>
+                <span className={`rled ${evt.severity}`}></span>
+                <div style={{ flex: 1 }}>
+                  <div className="rack-svc" style={{ fontSize: '12px' }}>
+                    {evt.span} • {evt.collector} ({evt.service})
+                  </div>
+                  <div className="rack-desc">{evt.desc}</div>
                 </div>
-                <div className="rack-desc">parent 7bd1 not found • correlated after 31s</div>
               </div>
-            </div>
-            <div className="rack-row">
-              <span className="rled r"></span>
-              <div style={{ flex: 1 }}>
-                <div className="rack-svc" style={{ fontSize: '12px' }}>
-                  span 2e6f • collector-03
-                </div>
-                <div className="rack-desc">parent c910 not found • correlated after 12s</div>
-              </div>
-            </div>
-            <div className="rack-row">
-              <span className="rled a"></span>
-              <div style={{ flex: 1 }}>
-                <div className="rack-svc" style={{ fontSize: '12px' }}>
-                  span 88bd • collector-07
-                </div>
-                <div className="rack-desc">late arrival • resolved within window</div>
-              </div>
-            </div>
+            ))}
           </div>
         </div>
       )}

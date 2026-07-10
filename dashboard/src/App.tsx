@@ -1,11 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { Overview } from './components/views/Overview';
 import { Cardinality } from './components/views/Cardinality';
 import { TraceChains } from './components/views/TraceChains';
 import { Coverage } from './components/views/Coverage';
 import { Remediation } from './components/views/Remediation';
 import { AgentTraces } from './components/views/AgentTraces';
-import { RefreshCw, Download, Sun, Moon, Menu, X, AlertTriangle, Loader2 } from 'lucide-react';
+import { RefreshCw, Download, Sun, Moon, Menu, X } from 'lucide-react';
+import { ErrorBanner } from './components/Shared';
 
 export interface MetricValue {
   value: string;
@@ -57,18 +58,56 @@ const timeRanges = [
   { id: '7d', label: 'Last 7d' }
 ];
 
+// Immutable static configuration mapping for navigation items
+const navItems = [
+  { id: 'overview', chan: '01', label: 'Overview', ledClass: 'on-a' },
+  { id: 'cardinality', chan: '02', label: 'Cardinality', ledClass: 'on-r' },
+  { id: 'tracechains', chan: '03', label: 'Trace chains', ledClass: 'on-r' },
+  { id: 'coverage', chan: '04', label: 'Coverage', ledClass: 'on-a' },
+  { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p' },
+  { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p' }
+];
+
+interface NavItemProps {
+  id: string;
+  chan: string;
+  label: string;
+  ledClass: string;
+  activeView: string;
+  onClick: (id: string) => void;
+}
+
+// Converted navItem into a formal React functional component
+function NavItem({ id, chan, label, ledClass, activeView, onClick }: NavItemProps) {
+  return (
+    <button
+      className={`nav-item ${activeView === id ? 'active' : ''}`}
+      onClick={() => onClick(id)}
+    >
+      <span className="chan">{chan}</span>
+      <span className="lbl">{label}</span>
+      <span className={`led ${ledClass}`}></span>
+    </button>
+  );
+}
+
 function App() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [activeView, setActiveView] = useState<string>('overview');
   const [selectedTenantId, setSelectedTenantId] = useState<string>('acme-prod');
   const [timeRange, setTimeRange] = useState<string>('6h');
   const [dataSource, setDataSource] = useState<'live' | 'mock'>('live');
-  const [theme, setTheme] = useState<string>('dark');
+  const [theme, setTheme] = useState<string>(() => localStorage.getItem('theme') ?? 'dark');
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
-  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // Sync theme with document class list and localStorage
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   // Keyboard shortcut handler
   useEffect(() => {
@@ -93,7 +132,9 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const fetchData = useCallback(async () => {
+  const triggerFetch = useRef<() => void>(() => {});
+
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setErrorMsg(null);
 
@@ -114,44 +155,57 @@ function App() {
     };
 
     try {
-      // Clean backend contract URL
-      const response = await fetch(`http://localhost:8080/api/v1/tenant/${selectedTenantId}/health`);
+      // Relative proxy URL path compliance
+      const response = await fetch(`/api/v1/tenant/${selectedTenantId}/health`, { signal });
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
       const resData = await response.json();
       
-      // Perform time-range simulations completely client side to satisfy contract
       const simulatedData = simulateTimeRangeMetrics(resData, timeRange);
       setData(simulatedData);
       setDataSource('live');
       setLastFetched(new Date());
     } catch (err: any) {
-      console.warn('Backend fetch failed, using mock fallback. Details:', err.message);
-      // Simulate fallback data too
+      if (err.name === 'AbortError') {
+        return;
+      }
+      console.warn('Backend fetch failed, using simulated fallback. Details:', err.message);
       const simulatedFallback = simulateTimeRangeMetrics(fallbackData, timeRange);
       setData(simulatedFallback);
       setDataSource('mock');
       setLastFetched(new Date());
-      setErrorMsg(`Failed to connect to backend: ${err.message || 'Unknown Network Error'}. Using local simulator.`);
+      setErrorMsg(`Failed to connect to backend: ${err.message || 'Unknown Network Error'}. Showing local simulator.`);
     } finally {
       setLoading(false);
     }
   }, [selectedTenantId, timeRange]);
 
-  // Handle data fetching intervals
+  triggerFetch.current = fetchData;
+
+  // Handle data fetching interval and AbortController execution
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 20000);
-    return () => clearInterval(interval);
-  }, [fetchData, refreshTrigger]);
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    fetchData(signal);
+
+    const interval = setInterval(() => {
+      fetchData(signal);
+    }, 20000);
+
+    return () => {
+      clearInterval(interval);
+      controller.abort();
+    };
+  }, [fetchData]);
 
   // Client-side simulation of time-range metric slices
   const simulateTimeRangeMetrics = (baseData: DashboardData, range: string): DashboardData => {
-    const updated = { ...baseData };
-    const score = updated.healthScore || 78;
+    // Zero-tolerance deep cloning to prevent cache mutation
+    const updated = structuredClone(baseData);
+    const score = updated.healthScore ?? 78;
     
-    // Simulate histories of different lengths & trends
     if (range === '1h') {
       updated.history = [score - 4, score - 8, score - 6, score - 3, score - 1, score + 2, score - 2, score];
       if (updated.metrics.cardinality) {
@@ -164,7 +218,6 @@ function App() {
       }
     } else if (range === '6h') {
       updated.history = [score - 10, score - 7, score - 9, score - 5, score - 4, score - 2, score - 3, score];
-      // Default metrics
     } else if (range === '24h') {
       updated.history = [score - 15, score - 12, score - 14, score - 10, score - 8, score - 5, score - 6, score];
       if (updated.metrics.cardinality) {
@@ -200,20 +253,6 @@ function App() {
     URL.revokeObjectURL(url);
   };
 
-  const navItem = (id: string, chan: string, label: string, ledClass: string) => (
-    <button
-      className={`nav-item ${activeView === id ? 'active' : ''}`}
-      onClick={() => {
-        setActiveView(id);
-        setIsMobileMenuOpen(false);
-      }}
-    >
-      <span className="chan">{chan}</span>
-      <span className="lbl">{label}</span>
-      <span className={`led ${ledClass}`}></span>
-    </button>
-  );
-
   return (
     <>
       {/* Mobile Header Nav */}
@@ -226,15 +265,23 @@ function App() {
         </button>
       </header>
 
-      {/* Mobile Navigation Dropdown */}
+      {/* Mobile Navigation Dropdown mapping from array */}
       {isMobileMenuOpen && (
         <div className="mobile-nav-menu">
-          {navItem('overview', '01', 'Overview', 'on-a')}
-          {navItem('cardinality', '02', 'Cardinality', 'on-r')}
-          {navItem('tracechains', '03', 'Trace chains', 'on-r')}
-          {navItem('coverage', '04', 'Coverage', 'on-a')}
-          {navItem('remediation', '05', 'Remediation', 'on-p')}
-          {navItem('agenttraces', '06', 'AI Agents', 'on-p')}
+          {navItems.map(item => (
+            <NavItem
+              key={item.id}
+              id={item.id}
+              chan={item.chan}
+              label={item.label}
+              ledClass={item.ledClass}
+              activeView={activeView}
+              onClick={(id) => {
+                setActiveView(id);
+                setIsMobileMenuOpen(false);
+              }}
+            />
+          ))}
         </div>
       )}
 
@@ -247,33 +294,32 @@ function App() {
           <div className="brand-sub">pipeline health monitor</div>
         </div>
         <nav className="nav">
-          {navItem('overview', '01', 'Overview', 'on-a')}
-          {navItem('cardinality', '02', 'Cardinality', 'on-r')}
-          {navItem('tracechains', '03', 'Trace chains', 'on-r')}
-          {navItem('coverage', '04', 'Coverage', 'on-a')}
-          {navItem('remediation', '05', 'Remediation', 'on-p')}
-          {navItem('agenttraces', '06', 'AI Agents', 'on-p')}
+          {navItems.map(item => (
+            <NavItem
+              key={item.id}
+              id={item.id}
+              chan={item.chan}
+              label={item.label}
+              ledClass={item.ledClass}
+              activeView={activeView}
+              onClick={setActiveView}
+            />
+          ))}
         </nav>
         <div className="sidebar-foot">
           tenant: {selectedTenantId}
           <br />
           region: us-east-1
           <br />
-          {data?.version || 'v1.1.0-ga'}
+          {data?.version ?? 'v1.1.0-ga'}
         </div>
       </aside>
 
       <div className="main-content-area">
         {/* Dynamic Warning/Error Banner */}
         {errorMsg && (
-          <div style={{ background: 'rgba(239, 68, 68, 0.15)', borderBottom: '1px solid var(--red)', padding: '10px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', zIndex: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--red)', fontSize: '13px' }}>
-              <AlertTriangle size={16} />
-              <span>{errorMsg}</span>
-            </div>
-            <button className="btn" style={{ padding: '2px 8px', borderColor: 'var(--red)', color: 'var(--red)' }} onClick={() => setRefreshTrigger(t => t + 1)}>
-              Retry Connection
-            </button>
+          <div style={{ padding: '0 24px', marginTop: '16px' }}>
+            <ErrorBanner message={errorMsg} />
           </div>
         )}
 
@@ -295,10 +341,10 @@ function App() {
           <div className="spacer"></div>
           
           <div className="text-muted" style={{ fontSize: '11px', color: 'var(--muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <span>Updated: {lastFetched?.toLocaleTimeString() || '...'}</span>
+            <span>Updated: {lastFetched?.toLocaleTimeString() ?? '...'}</span>
           </div>
           
-          <button className="btn" style={{ padding: '6px' }} onClick={() => setRefreshTrigger(t => t + 1)} title="Refresh data">
+          <button className="btn" style={{ padding: '6px' }} onClick={() => triggerFetch.current()} title="Refresh data">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           </button>
           
@@ -310,7 +356,6 @@ function App() {
           <button className="btn" style={{ padding: '6px' }} onClick={() => {
             const newTheme = theme === 'dark' ? 'light' : 'dark';
             setTheme(newTheme);
-            document.documentElement.setAttribute('data-theme', newTheme);
           }} title="Toggle Visual Style">
             {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
           </button>
@@ -347,7 +392,7 @@ function App() {
         <div className="content">
           {loading && !data ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--muted)' }}>
-              <Loader2 size={36} className="animate-spin" />
+              <RefreshCw size={36} className="animate-spin" />
             </div>
           ) : !data ? (
             <div style={{ padding: '40px', textAlign: 'center', border: '1px dashed var(--bezel)', borderRadius: '6px', color: 'var(--muted)' }}>
@@ -356,7 +401,7 @@ function App() {
           ) : (
             <>
               {activeView === 'overview' && <Overview data={data} setView={setActiveView} tenantId={selectedTenantId} />}
-              {activeView === 'cardinality' && <Cardinality />}
+              {activeView === 'cardinality' && <Cardinality data={data} tenantId={selectedTenantId} />}
               {activeView === 'tracechains' && <TraceChains data={data} tenantId={selectedTenantId} />}
               {activeView === 'coverage' && <Coverage data={data} tenantId={selectedTenantId} />}
               {activeView === 'remediation' && <Remediation apiRemediation={data.remediation} />}

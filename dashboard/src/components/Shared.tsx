@@ -1,0 +1,177 @@
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Info, ArrowUpRight, ArrowDownRight, AlertCircle } from 'lucide-react';
+import type { DashboardData } from '../App';
+
+export interface ViewProps {
+  data: DashboardData;
+  tenantId: string;
+}
+
+// 1. useTenantData custom hook implementing AbortController and proxy compliance
+export function useTenantData<T>(tenantId: string, endpoint: string, fallbackData: T) {
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<boolean>(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
+
+  const fallbackRef = useRef(fallbackData);
+  useEffect(() => {
+    fallbackRef.current = fallbackData;
+  }, [fallbackData]);
+
+  const refetch = useCallback(() => {
+    setRefreshTrigger(prev => prev + 1);
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    setError(false);
+    setErrorMsg(null);
+
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    // Strict proxy relative path enforcement
+    const url = endpoint.startsWith('/') ? endpoint : `/api/v1/tenant/${tenantId}/${endpoint}`;
+
+    fetch(url, { signal })
+      .then((r) => {
+        if (!r.ok) throw new Error(`API error: ${r.status} ${r.statusText}`);
+        return r.json();
+      })
+      .then((resData) => {
+        setData(resData);
+        setError(false);
+        setLoading(false);
+      })
+      .catch((err: any) => {
+        if (err.name === 'AbortError') {
+          return;
+        }
+        console.warn(`Fetch to ${url} failed, loading mock fallback. Details:`, err.message);
+        setError(true);
+        setErrorMsg(err.message ?? 'Network error');
+        setData(fallbackRef.current);
+        setLoading(false);
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [tenantId, endpoint, refreshTrigger]);
+
+  return { data, loading, error, errorMsg, refetch };
+}
+
+// 2. Shared Error Banner component
+interface ErrorBannerProps {
+  message: string;
+}
+
+export function ErrorBanner({ message }: ErrorBannerProps) {
+  return (
+    <div
+      style={{
+        background: 'rgba(239, 68, 68, 0.08)',
+        padding: '10px 16px',
+        borderRadius: '4px',
+        border: '1px solid var(--red)',
+        color: 'var(--red)',
+        marginBottom: '14px',
+        fontSize: '13px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px'
+      }}
+    >
+      <AlertCircle size={14} />
+      <span>{message}</span>
+    </div>
+  );
+}
+
+// 3. Shared Loading Skeleton component
+interface SkeletonLoaderProps {
+  rows?: number;
+}
+
+export function SkeletonLoader({ rows = 3 }: SkeletonLoaderProps) {
+  return (
+    <div className="animate-pulse" style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div
+          key={i}
+          style={{
+            height: '14px',
+            background: 'var(--bezel-soft)',
+            borderRadius: '4px',
+            width: `${50 + (i % 3) * 15}%`
+          }}
+        ></div>
+      ))}
+    </div>
+  );
+}
+
+// 4. Shared Metric component
+export interface MetricProps {
+  label: string;
+  value: string | number;
+  sub: string;
+  percent: number;
+  color: string;
+  tooltip: string;
+  change: number;
+  isInteractive?: boolean;
+  isActive?: boolean;
+  onClick?: () => void;
+}
+
+export function Metric({ label, value, sub, percent, color, tooltip, change, isInteractive, isActive, onClick }: MetricProps) {
+  // Inverted color coding rule: coverage gap increases are bad (red)
+  const isCoverageGap = label.toLowerCase().includes('coverage gaps');
+  const isGood = isCoverageGap ? change <= 0 : (label.toLowerCase().includes('coverage') ? change >= 0 : change <= 0);
+  const isNeutral = change === 0;
+
+  return (
+    <div
+      className={`panel metric ${isInteractive ? 'metric-interactive' : ''}`}
+      onClick={isInteractive ? onClick : undefined}
+      style={{
+        cursor: isInteractive ? 'pointer' : 'default',
+        borderColor: isActive ? 'var(--phosphor)' : undefined,
+        background: isActive ? 'var(--panel-2)' : undefined
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div className="metric-label">{label}</div>
+        <div title={tooltip} style={{ cursor: 'help', color: 'var(--muted)' }}>
+          <Info size={12} />
+        </div>
+      </div>
+      <div className="metric-val" style={{ color: `var(--${color})` }}>
+        <span>{value}</span>
+        {!isNeutral && (
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              fontSize: '12px',
+              fontWeight: '500',
+              color: isGood ? 'var(--phosphor)' : 'var(--red)',
+              marginLeft: '4px'
+            }}
+          >
+            {change > 0 ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
+            {Math.abs(change)}%
+          </span>
+        )}
+      </div>
+      <div className="metric-sub">{sub}</div>
+      <div className="metric-bar">
+        <div style={{ width: `${percent}%`, background: `var(--${color})` }}></div>
+      </div>
+    </div>
+  );
+}
