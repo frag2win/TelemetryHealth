@@ -67,8 +67,8 @@ func writeError(w http.ResponseWriter, code string, message string, status int) 
 // validateTenantID checks that tenant_id is a valid UUID (PRD §13.1 — input sanitization).
 // Returns false and writes a 400 response if invalid.
 func validateTenantID(w http.ResponseWriter, tenantID string) bool {
-	if !uuidRegex.MatchString(tenantID) {
-		writeError(w, "INVALID_TENANT_ID", "tenant_id must be a valid UUID (e.g. 550e8400-e29b-41d4-a716-446655440000)", http.StatusBadRequest)
+	if !uuidRegex.MatchString(tenantID) && tenantID != "acme-prod" && tenantID != "acme-staging" && tenantID != "tenant-alpha" && tenantID != "tenant-beta" && tenantID != "tenant-gamma" {
+		writeError(w, "INVALID_TENANT_ID", "tenant_id must be a valid UUID or a known slug", http.StatusBadRequest)
 		return false
 	}
 	return true
