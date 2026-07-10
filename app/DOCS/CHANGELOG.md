@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Overhaul dashboard UI/UX with dynamic selectors, animations, interactive accordions, syntax highlighting, and diff views ([01f34d5](https://github.com/frag2win/TelemetryHealth/commit/01f34d5c72ab3196624094bf90b63e6766e7e2c5))
+
 - Add AnimatedHealthGauge, AI Agent Traces view, and Dark Mode polish ([bb127fa](https://github.com/frag2win/TelemetryHealth/commit/bb127fa0fb7bbbcb624ad5aea32caa86f10f13b0))
 
 - Add OpenAPI/Swagger specs and UI to REST API ([2dab09b](https://github.com/frag2win/TelemetryHealth/commit/2dab09b44fce3bf911adfcf148f964c0041fc20c))
