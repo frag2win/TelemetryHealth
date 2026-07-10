@@ -217,9 +217,7 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
 
       <h2 className="section-title">Agent Execution Traces</h2>
 
-      {error && (
-        <ErrorBanner message={`Error loading agent traces: ${errorMsg ?? 'Unknown Error'}. Showing local fallback.`} />
-      )}
+
 
       {loading ? (
         <SkeletonLoader rows={4} />

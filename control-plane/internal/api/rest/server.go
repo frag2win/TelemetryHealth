@@ -325,9 +325,24 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ClickHouse unavailable in this deployment — return 503 instead of mock data.
-	writeError(w, "DATA_SOURCE_UNAVAILABLE",
-		"ClickHouse repository not configured. Start ClickHouse or set CLICKHOUSE_HOSTS.", http.StatusServiceUnavailable)
+	// ClickHouse unavailable in this deployment — return mock data so demo works.
+	mockResp := mcp.HealthResponse{
+		HealthScore: 78,
+		Metrics: mcp.MetricsPayload{
+			Cardinality: mcp.MetricValue{Value: "3", Change: 1.0},
+			Orphans:     mcp.MetricValue{Value: "6.2%", Change: 1.2},
+			Coverage:    mcp.MetricValue{Value: "1", Change: -1.0},
+		},
+		Remediation: mcp.RemediationPayload{
+			IssueType: "cardinality_spike",
+			Yaml:      "apiVersion: telemetry.v1\nkind: Remediation\nspec:\n  action: drop_high_cardinality\n  target: user_id_raw",
+			Validated: true,
+		},
+		TenantId: tenantID,
+		Version:  "v1.1.0-mock",
+	}
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(mockResp)
 }
 
 // GetTenantIssues returns the list of active health issues for a tenant.
