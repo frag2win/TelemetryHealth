@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log"
 	"time"
@@ -19,7 +20,11 @@ import (
 // e2e_test sends a real OTLP gRPC payload to the Ingest Gateway and verifies
 // the pipeline: Gateway → Kafka Producer → (worker picks up) → ClickHouse.
 func main() {
-	conn, err := grpc.NewClient("localhost:4317",
+	gateway := flag.String("gateway", "localhost:4317", "Ingest gateway address")
+	tenantStr := flag.String("tenant", "00000000-0000-0000-0000-000000000001", "Tenant UUID")
+	flag.Parse()
+
+	conn, err := grpc.NewClient(*gateway,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 	if err != nil {
@@ -27,7 +32,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	tenantID := "00000000-0000-0000-0000-000000000001"
+	tenantID := *tenantStr
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

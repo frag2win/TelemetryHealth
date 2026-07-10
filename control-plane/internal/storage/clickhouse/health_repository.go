@@ -7,6 +7,7 @@ import (
 
 	ch "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -87,20 +88,7 @@ func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID stri
 	}
 
 	// --- 4. Composite Health Score ---
-	// Weights: cardinality 20%, orphan 30%, coverage 50%
-	// Normalise: >1M cardinality = 100% violation, >1000 orphans = 100% violation
-	cardViolation := clamp(float64(metrics.CardinalityMax)/1_000_000.0) * 100
-	orphanViolation := clamp(float64(metrics.OrphanCount)/1000.0) * 100
-	// coverage: if active services < baseline (assume 10), flag as drop
-	coverageDrop := 0.0
-	if metrics.ActiveServices < 10 {
-		coverageDrop = (1.0 - float64(metrics.ActiveServices)/10.0) * 100
-	}
-
-	metrics.CompositeScore = 100 - (0.20*cardViolation + 0.30*orphanViolation + 0.50*coverageDrop)
-	if metrics.CompositeScore < 0 {
-		metrics.CompositeScore = 0
-	}
+	metrics.CompositeScore = telemetry.CalculateHealthScore(metrics.CardinalityMax, metrics.OrphanCount, metrics.ActiveServices)
 
 	if metrics.CardinalityMax > 1_000_000 {
 		metrics.RemediationIssue = fmt.Sprintf("High cardinality detected: %d unique values", metrics.CardinalityMax)
@@ -155,14 +143,16 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]AgentTrace, 
 			var traceID, model, tokensStr, costStr string
 			var durationNano int64
 			if err := rows.Scan(&traceID, &model, &tokensStr, &costStr, &durationNano); err == nil {
-				// Parse values, map to AgentTrace
-				latencySec := fmt.Sprintf("%.1fs", float64(durationNano)/1e9)
+				traceSuffix := traceID
+				if len(traceID) >= 6 {
+					traceSuffix = traceID[:6]
+				}
 				traces = append(traces, AgentTrace{
-					ID:                "trace-" + traceID[:6],
+					ID:                "trace-" + traceSuffix,
 					Model:             model,
 					Tokens:            4120, // default placeholder
 					Cost:              0.035,
-					Latency:           latencySec,
+					Latency:           fmt.Sprintf("%.1fs", float64(durationNano)/1e9),
 					HallucinationRisk: "Low",
 					Decisions: []AgentDecision{
 						{Step: "Retrieved OTel spans from ClickHouse index", Tool: "query_clickhouse", Status: "success"},
@@ -206,13 +196,6 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]AgentTrace, 
 	}
 
 	return traces, nil
-}
-
-func clamp(v float64) float64 {
-	if v > 1.0 {
-		return 1.0
-	}
-	return v
 }
 
 // Ensure driver package is used.

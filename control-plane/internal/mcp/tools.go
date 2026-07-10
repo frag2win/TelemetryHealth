@@ -57,9 +57,11 @@ func GetTelemetryHealth(tenantID string) (*HealthResponse, error) {
 	}, nil
 }
 
-func GenerateRemediation(issueType string) (string, error) {
-	// Call remediation generator
+var defaultGen = func() *remediation.Generator {
 	logger, _ := zap.NewProduction()
-	gen := remediation.NewGenerator(logger)
-	return gen.Generate(context.Background(), issueType)
+	return remediation.NewGenerator(logger)
+}()
+
+func GenerateRemediation(issueType string) (string, error) {
+	return defaultGen.Generate(context.Background(), issueType)
 }

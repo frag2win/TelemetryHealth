@@ -6,6 +6,7 @@ import (
 	"time"
 
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"go.uber.org/zap"
 )
 
@@ -15,6 +16,7 @@ func TestHealthRepository_Offline(t *testing.T) {
 	// We can't connect to ClickHouse in CI without a real server.
 	// This test validates the client constructor returns an error cleanly.
 	_, err := ch.NewClient(
+		context.Background(),
 		[]string{"localhost:19000"}, // guaranteed unreachable
 		"telemetry_health", "default", "",
 		zap.NewNop(),
@@ -46,27 +48,11 @@ func TestHealthScore_Formula(t *testing.T) {
 			_ = context.Background()
 			_ = time.Now()
 
-			cardViolation := clamp(float64(tt.cardMax) / 1_000_000.0) * 100
-			orphanViolation := clamp(float64(tt.orphanCount) / 1000.0) * 100
-			coverageDrop := 0.0
-			if tt.activeServices < 10 {
-				coverageDrop = (1.0 - float64(tt.activeServices)/10.0) * 100
-			}
-			score := 100 - (0.20*cardViolation + 0.30*orphanViolation + 0.50*coverageDrop)
-			if score < 0 {
-				score = 0
-			}
+			score := telemetry.CalculateHealthScore(tt.cardMax, tt.orphanCount, tt.activeServices)
 
 			if score < tt.wantMin || score > tt.wantMax {
 				t.Errorf("score=%.1f, want [%.0f, %.0f]", score, tt.wantMin, tt.wantMax)
 			}
 		})
 	}
-}
-
-func clamp(v float64) float64 {
-	if v > 1.0 {
-		return 1.0
-	}
-	return v
 }

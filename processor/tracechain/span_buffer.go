@@ -29,10 +29,15 @@ func NewBuffer(retention time.Duration) *Buffer {
 	}
 }
 
+const maxTuples = 50000
+
 // Add inserts a new span tuple into the buffer.
 func (b *Buffer) Add(tuple SpanTuple) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if len(b.tuples) >= maxTuples {
+		return
+	}
 	b.tuples = append(b.tuples, tuple)
 }
 

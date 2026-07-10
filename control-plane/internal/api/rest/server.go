@@ -7,15 +7,19 @@ package rest
 // @BasePath /api/v1
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/mcp"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
-	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.uber.org/zap"
@@ -23,48 +27,36 @@ import (
 	_ "github.com/frag2win/TelemetryHealth/control-plane/docs" // imported for swagger
 )
 
-type HealthResponse struct {
-	HealthScore float64            `json:"healthScore"`
-	Metrics     MetricsPayload     `json:"metrics"`
-	Remediation RemediationPayload `json:"remediation"`
-	TenantId    string             `json:"tenantId"`
-	Version     string             `json:"version"`
-}
-
-type MetricValue struct {
-	Value  string  `json:"value"`
-	Change float64 `json:"change"`
-}
-
-type MetricsPayload struct {
-	Cardinality MetricValue `json:"cardinality"`
-	Orphans     MetricValue `json:"orphans"`
-	Coverage    MetricValue `json:"coverage"`
-}
-
-type RemediationPayload struct {
-	IssueType string `json:"issueType"`
-	Yaml      string `json:"yaml"`
-	Validated bool   `json:"validated"`
-}
+// Struct definitions moved to mcp package
 
 // Server is the REST API server for the control plane dashboard.
 type Server struct {
 	logger     *zap.Logger
 	healthRepo *clickhouse.HealthRepository
 	validator  *remediation.Validator
+	generator  *remediation.Generator
+	httpServer *http.Server
 }
 
 func NewServer(logger *zap.Logger, healthRepo *clickhouse.HealthRepository) *Server {
-	return &Server{logger: logger, healthRepo: healthRepo, validator: remediation.NewValidator(logger)}
+	return &Server{
+		logger:     logger,
+		healthRepo: healthRepo,
+		validator:  remediation.NewValidator(logger),
+		generator:  remediation.NewGenerator(logger),
+	}
 }
 
 // corsMiddleware adds basic CORS headers.
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		origin := os.Getenv("CORS_ORIGIN")
+		if origin == "" {
+			origin = "http://localhost:5173"
+		}
+		w.Header().Set("Access-Control-Allow-Origin", origin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
@@ -75,14 +67,27 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+type statusResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (w *statusResponseWriter) WriteHeader(code int) {
+	w.statusCode = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
 // metricsMiddleware tracks API requests for Prometheus.
 func metricsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		timer := prometheus.NewTimer(telemetry.ApiRequestDuration.WithLabelValues(r.Method, r.URL.Path, "200"))
-		defer timer.ObserveDuration()
+		srw := &statusResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+		startTime := time.Now()
+		next(srw, r)
+		duration := time.Since(startTime).Seconds()
 
-		telemetry.ApiRequestsTotal.WithLabelValues(r.Method, r.URL.Path, "200").Inc()
-		next(w, r)
+		statusStr := strconv.Itoa(srw.statusCode)
+		telemetry.ApiRequestsTotal.WithLabelValues(r.Method, r.URL.Path, statusStr).Inc()
+		telemetry.ApiRequestDuration.WithLabelValues(r.Method, r.URL.Path, statusStr).Observe(duration)
 	}
 }
 
@@ -110,8 +115,30 @@ func (s *Server) Start(addr string) error {
 
 	mux.HandleFunc("/api/v1/remediation/apply", corsMiddleware(metricsMiddleware(s.ApplyRemediation)))
 
+	mux.HandleFunc("/healthz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+	mux.HandleFunc("/readyz", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ready"))
+	})
+
+	s.httpServer = &http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
 	s.logger.Info("Starting API Server", zap.String("addr", addr))
-	return http.ListenAndServe(addr, mux)
+	return s.httpServer.ListenAndServe()
+}
+
+func (s *Server) Shutdown(ctx context.Context) error {
+	if s.httpServer == nil {
+		return nil
+	}
+	s.logger.Info("Shutting down API Server")
+	return s.httpServer.Shutdown(ctx)
 }
 
 func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
@@ -190,33 +217,33 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 				remediationYaml := ""
 				validated := false
 				if issueType != "" {
-					remediationYaml = `processors:
-  attributes/remediation:
-    actions:
-      - key: "user_id"
-        action: "delete"`
-					if s.validator != nil {
+					var genErr error
+					remediationYaml, genErr = s.generator.Generate(r.Context(), issueType)
+					if genErr != nil {
+						s.logger.Error("failed to generate remediation yaml", zap.Error(genErr))
+					}
+					if s.validator != nil && remediationYaml != "" {
 						validated, _ = s.validator.Validate(r.Context(), remediationYaml)
 					}
 				}
 
-				resp := HealthResponse{
+				resp := mcp.HealthResponse{
 					HealthScore: metrics.CompositeScore,
-					Metrics: MetricsPayload{
-						Cardinality: MetricValue{
+					Metrics: mcp.MetricsPayload{
+						Cardinality: mcp.MetricValue{
 							Value:  fmtLarge(metrics.CardinalityMax),
 							Change: cardChange(metrics.CardinalityMax),
 						},
-						Orphans: MetricValue{
+						Orphans: mcp.MetricValue{
 							Value:  fmt.Sprintf("%d", metrics.OrphanCount),
 							Change: calculateDelta(metrics.OrphanCount, metrics.PreviousOrphanCount),
 						},
-						Coverage: MetricValue{
+						Coverage: mcp.MetricValue{
 							Value:  fmt.Sprintf("%d", metrics.ActiveServices),
 							Change: 0,
 						},
 					},
-					Remediation: RemediationPayload{
+					Remediation: mcp.RemediationPayload{
 						IssueType: issueType,
 						Yaml:      remediationYaml,
 						Validated: validated,
@@ -231,14 +258,14 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Fallback: structured mock data (no ClickHouse available)
-		json.NewEncoder(w).Encode(HealthResponse{
+		json.NewEncoder(w).Encode(mcp.HealthResponse{
 			HealthScore: 84,
-			Metrics: MetricsPayload{
-				Cardinality: MetricValue{Value: "1.2M", Change: 14.5},
-				Orphans:     MetricValue{Value: "432", Change: -5.2},
-				Coverage:    MetricValue{Value: "14", Change: 0},
+			Metrics: mcp.MetricsPayload{
+				Cardinality: mcp.MetricValue{Value: "1.2M", Change: 14.5},
+				Orphans:     mcp.MetricValue{Value: "432", Change: -5.2},
+				Coverage:    mcp.MetricValue{Value: "14", Change: 0},
 			},
-			Remediation: RemediationPayload{
+			Remediation: mcp.RemediationPayload{
 				IssueType: "High Cardinality (user_id on checkout_service)",
 				Yaml: `processors:
   attributes/remediation:
@@ -312,37 +339,7 @@ func (s *Server) ApplyRemediation(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
 }
 
-func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode([]map[string]interface{}{
-		{
-			"id":                "trace-991",
-			"model":             "gpt-4o",
-			"tokens":            4120,
-			"cost":              0.041,
-			"latency":           "3.2s",
-			"hallucinationRisk": "Low",
-			"decisions": []map[string]string{
-				{"step": "Retrieved 15 similar spans from ClickHouse", "tool": "query_clickhouse", "status": "success"},
-				{"step": "Analyzed cardinality distribution for user_id", "tool": "python_eval", "status": "success"},
-				{"step": "Generated remediation YAML", "tool": "generate_yaml", "status": "success"},
-			},
-		},
-		{
-			"id":                "trace-992",
-			"model":             "claude-3-5-sonnet",
-			"tokens":            8450,
-			"cost":              0.025,
-			"latency":           "6.1s",
-			"hallucinationRisk": "High",
-			"decisions": []map[string]string{
-				{"step": "Attempted to query missing index", "tool": "query_clickhouse", "status": "error"},
-				{"step": "Retried with full table scan (token limit warning)", "tool": "query_clickhouse", "status": "warning"},
-				{"step": "Formulated remediation with unverified field names", "tool": "generate_yaml", "status": "warning"},
-			},
-		},
-	})
-}
+// Duplicate GetAgentTraces method removed
 
 func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")

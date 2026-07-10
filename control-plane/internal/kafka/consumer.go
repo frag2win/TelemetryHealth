@@ -86,7 +86,10 @@ func (c *Consumer[T]) Run(ctx context.Context) error {
 				batch = batch[:0]
 				msgs = msgs[:0]
 				if !timer.Stop() {
-					<-timer.C
+					select {
+					case <-timer.C:
+					default:
+					}
 				}
 				timer.Reset(defaultBatchTime)
 			}
@@ -102,11 +105,23 @@ func (c *Consumer[T]) flush(ctx context.Context, batch []T, msgs []kafkago.Messa
 
 	backoff := 100 * time.Millisecond
 	maxBackoff := 10 * time.Second
+	retries := 0
+	maxRetries := 5
 
 	for {
 		if err := c.handler(ctx, batch); err != nil {
+			retries++
+			if retries > maxRetries {
+				c.logger.Error("handler failed persistently, dropping batch to fail open",
+					zap.Int("size", len(batch)),
+					zap.Error(err),
+				)
+				return
+			}
+
 			c.logger.Error("handler error, retrying batch", 
 				zap.Int("size", len(batch)),
+				zap.Int("retry", retries),
 				zap.Duration("backoff", backoff),
 				zap.Error(err),
 			)

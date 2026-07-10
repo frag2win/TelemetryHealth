@@ -39,6 +39,7 @@ func verifyTenant(ctx context.Context) error {
 
 	// Bypass mTLS verification for local development
 	if os.Getenv("INSECURE_DEV_MODE") == "true" {
+		os.Stderr.WriteString("WARNING: INSECURE_DEV_MODE is enabled. Tenant verification is bypassed!\n")
 		return nil
 	}
 
@@ -63,7 +64,7 @@ func verifyTenant(ctx context.Context) error {
 	// Check URIs for SPIFFE ID matching the tenant
 	for _, uri := range cert.URIs {
 		// e.g. spiffe://telemetryhealth.internal/tenant/<uuid>
-		if uri.String() == claimedTenant || uri.Path == "/"+claimedTenant {
+		if uri.String() == claimedTenant || uri.Path == "/tenant/"+claimedTenant || uri.Path == "/"+claimedTenant {
 			valid = true
 			break
 		}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
@@ -24,12 +25,26 @@ func NewWorkerSet(brokers []string, chClient *clickhouse.Client, logger *zap.Log
 
 // Run starts all three consumer goroutines. Blocks until ctx is cancelled.
 func (w *WorkerSet) Run(ctx context.Context) {
-	go w.runCardinalityWorker(ctx)
-	go w.runOrphanWorker(ctx)
-	go w.runCoverageWorker(ctx)
+	var wg sync.WaitGroup
+	wg.Add(3)
+
+	go func() {
+		defer wg.Done()
+		w.runCardinalityWorker(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		w.runOrphanWorker(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		w.runCoverageWorker(ctx)
+	}()
 
 	<-ctx.Done()
 	w.logger.Info("WorkerSet shutting down")
+	wg.Wait()
+	w.logger.Info("WorkerSet shutdown complete")
 }
 
 func (w *WorkerSet) runCardinalityWorker(ctx context.Context) {

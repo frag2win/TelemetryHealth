@@ -53,7 +53,9 @@ func (s *Schema) InitSchema() error {
 
 	for _, q := range queries {
 		s.logger.Info("Executing DDL", zap.String("query", q[:30]+"..."))
-		// s.db.Exec(q) -- commented out for stub
+		if _, err := s.db.Exec(q); err != nil {
+			return err
+		}
 	}
 	return nil
 }

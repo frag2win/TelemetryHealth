@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log"
 	"math/rand"
 	"time"
@@ -13,8 +14,17 @@ import (
 // Seeder injects realistic mock rows into ClickHouse for development and demo purposes.
 // Usage: go run ./cmd/seeder --host localhost:9000 --tenant <uuid>
 func main() {
+	host := flag.String("host", "localhost:9000", "ClickHouse host address")
+	tenantStr := flag.String("tenant", "00000000-0000-0000-0000-000000000001", "Tenant UUID")
+	flag.Parse()
+
+	tenantID, err := uuid.Parse(*tenantStr)
+	if err != nil {
+		log.Fatalf("invalid tenant uuid: %v", err)
+	}
+
 	conn, err := clickhouse.Open(&clickhouse.Options{
-		Addr: []string{"localhost:9000"},
+		Addr: []string{*host},
 		Auth: clickhouse.Auth{
 			Database: "telemetry_health",
 			Username: "telemetry",
@@ -28,7 +38,7 @@ func main() {
 	defer conn.Close()
 
 	ctx := context.Background()
-	tenantID := "00000000-0000-0000-0000-000000000001"
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	// --- Seed cardinality_signal ---
 	log.Println("Seeding cardinality_signal...")
@@ -43,13 +53,15 @@ func main() {
 
 	for _, svc := range services {
 		for _, attr := range attrs {
-			_ = cardBatch.Append(
-				uuid.MustParse(tenantID),
+			if err := cardBatch.Append(
+				tenantID,
 				svc,
 				attr,
 				time.Now().Add(-10*time.Minute),
-				uint64(rand.Intn(2_000_000)),
-			)
+				uint64(r.Intn(2_000_000)),
+			); err != nil {
+				log.Fatalf("append cardinality failed: %v", err)
+			}
 		}
 	}
 	if err := cardBatch.Send(); err != nil {
@@ -67,14 +79,16 @@ func main() {
 	}
 
 	for i := 0; i < 432; i++ {
-		_ = orphanBatch.Append(
-			uuid.MustParse(tenantID),
+		if err := orphanBatch.Append(
+			tenantID,
 			uuid.New().String(),
 			uuid.New().String(),
 			uuid.New().String(),
 			"collector-01",
-			time.Now().Add(-time.Duration(rand.Intn(25))*time.Minute),
-		)
+			time.Now().Add(-time.Duration(r.Intn(25))*time.Minute),
+		); err != nil {
+			log.Fatalf("append orphan failed: %v", err)
+		}
 	}
 	if err := orphanBatch.Send(); err != nil {
 		log.Printf("orphan seed error: %v", err)
@@ -91,12 +105,14 @@ func main() {
 	}
 
 	for _, svc := range services {
-		_ = covBatch.Append(
-			uuid.MustParse(tenantID),
+		if err := covBatch.Append(
+			tenantID,
 			svc,
-			time.Now().Add(-time.Duration(rand.Intn(5))*time.Minute),
+			time.Now().Add(-time.Duration(r.Intn(5))*time.Minute),
 			uint8(1),
-		)
+		); err != nil {
+			log.Fatalf("append coverage failed: %v", err)
+		}
 	}
 	if err := covBatch.Send(); err != nil {
 		log.Printf("coverage seed error: %v", err)

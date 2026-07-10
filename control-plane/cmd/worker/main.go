@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -26,19 +27,22 @@ func main() {
 
 	// --- Ensure Kafka topics exist ---
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	if err := kafka.EnsureTopics(ctx, brokers[0], logger); err != nil {
 		logger.Warn("topic bootstrap failed (may already exist)", zap.Error(err))
 	}
-	cancel()
 
 	// --- Connect to ClickHouse ---
+	chCtx, chCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	chClient, err := ch.NewClient(
+		chCtx,
 		[]string{"localhost:9000"},
 		"telemetry_health", "telemetry", "",
 		logger,
 	)
+	chCancel()
 	if err != nil {
-		log.Fatalf("clickhouse connect: %v", err)
+		logger.Fatal("clickhouse connect failed", zap.Error(err))
 	}
 	defer chClient.Close()
 
@@ -48,16 +52,42 @@ func main() {
 	runCtx, runCancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer runCancel()
 
+	errChan := make(chan error, 1)
+
 	// Start Prometheus metrics server
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsServer := &http.Server{
+		Addr:    ":9091",
+		Handler: metricsMux,
+	}
 	go func() {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServe(":9091", mux); err != nil {
-			logger.Error("Metrics server failed", zap.Error(err))
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- fmt.Errorf("metrics server failed: %w", err)
 		}
 	}()
 
 	logger.Info("Stream worker started — consuming from Kafka, writing to ClickHouse, metrics on :9091")
-	workers.Run(runCtx)
-	logger.Info("Stream worker stopped cleanly")
+
+	// Start workers in a goroutine so we can wait for shutdown signal
+	workerDone := make(chan struct{})
+	go func() {
+		workers.Run(runCtx)
+		close(workerDone)
+	}()
+
+	select {
+	case err := <-errChan:
+		logger.Error("Metrics server startup failed", zap.Error(err))
+	case <-runCtx.Done():
+		logger.Info("Shutdown signal received, stopping workers...")
+		<-workerDone
+
+		metricsCtx, metricsCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer metricsCancel()
+		if err := metricsServer.Shutdown(metricsCtx); err != nil {
+			logger.Error("Metrics server shutdown failed", zap.Error(err))
+		}
+		logger.Info("Stream worker stopped cleanly")
+	}
 }

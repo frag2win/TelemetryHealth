@@ -17,7 +17,7 @@ type Client struct {
 }
 
 // NewClient establishes a native protocol connection to ClickHouse.
-func NewClient(hosts []string, database, user, password string, logger *zap.Logger) (*Client, error) {
+func NewClient(ctx context.Context, hosts []string, database, user, password string, logger *zap.Logger) (*Client, error) {
 	conn, err := clickhouse.Open(&clickhouse.Options{
 		Addr: hosts,
 		Auth: clickhouse.Auth{
@@ -39,7 +39,7 @@ func NewClient(hosts []string, database, user, password string, logger *zap.Logg
 		return nil, fmt.Errorf("opening clickhouse connection: %w", err)
 	}
 
-	if err := conn.Ping(context.Background()); err != nil {
+	if err := conn.Ping(ctx); err != nil {
 		return nil, fmt.Errorf("pinging clickhouse: %w", err)
 	}
 

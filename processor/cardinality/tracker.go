@@ -79,17 +79,30 @@ func (t *Tracker) Observe(service, attrKey, attrValue string) {
 	sketch.Insert([]byte(attrValue))
 }
 
-// Flush returns the current tracking state and resets it (for rolling window export).
-// Note: The returned map and its underlying sketches should be treated as read-only.
-// Inserting new values into the returned sketches will bypass memory accounting.
+// Flush returns a deep copy of the current tracking state and resets it (for rolling window export).
 func (t *Tracker) Flush() map[string]map[string]*hyperloglog.Sketch {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
-	current := t.sketches
-	t.previousSketches = current
+	result := make(map[string]map[string]*hyperloglog.Sketch, len(t.sketches))
+	for svc, attrs := range t.sketches {
+		svcCopy := make(map[string]*hyperloglog.Sketch, len(attrs))
+		for k, s := range attrs {
+			svcCopy[k] = s.Clone()
+		}
+		result[svc] = svcCopy
+	}
+
+	t.previousSketches = t.sketches
 	t.sketches = make(map[string]map[string]*hyperloglog.Sketch)
 	t.currentMemory = 0
 
-	return current
+	return result
+}
+
+// PreviousSketches returns the snapshot of sketches from the previous window.
+func (t *Tracker) PreviousSketches() map[string]map[string]*hyperloglog.Sketch {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.previousSketches
 }

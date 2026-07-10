@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -26,41 +27,62 @@ func main() {
 
 	// Bootstrap Kafka topics
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	if err := kafka.EnsureTopics(ctx, brokers[0], logger); err != nil {
 		logger.Warn("topic bootstrap warning (may already exist)", zap.Error(err))
 	}
-	cancel()
 
 	// Create Kafka producer
 	producer := kafka.NewProducer(brokers, logger)
-	defer producer.Close()
+	defer func() {
+		if err := producer.Close(); err != nil {
+			logger.Error("failed to close producer", zap.Error(err))
+		}
+	}()
 
 	server := ingest.NewServer(logger, producer)
+
+	errChan := make(chan error, 2)
 
 	// Start server in background
 	go func() {
 		addr := ":4317" // Default OTLP gRPC port
 		if err := server.Start(addr); err != nil {
-			logger.Fatal("Failed to start server", zap.Error(err))
+			errChan <- fmt.Errorf("gRPC server error: %w", err)
 		}
 	}()
 
 	// Start Prometheus metrics server
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("/metrics", promhttp.Handler())
+	metricsServer := &http.Server{
+		Addr:    ":9090",
+		Handler: metricsMux,
+	}
 	go func() {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.Handler())
-		if err := http.ListenAndServe(":9090", mux); err != nil {
-			logger.Error("Metrics server failed", zap.Error(err))
+		if err := metricsServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			errChan <- fmt.Errorf("metrics server error: %w", err)
 		}
 	}()
 
 	logger.Info("Ingest Gateway started on :4317, metrics on :9090")
 
-	// Wait for termination signal
+	// Wait for termination signal or startup error
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	<-sigChan
 
-	server.Stop()
-	logger.Info("Server stopped cleanly")
+	select {
+	case err := <-errChan:
+		logger.Error("Server startup failed", zap.Error(err))
+	case <-sigChan:
+		logger.Info("Shutdown signal received, stopping Ingest Gateway...")
+		server.Stop()
+
+		metricsCtx, metricsCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer metricsCancel()
+		if err := metricsServer.Shutdown(metricsCtx); err != nil {
+			logger.Error("Metrics server shutdown failed", zap.Error(err))
+		}
+		logger.Info("Server stopped cleanly")
+	}
 }

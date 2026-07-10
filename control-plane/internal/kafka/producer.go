@@ -3,6 +3,7 @@ package kafka
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	kafkago "github.com/segmentio/kafka-go"
@@ -98,8 +99,22 @@ func (p *Producer) publish(ctx context.Context, w *kafkago.Writer, key string, p
 	return nil
 }
 
-func (p *Producer) Close() {
-	p.cardinality.Close()
-	p.orphan.Close()
-	p.coverage.Close()
+func (p *Producer) Close() error {
+	var errs []error
+	if err := p.cardinality.Close(); err != nil {
+		p.logger.Error("failed to close cardinality writer", zap.Error(err))
+		errs = append(errs, err)
+	}
+	if err := p.orphan.Close(); err != nil {
+		p.logger.Error("failed to close orphan writer", zap.Error(err))
+		errs = append(errs, err)
+	}
+	if err := p.coverage.Close(); err != nil {
+		p.logger.Error("failed to close coverage writer", zap.Error(err))
+		errs = append(errs, err)
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("errors closing producer writers: %v", errs)
+	}
+	return nil
 }

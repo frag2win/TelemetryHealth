@@ -5,16 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
 	"go.uber.org/zap"
 )
 
 // Server implements SigNoz MCP server tools for AI agent interaction.
 type Server struct {
-	logger *zap.Logger
+	logger    *zap.Logger
+	generator *remediation.Generator
 }
 
 func NewServer(logger *zap.Logger) *Server {
-	return &Server{logger: logger}
+	return &Server{
+		logger:    logger,
+		generator: remediation.NewGenerator(logger),
+	}
 }
 
 // ToolRequest represents an incoming MCP tool invocation.
@@ -40,32 +45,7 @@ func (s *Server) GetTelemetryHealth(ctx context.Context, tenantID string) (int, 
 // GenerateRemediation returns an auto-generated OTel collector YAML snippet via MCP.
 func (s *Server) GenerateRemediation(ctx context.Context, issueType string) (string, error) {
 	s.logger.Info("MCP tool invoked: generate_remediation", zap.String("issue_type", issueType))
-	switch issueType {
-	case "cardinality_explosion", "cardinality_spike":
-		return `processors:
-  attributes/remediation:
-    actions:
-      - key: "user_id"
-        action: "delete"`, nil
-	case "sampling_gap":
-		return `processors:
-  probabilistic_sampler/remediation:
-    hash_seed: 22
-    sampling_percentage: 100`, nil
-	case "broken_trace_chain":
-		return `processors:
-  tail_sampling/repair:
-    policies:
-      [ { name: repair-chain, type: always_sample } ]`, nil
-	case "coverage_gap":
-		return `receivers:
-  otlp/missing_service:
-    protocols:
-      grpc:
-        endpoint: 0.0.0.0:4317`, nil
-	default:
-		return "", fmt.Errorf("unknown issue type: %s", issueType)
-	}
+	return s.generator.Generate(ctx, issueType)
 }
 
 // HandleToolCall routes generic MCP tool calls to the appropriate handler.

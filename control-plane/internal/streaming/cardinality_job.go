@@ -2,6 +2,7 @@ package streaming
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"github.com/axiomhq/hyperloglog"
@@ -13,6 +14,7 @@ type CardinalityJob struct {
 	logger *zap.Logger
 	// State store for windowed sketches
 	state map[string]*hyperloglog.Sketch
+	mu    sync.Mutex
 }
 
 func NewCardinalityJob(logger *zap.Logger) *CardinalityJob {
@@ -24,6 +26,9 @@ func NewCardinalityJob(logger *zap.Logger) *CardinalityJob {
 
 // Process merges an incoming sketch into the central state.
 func (j *CardinalityJob) Process(ctx context.Context, tenantID, service, key string, sketch *hyperloglog.Sketch, timestamp time.Time) error {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
 	stateKey := tenantID + ":" + service + ":" + key
 	if existing, ok := j.state[stateKey]; ok {
 		// Exact-merge centrally as required by PRD §8.1
