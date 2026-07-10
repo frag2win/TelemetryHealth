@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add interactive service topology graph, nested Gantt waterfalls, YAML sandboxes, and impact simulators ([e0eba10](https://github.com/frag2win/TelemetryHealth/commit/e0eba100a99dc309956719af2d1e3afc6e74e836))
+
 - Overhaul dashboard UI/UX with dynamic selectors, animations, interactive accordions, syntax highlighting, and diff views ([01f34d5](https://github.com/frag2win/TelemetryHealth/commit/01f34d5c72ab3196624094bf90b63e6766e7e2c5))
 
 - Add AnimatedHealthGauge, AI Agent Traces view, and Dark Mode polish ([bb127fa](https://github.com/frag2win/TelemetryHealth/commit/bb127fa0fb7bbbcb624ad5aea32caa86f10f13b0))
