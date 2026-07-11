@@ -14,7 +14,11 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
+
+	"golang.org/x/time/rate"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -25,6 +29,9 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 
 	_ "github.com/frag2win/TelemetryHealth/control-plane/docs" // imported for swagger
@@ -123,6 +130,62 @@ func metricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// rateLimitMiddleware adds per-IP rate limiting (10 requests/second, burst 20)
+func rateLimitMiddleware(next http.Handler) http.Handler {
+	visitors := make(map[string]*rate.Limiter)
+	var mu sync.Mutex
+
+	getLimiter := func(ip string) *rate.Limiter {
+		mu.Lock()
+		defer mu.Unlock()
+
+		if limiter, exists := visitors[ip]; exists {
+			return limiter
+		}
+
+		limiter := rate.NewLimiter(rate.Every(100*time.Millisecond), 20) // 10 req/s, burst 20
+		visitors[ip] = limiter
+		return limiter
+	}
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ip := r.RemoteAddr
+		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+			ip = strings.Split(forwarded, ",")[0]
+		}
+
+		limiter := getLimiter(ip)
+		if !limiter.Allow() {
+			writeError(w, "RATE_LIMIT_EXCEEDED", "Too many requests, please try again later", http.StatusTooManyRequests)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
+// tracingMiddleware adds distributed tracing to all API requests
+func tracingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tracer := otel.Tracer("telemetryhealth-api")
+
+		// Extract incoming trace context (from dashboard or other services)
+		ctx := otel.GetTextMapPropagator().Extract(r.Context(), propagation.HeaderCarrier(r.Header))
+
+		// Start a new span
+		ctx, span := tracer.Start(ctx, fmt.Sprintf("HTTP %s %s", r.Method, r.URL.Path),
+			trace.WithSpanKind(trace.SpanKindServer),
+		)
+		defer span.End()
+
+		// Inject trace context into response headers
+		otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(w.Header()))
+
+		// Continue with trace context in request
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
 type contextKey string
 
 const (
@@ -198,8 +261,10 @@ func (s *Server) Start(addr string) error {
 	// Core middleware stack
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	r.Use(rateLimitMiddleware)
 	r.Use(corsMiddleware)
 	r.Use(metricsMiddleware)
+	r.Use(tracingMiddleware)
 
 	// Infrastructure endpoints (no auth required)
 	r.Handle("/metrics", promhttp.Handler())

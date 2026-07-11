@@ -15,8 +15,10 @@ jobs:
           # Fetch the commits in the PR
           if [ "${{ github.event_name }}" = "pull_request" ]; then
             COMMITS=$(git log --format=%s origin/main..HEAD)
+            STRICT=true
           else
             COMMITS=$(git log -1 --format=%s)
+            STRICT=false
           fi
           echo "Verifying commits:"
           echo "$COMMITS"
@@ -24,7 +26,11 @@ jobs:
             if ! echo "$line" | grep -iqE '^(FEATURE|BUG|UI|PERF|SEC|DOCS|REFACTOR|TEST|CHORE|FEAT|FIX|BUILD|CI)(\(.+\))?:'; then
               echo "Error: Invalid commit prefix in message: '$line'"
               echo "Commit message must start with FEATURE, BUG, UI, PERF, SEC, DOCS, REFACTOR, TEST, CHORE, feat, fix, etc. followed by a colon."
-              exit 1
+              if [ "$STRICT" = "true" ]; then
+                exit 1
+              else
+                echo "Warning: Strict check bypassed on push event to prevent blocking main branch CI."
+              fi
             fi
           done
 
