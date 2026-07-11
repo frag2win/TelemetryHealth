@@ -44,8 +44,8 @@ const titles: Record<string, string> = {
 };
 
 const tenants = [
-  { id: 'acme-prod', name: 'acme-prod (Production)' },
-  { id: 'acme-staging', name: 'acme-staging (Staging)' },
+  { id: '00000000-0000-0000-0000-000000000001', name: 'acme-prod (Production)' },
+  { id: '00000000-0000-0000-0000-000000000002', name: 'acme-staging (Staging)' },
   { id: 'tenant-alpha', name: 'tenant-alpha (Enterprise A)' },
   { id: 'tenant-beta', name: 'tenant-beta (Enterprise B)' },
   { id: 'tenant-gamma', name: 'tenant-gamma (Internal)' }
