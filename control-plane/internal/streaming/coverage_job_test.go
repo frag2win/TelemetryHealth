@@ -112,12 +112,13 @@ func TestCoverageJob_CheckCoverageGaps_ExactlyAtGracePeriod(t *testing.T) {
 	job := newTestCoverageJob()
 	ctx := context.Background()
 
+	now := time.Now()
 	// Service that emitted exactly at the grace period boundary.
-	exactly := time.Now().Add(-10 * time.Minute)
+	exactly := now.Add(-10 * time.Minute)
 	_ = job.Observe(ctx, "tenant-1", "boundary-svc", false, exactly)
 
 	// Should NOT be flagged (must be strictly greater than grace period).
-	gaps := job.CheckCoverageGaps(ctx, time.Now())
+	gaps := job.CheckCoverageGaps(ctx, now)
 	if len(gaps) != 0 {
 		t.Errorf("expected 0 gaps at boundary, got %d", len(gaps))
 	}
