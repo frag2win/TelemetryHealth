@@ -4,21 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-
-	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
-	"go.uber.org/zap"
 )
 
 // Server implements SigNoz MCP server tools for AI agent interaction.
 type Server struct {
-	logger    *zap.Logger
-	generator *remediation.Generator
+	toolset *Toolset
 }
 
-func NewServer(logger *zap.Logger) *Server {
+func NewServer(toolset *Toolset) *Server {
 	return &Server{
-		logger:    logger,
-		generator: remediation.NewGenerator(logger),
+		toolset: toolset,
 	}
 }
 
@@ -35,19 +30,6 @@ type ToolResponse struct {
 	Error   string `json:"error,omitempty"`
 }
 
-// GetTelemetryHealth returns the pipeline health score for a tenant via MCP.
-func (s *Server) GetTelemetryHealth(ctx context.Context, tenantID string) (int, error) {
-	s.logger.Info("MCP tool invoked: get_telemetry_health", zap.String("tenant_id", tenantID))
-	// In production, queries ClickHouse health repository
-	return 85, nil
-}
-
-// GenerateRemediation returns an auto-generated OTel collector YAML snippet via MCP.
-func (s *Server) GenerateRemediation(ctx context.Context, issueType string) (string, error) {
-	s.logger.Info("MCP tool invoked: generate_remediation", zap.String("issue_type", issueType))
-	return s.generator.Generate(ctx, issueType)
-}
-
 // HandleToolCall routes generic MCP tool calls to the appropriate handler.
 func (s *Server) HandleToolCall(ctx context.Context, req ToolRequest) ToolResponse {
 	switch req.ToolName {
@@ -58,11 +40,11 @@ func (s *Server) HandleToolCall(ctx context.Context, req ToolRequest) ToolRespon
 		if err := json.Unmarshal(req.Arguments, &args); err != nil {
 			return ToolResponse{Success: false, Error: err.Error()}
 		}
-		score, err := s.GetTelemetryHealth(ctx, args.TenantID)
+		resp, err := s.toolset.GetTelemetryHealth(ctx, args.TenantID)
 		if err != nil {
 			return ToolResponse{Success: false, Error: err.Error()}
 		}
-		return ToolResponse{Success: true, Data: fmt.Sprintf(`{"health_score": %d}`, score)}
+		return ToolResponse{Success: true, Data: fmt.Sprintf(`{"health_score": %f}`, resp.HealthScore)}
 
 	case "generate_remediation":
 		var args struct {
@@ -71,7 +53,7 @@ func (s *Server) HandleToolCall(ctx context.Context, req ToolRequest) ToolRespon
 		if err := json.Unmarshal(req.Arguments, &args); err != nil {
 			return ToolResponse{Success: false, Error: err.Error()}
 		}
-		yamlSnippet, err := s.GenerateRemediation(ctx, args.IssueType)
+		yamlSnippet, err := s.toolset.GenerateRemediation(ctx, args.IssueType)
 		if err != nil {
 			return ToolResponse{Success: false, Error: err.Error()}
 		}

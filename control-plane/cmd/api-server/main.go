@@ -43,7 +43,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	client, err := ch.NewClient(
 		ctx,
-		[]string{"localhost:9000"},
+		[]string{"127.0.0.1:9000"},
 		"telemetry_health", "telemetry", "",
 		logger,
 	)

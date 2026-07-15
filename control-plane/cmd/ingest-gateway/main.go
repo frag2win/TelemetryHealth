@@ -36,7 +36,7 @@ func main() {
 		}()
 	}
 
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"127.0.0.1:9092"}
 
 	// Bootstrap Kafka topics
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
