@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
-- Add deterministic failure injection simulator and POST /api/v1/tenant/{tenant_id}/simulate endpoint
+- Pivot to AI Agent Observability for SigNoz hackathon ([d198055](https://github.com/frag2win/TelemetryHealth/commit/d1980555c1b2d32be1b522c7e2a243b52e5e1d02))
 
 - Add interactive service topology graph, nested Gantt waterfalls, YAML sandboxes, and impact simulators ([e0eba10](https://github.com/frag2win/TelemetryHealth/commit/e0eba100a99dc309956719af2d1e3afc6e74e836))
 
