@@ -36,7 +36,7 @@ func main() {
 		}()
 	}
 
-	brokers := []string{"localhost:9092"}
+	brokers := []string{"127.0.0.1:9092"}
 
 	// --- Ensure Kafka topics exist ---
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -49,7 +49,7 @@ func main() {
 	chCtx, chCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	chClient, err := ch.NewClient(
 		chCtx,
-		[]string{"localhost:9000"},
+		[]string{"127.0.0.1:9000"},
 		"telemetry_health", "telemetry", "",
 		logger,
 	)

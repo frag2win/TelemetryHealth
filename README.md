@@ -47,7 +47,7 @@ Every tenant gets a real-time **Composite Health Score (0–100)**, and when an 
 | 🔗 **Broken Trace-Chain Detection** | Identifies orphaned spans with no parent across collectors using bounded out-of-order event correlation |
 | 📡 **Coverage Gap Monitoring** | Detects services that silently stop emitting telemetry |
 | 📊 **Composite Health Score** | A weighted (0-100) score combining all signal sources, configurable per tenant |
-| 🛠 **Auto-Remediation** | Generates OTel Collector YAML config patches validated through a shadow-Collector dry-run |
+| 🛠 **Auto-Remediation** | Generates OTel Collector YAML config patches validated via YAML structural checks and an OTel component allowlist |
 | 🔔 **Alerting Bridges** | Integrates with SigNoz Alertmanager with deduplication and 15-minute cooldown suppression |
 | 🏢 **Multi-Tenancy** | Zero-trust mTLS authentication validates tenant claims against SPIFFE/X.509 certificate SANs |
 | 🛡 **Fail-Open Design** | All processor logic is wrapped in a circuit breaker — a processor crash **never** blocks the primary OTel pipeline |

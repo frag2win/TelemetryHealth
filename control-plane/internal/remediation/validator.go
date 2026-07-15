@@ -44,7 +44,7 @@ func NewValidator(logger *zap.Logger) *Validator {
 // 2. OTel component structural check: only allowed components may appear.
 // Returns (true, nil) if valid, (false, err) if invalid.
 func (v *Validator) Validate(ctx context.Context, yamlConfig string) (bool, error) {
-	v.logger.Info("Running shadow-collector validation (Phase 1: structural check)")
+	v.logger.Info("Running validation (Phase 1: structural check)")
 
 	// Phase 1a: YAML syntax check
 	var parsed map[string]interface{}

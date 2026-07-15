@@ -36,8 +36,8 @@ func QueryAgentTraces(ctx context.Context, tenantID string, serverURL string) (*
 	return &Traces{
 		Count: 2,
 		Data: []map[string]interface{}{
-			{"trace_id": "t1", "attributes": map[string]string{"llm.token_usage": "1500"}},
-			{"trace_id": "t2", "attributes": map[string]string{"llm.tool_call.error": "TimeoutError"}},
+			{"trace_id": "[SIMULATED] t1", "attributes": map[string]string{"llm.token_usage": "1500"}},
+			{"trace_id": "[SIMULATED] t2", "attributes": map[string]string{"llm.tool_call.error": "TimeoutError"}},
 		},
 	}, nil
 }
