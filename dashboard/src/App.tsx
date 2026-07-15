@@ -17,6 +17,8 @@ export interface MetricsPayload {
   cardinality: MetricValue;
   orphans: MetricValue;
   coverage: MetricValue;
+  tokenBurnRate: MetricValue;
+  toolCallSuccess: MetricValue;
 }
 
 export interface RemediationPayload {
@@ -143,7 +145,9 @@ function App() {
       metrics: {
         cardinality: { value: '3', change: 1.0 },
         orphans: { value: '6.2%', change: 1.2 },
-        coverage: { value: '1', change: -1.0 }
+        coverage: { value: '1', change: -1.0 },
+        tokenBurnRate: { value: '1,204', change: 12.5 },
+        toolCallSuccess: { value: '98.5%', change: 0.2 }
       },
       remediation: {
         issueType: 'cardinality_spike',

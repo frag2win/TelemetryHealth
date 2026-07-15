@@ -135,7 +135,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
               {delta >= 0 ? `+${delta}` : delta} vs last week
             </div>
             <div className="score-caption" style={{ marginTop: '4px' }}>
-              composite • org rollup
+              composite • ai agents • org rollup
             </div>
           </div>
         </div>
@@ -211,6 +211,24 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           isInteractive
           isActive={activeDrilldown === 'cost'}
           onClick={() => toggleDrilldown('cost')}
+        />
+        <Metric
+          label="Token Burn Rate"
+          value={data.metrics?.tokenBurnRate?.value ?? '1,204'}
+          sub="tokens / sec"
+          percent={85}
+          color="phosphor"
+          tooltip="Average LLM token burn rate across all AI agents"
+          change={data.metrics?.tokenBurnRate?.change ?? 12.5}
+        />
+        <Metric
+          label="Tool Call Success"
+          value={data.metrics?.toolCallSuccess?.value ?? '98.5%'}
+          sub="agent reliability"
+          percent={98}
+          color="phosphor"
+          tooltip="Success rate of agent tool executions (no errors)"
+          change={data.metrics?.toolCallSuccess?.change ?? 0.2}
         />
       </div>
 

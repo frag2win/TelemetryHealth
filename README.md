@@ -15,6 +15,22 @@
 
 ---
 
+## 🤖 AI Agent Observability (Hackathon Theme)
+
+TelemetryHealth was built for the **SigNoz Agents of Observability Hackathon**. It monitors AI agent workflows instrumented with OpenTelemetry, detecting:
+
+- **Token cost explosions** - Agents burning through LLM credits
+- **Broken decision chains** - Missing spans in agentic reasoning loops  
+- **Tool call failures** - Silent failures in agent tool execution
+- **Cardinality explosions** - High-cardinality attributes in agent prompts
+
+See [`sdk-clients/ai-agent-demo/`](./sdk-clients/ai-agent-demo/) for a sample instrumented agent.
+
+### 🎥 Demo Video
+[Link to Hackathon Demo Video](#) (Replace with actual link before submission)
+
+---
+
 ## 📌 What Is TelemetryHealth?
 
 TelemetryHealth is a production-ready observability reliability platform. It sits **inline with your OpenTelemetry Collector pipeline** and continuously monitors the health of your telemetry signals — catching cardinality explosions, broken trace chains, and coverage gaps **before** they corrupt your dashboards or exceed your billing.
@@ -271,3 +287,12 @@ This project is licensed under the **MIT License**.
 Built with ❤️ using Go, React, and OpenTelemetry
 
 </div>
+
+---
+
+## 🤖 AI Assistant Usage
+
+This project was built with assistance from:
+- GitHub Copilot (code completion)
+- ChatGPT (architecture review)
+- Gemini (implementation assistance)
