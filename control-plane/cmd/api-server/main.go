@@ -44,7 +44,7 @@ func main() {
 	client, err := ch.NewClient(
 		ctx,
 		[]string{"127.0.0.1:9000"},
-		"telemetry_health", "telemetry", "",
+		"telemetry_health", "default", "",
 		logger,
 	)
 	cancel()

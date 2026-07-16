@@ -27,7 +27,7 @@ func main() {
 		Addr: []string{*host},
 		Auth: clickhouse.Auth{
 			Database: "telemetry_health",
-			Username: "telemetry",
+			Username: "default",
 			Password: "",
 		},
 		DialTimeout: 5 * time.Second,

@@ -143,11 +143,28 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
   ];
 
   // useTenantData shared hook implements AbortController and proxy compliance
-  const { data: agentsData, loading, error, errorMsg } = useTenantData<AgentTrace[]>(
+  const { data: rawAgentsData, loading, error, errorMsg } = useTenantData<any[]>(
     tenantId,
     'agents',
     fallbackAgents
   );
+
+  const agentsData = (rawAgentsData ?? []).map(a => {
+    if (a.spans) return a as AgentTrace;
+    return {
+      ...a,
+      spans: (a.decisions || []).map((d: any, i: number) => ({
+        id: `s${i}`,
+        name: d.step || d.name || 'step',
+        tool: d.tool,
+        start: i * 30,
+        duration: 30,
+        latency: '0.8s',
+        status: (d.status === 'error' || d.status === 'warning') ? d.status : 'success',
+        attributes: {}
+      }))
+    } as AgentTrace;
+  });
 
   const agents = agentsData ?? [];
 

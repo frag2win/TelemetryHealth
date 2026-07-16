@@ -25,6 +25,7 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/mcp"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/simulator"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -279,6 +280,7 @@ func (s *Server) Start(addr string) error {
 	r.Route("/api/v1/tenant/{tenant_id}", func(r chi.Router) {
 		r.Use(oidcAuthMiddleware)
 		r.Get("/health", s.GetTenantHealth)
+		r.Post("/simulate", s.SimulateFailure)
 		r.Get("/issues", s.GetTenantIssues)
 		r.Get("/agents", s.GetAgentTraces)
 		r.Get("/coverage", s.GetCoverage)
@@ -597,4 +599,60 @@ func (s *Server) HandleTenantConfigPut(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+}
+
+// @Summary Simulate telemetry failure
+// @Description Injects a simulated anomaly into the pipeline for the given tenant
+// @Tags tenant
+// @Accept json
+// @Produce json
+// @Param tenant_id path string true "Tenant UUID or slug"
+// @Param request body object true "Simulation payload, e.g. {\"scenario\": \"high_cardinality\"}"
+// @Success 202 {object} map[string]string
+// @Failure 400 {object} APIError
+// @Router /tenant/{tenant_id}/simulate [post]
+func (s *Server) SimulateFailure(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	if !validateTenantID(w, tenantID) {
+		return
+	}
+
+	var req struct {
+		Scenario string `json:"scenario"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, "INVALID_REQUEST", "invalid json body", http.StatusBadRequest)
+		return
+	}
+
+	endpoint := os.Getenv("INGEST_GATEWAY_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "127.0.0.1:4317"
+	}
+
+	sim := simulator.NewSimulator(s.logger, endpoint)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	var err error
+	switch req.Scenario {
+	case "high_cardinality":
+		err = sim.InjectHighCardinality(ctx, tenantID)
+	case "dropped_spans":
+		err = sim.InjectDroppedSpans(ctx, tenantID)
+	default:
+		writeError(w, "UNKNOWN_SCENARIO", "unknown scenario: "+req.Scenario, http.StatusBadRequest)
+		return
+	}
+
+	if err != nil {
+		s.logger.Error("Simulation failed", zap.Error(err))
+		writeError(w, "SIMULATION_FAILED", "failed to inject simulation data", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{"status": "simulation_injected"})
 }

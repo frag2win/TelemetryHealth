@@ -37,7 +37,7 @@ func (s *Schema) InitSchema() error {
 		) ENGINE = AggregatingMergeTree()
 		PARTITION BY toYYYYMM(window_start)
 		ORDER BY (tenant_id, service, attribute_key, window_start)
-		TTL window_start + INTERVAL 30 DAY`,
+		TTL toDateTime(window_start) + INTERVAL 30 DAY`,
 
 		// orphan_signal: raw event store with 30-day TTL (PRD §9.1)
 		`CREATE TABLE IF NOT EXISTS telemetry_health.orphan_signal (
@@ -50,7 +50,7 @@ func (s *Schema) InitSchema() error {
 		) ENGINE = MergeTree()
 		PARTITION BY toYYYYMM(detected_at)
 		ORDER BY (tenant_id, detected_at)
-		TTL detected_at + INTERVAL 30 DAY`,
+		TTL toDateTime(detected_at) + INTERVAL 30 DAY`,
 
 		// coverage_signal: ReplacingMergeTree for upserts, no TTL (baseline-driven)
 		`CREATE TABLE IF NOT EXISTS telemetry_health.coverage_signal (
@@ -95,7 +95,7 @@ func (s *Schema) InitSchema() error {
 		) ENGINE = MergeTree()
 		PARTITION BY toYYYYMM(ts)
 		ORDER BY (tenant_id, ts)
-		TTL ts + INTERVAL 90 DAY`,
+		TTL toDateTime(ts) + INTERVAL 90 DAY`,
 
 		// alert_event: deduplicated alert history with delivery tracking, 30-day TTL
 		`CREATE TABLE IF NOT EXISTS telemetry_health.alert_event (
@@ -112,7 +112,7 @@ func (s *Schema) InitSchema() error {
 		) ENGINE = MergeTree()
 		PARTITION BY toYYYYMM(ts)
 		ORDER BY (tenant_id, alert_id, ts)
-		TTL ts + INTERVAL 30 DAY`,
+		TTL toDateTime(ts) + INTERVAL 30 DAY`,
 
 		// tenant_config: per-tenant configurable health score weights (PRD §8.4)
 		`CREATE TABLE IF NOT EXISTS telemetry_health.tenant_config (
