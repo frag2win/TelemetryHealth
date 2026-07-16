@@ -69,7 +69,7 @@ func main() {
 	metricsMux := http.NewServeMux()
 	metricsMux.Handle("/metrics", promhttp.Handler())
 	metricsServer := &http.Server{
-		Addr:    ":9090",
+		Addr:    ":9094",
 		Handler: metricsMux,
 	}
 	go func() {

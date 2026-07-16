@@ -96,7 +96,7 @@ function NavItem({ id, chan, label, ledClass, activeView, onClick }: NavItemProp
 function App() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [activeView, setActiveView] = useState<string>('overview');
-  const [selectedTenantId, setSelectedTenantId] = useState<string>('acme-prod');
+  const [selectedTenantId, setSelectedTenantId] = useState<string>('00000000-0000-0000-0000-000000000001');
   const [timeRange, setTimeRange] = useState<string>('6h');
   const [dataSource, setDataSource] = useState<'live' | 'mock'>('live');
   const [theme, setTheme] = useState<string>(() => localStorage.getItem('theme') ?? 'dark');
