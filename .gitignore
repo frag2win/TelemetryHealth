@@ -38,3 +38,4 @@ dashboard/.env.production.local
 # Docker
 .docker/
 docker-compose.override.yml
+.gocache/
