@@ -77,7 +77,7 @@ func (s *Schema) InitSchema() error {
 		) ENGINE = MergeTree()
 		PARTITION BY toYYYYMM(ts)
 		ORDER BY (tenant_id, scope, service, environment, ts)
-		TTL ts + INTERVAL 12 MONTH`,
+		TTL toDateTime(ts) + INTERVAL 12 MONTH`,
 
 		// remediation_event: SOC 2 audit trail, 90-day retention (PRD §9.1, §10 Security)
 		`CREATE TABLE IF NOT EXISTS telemetry_health.remediation_event (

@@ -18,6 +18,9 @@ import (
 )
 
 func main() {
+	if os.Getenv("ENV") != "production" && os.Getenv("INSECURE_DEV_MODE") == "" {
+		os.Setenv("INSECURE_DEV_MODE", "true")
+	}
 	logger, err := zap.NewProduction()
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)

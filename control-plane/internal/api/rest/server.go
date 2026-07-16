@@ -23,11 +23,15 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/behavior"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/decision"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/mcp"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/rootcause"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/simulator"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
+	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.opentelemetry.io/otel"
@@ -292,6 +296,14 @@ func (s *Server) Start(addr string) error {
 
 	// Remediation apply endpoint
 	r.With(oidcAuthMiddleware).Post("/api/v1/remediation/apply", s.ApplyRemediation)
+
+	// Agent trace intelligence endpoints (milestone Person A)
+	r.Route("/api/agents/{agent_id}/traces/{trace_id}", func(r chi.Router) {
+		r.Use(oidcAuthMiddleware)
+		r.Get("/behavior", s.GetBehaviorGraph)
+		r.Get("/decisions", s.GetDecisionGraph)
+		r.Get("/root-cause", s.GetRootCause)
+	})
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
@@ -655,4 +667,147 @@ func (s *Server) SimulateFailure(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(map[string]string{"status": "simulation_injected"})
+}
+
+// GetBehaviorGraph returns the reconstructed BehaviorGraph for a given traceID.
+func (s *Server) GetBehaviorGraph(w http.ResponseWriter, r *http.Request) {
+	traceID := chi.URLParam(r, "trace_id")
+	if traceID == "" {
+		writeError(w, "INVALID_TRACE_ID", "trace_id is required", http.StatusBadRequest)
+		return
+	}
+
+	var spans []models.SpanData
+	var err error
+	if s.healthRepo != nil {
+		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+		if err != nil {
+			s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
+			writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		// Mock mode
+		s.logger.Info("ClickHouse unavailable, using mock trace data", zap.String("trace_id", traceID))
+		dummyRepo := clickhouse.NewHealthRepository(nil, s.logger)
+		spans, _ = dummyRepo.QuerySpansByTraceID(r.Context(), traceID)
+	}
+
+	if len(spans) == 0 {
+		writeError(w, "TRACE_NOT_FOUND", "No spans found for trace_id: "+traceID, http.StatusNotFound)
+		return
+	}
+
+	engine := behavior.NewEngine()
+	graph, err := engine.Reconstruct(traceID, spans)
+	if err != nil {
+		s.logger.Error("Failed to reconstruct behavior graph", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "RECONSTRUCTION_FAILED", "Failed to reconstruct behavior graph: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(graph)
+}
+
+// GetDecisionGraph returns the reconstructed DecisionGraph for a given traceID.
+func (s *Server) GetDecisionGraph(w http.ResponseWriter, r *http.Request) {
+	traceID := chi.URLParam(r, "trace_id")
+	if traceID == "" {
+		writeError(w, "INVALID_TRACE_ID", "trace_id is required", http.StatusBadRequest)
+		return
+	}
+
+	var spans []models.SpanData
+	var err error
+	if s.healthRepo != nil {
+		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+		if err != nil {
+			s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
+			writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		dummyRepo := clickhouse.NewHealthRepository(nil, s.logger)
+		spans, _ = dummyRepo.QuerySpansByTraceID(r.Context(), traceID)
+	}
+
+	if len(spans) == 0 {
+		writeError(w, "TRACE_NOT_FOUND", "No spans found for trace_id: "+traceID, http.StatusNotFound)
+		return
+	}
+
+	behEngine := behavior.NewEngine()
+	behGraph, err := behEngine.Reconstruct(traceID, spans)
+	if err != nil {
+		s.logger.Error("Failed to reconstruct behavior graph", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "RECONSTRUCTION_FAILED", "Failed to reconstruct behavior graph", http.StatusInternalServerError)
+		return
+	}
+
+	decEngine := decision.NewEngine()
+	decGraph, err := decEngine.Reconstruct(behGraph)
+	if err != nil {
+		s.logger.Error("Failed to reconstruct decision graph", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "RECONSTRUCTION_FAILED", "Failed to reconstruct decision graph", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(decGraph)
+}
+
+// GetRootCause returns the reconstructed RootCause analysis for a given traceID.
+func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
+	traceID := chi.URLParam(r, "trace_id")
+	if traceID == "" {
+		writeError(w, "INVALID_TRACE_ID", "trace_id is required", http.StatusBadRequest)
+		return
+	}
+
+	var spans []models.SpanData
+	var err error
+	if s.healthRepo != nil {
+		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+		if err != nil {
+			s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
+			writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		dummyRepo := clickhouse.NewHealthRepository(nil, s.logger)
+		spans, _ = dummyRepo.QuerySpansByTraceID(r.Context(), traceID)
+	}
+
+	if len(spans) == 0 {
+		writeError(w, "TRACE_NOT_FOUND", "No spans found for trace_id: "+traceID, http.StatusNotFound)
+		return
+	}
+
+	behEngine := behavior.NewEngine()
+	behGraph, err := behEngine.Reconstruct(traceID, spans)
+	if err != nil {
+		s.logger.Error("Failed to reconstruct behavior graph", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "RECONSTRUCTION_FAILED", "Failed to reconstruct behavior graph", http.StatusInternalServerError)
+		return
+	}
+
+	decEngine := decision.NewEngine()
+	decGraph, err := decEngine.Reconstruct(behGraph)
+	if err != nil {
+		s.logger.Error("Failed to reconstruct decision graph", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "RECONSTRUCTION_FAILED", "Failed to reconstruct decision graph", http.StatusInternalServerError)
+		return
+	}
+
+	rcEngine := rootcause.NewEngine()
+	rc, err := rcEngine.Analyze(behGraph, decGraph)
+	if err != nil {
+		s.logger.Error("Failed to analyze root cause", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "ANALYSIS_FAILED", "Failed to analyze root cause", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(rc)
 }

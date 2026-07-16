@@ -7,10 +7,12 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	trace "go.opentelemetry.io/otel/trace"
+	"go.uber.org/zap"
 )
 
 func TestRateLimitMiddleware(t *testing.T) {
@@ -125,4 +127,37 @@ func TestInjectTraceContext(t *testing.T) {
 		// Just a general check
 	}
 	_ = expectedSubstring
+}
+
+func TestServer_AgentTraceEndpoints(t *testing.T) {
+	s := NewServer(zap.NewNop(), nil)
+
+	r := chi.NewRouter()
+	r.Get("/api/agents/{agent_id}/traces/{trace_id}/behavior", s.GetBehaviorGraph)
+	r.Get("/api/agents/{agent_id}/traces/{trace_id}/decisions", s.GetDecisionGraph)
+	r.Get("/api/agents/{agent_id}/traces/{trace_id}/root-cause", s.GetRootCause)
+
+	// 1. Test Behavior Graph Endpoint
+	req := httptest.NewRequest(http.MethodGet, "/api/agents/ai-agent/traces/trace-992/behavior", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 OK, got %d", w.Code)
+	}
+
+	// 2. Test Decisions Graph Endpoint
+	req = httptest.NewRequest(http.MethodGet, "/api/agents/ai-agent/traces/trace-992/decisions", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 OK, got %d", w.Code)
+	}
+
+	// 3. Test Root Cause Endpoint
+	req = httptest.NewRequest(http.MethodGet, "/api/agents/ai-agent/traces/trace-992/root-cause", nil)
+	w = httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 OK, got %d", w.Code)
+	}
 }

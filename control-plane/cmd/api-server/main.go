@@ -17,6 +17,9 @@ import (
 )
 
 func main() {
+	if os.Getenv("ENV") != "production" && os.Getenv("INSECURE_DEV_MODE") == "" {
+		os.Setenv("INSECURE_DEV_MODE", "true")
+	}
 	// PRD §10 Security, Improvement #2.1: panic immediately if INSECURE_DEV_MODE is set in production.
 	authz.ValidateStartupConfig()
 

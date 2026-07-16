@@ -50,7 +50,7 @@ const AnimatedHealthGauge = ({ score }: AnimatedHealthGaugeProps) => {
           style={{ transition: 'stroke-dashoffset 0.3s ease-in-out, stroke 0.3s ease-in-out' }}
         />
         <text x="100" y="115" textAnchor="middle" fontSize="48" fontWeight="600" fill={color} className="transition-colors">
-          {displayScore}
+          {typeof displayScore === 'number' && !isNaN(displayScore) ? Math.round(displayScore) : 0}
         </text>
       </svg>
     </div>
@@ -80,7 +80,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
   ];
 
   // useTenantData custom hook safely retrieves dynamic issues utilizing AbortController
-  const { data: issues, loading: issuesLoading, error: issuesError } = useTenantData<IssueItem[]>(
+  const { data: issues, loading: issuesLoading, error: hasIssuesError, errorMsg: issuesErrorMsg } = useTenantData<IssueItem[]>(
     tenantId,
     'issues',
     fallbackIssues
@@ -292,8 +292,8 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
       {/* Active issues list */}
       <h2 className="section-title">Active issues</h2>
 
-      {issuesError && (
-        <ErrorBanner message={`Error loading live issues: ${issuesError}. Showing fallback records.`} />
+      {hasIssuesError && (
+        <ErrorBanner message={`Error loading live issues: ${issuesErrorMsg ?? 'Unknown Error'}. Showing fallback records.`} />
       )}
 
       <div className="panel panel-tight">

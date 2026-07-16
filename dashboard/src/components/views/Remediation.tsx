@@ -193,7 +193,7 @@ function RemediationCard({
         <div
           style={{
             margin: '8px 12px 12px',
-            background: 'rgba(245, 166, 35, 0.08)',
+            background: 'var(--amber-dim)',
             border: '1px solid var(--amber)',
             borderRadius: '4px',
             padding: '8px 12px',
@@ -370,7 +370,7 @@ export function Remediation({ apiRemediation }: RemediationProps) {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)'
+            boxShadow: 'var(--shadow-sm)'
           }}
         >
           {toast.isError ? <AlertTriangle size={16} /> : <Check size={16} />}

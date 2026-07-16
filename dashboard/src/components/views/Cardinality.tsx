@@ -67,7 +67,7 @@ export function Cardinality({ data: _data, tenantId }: CardinalityProps) {
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            boxShadow: 'var(--shadow-sm)',
             fontSize: '13px'
           }}
         >

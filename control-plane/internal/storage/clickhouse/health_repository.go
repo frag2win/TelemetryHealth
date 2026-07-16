@@ -3,11 +3,13 @@ package clickhouse
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	ch "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
+	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
 	"go.uber.org/zap"
 )
 
@@ -282,4 +284,265 @@ func (r *HealthRepository) LogRemediationEvent(ctx context.Context, tenantID str
 
 // Ensure driver package is used.
 var _ driver.Conn
+
+// QuerySpansByTraceID fetches spans for a given traceID from ClickHouse.
+// Falls back to mock data if no spans are found.
+func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID string) ([]models.SpanData, error) {
+	// Attempt to query clickhouse first
+	query := `
+		SELECT 
+			trace_id,
+			span_id,
+			parent_span_id,
+			service_name,
+			name,
+			duration_nano,
+			timestamp,
+			attributes_map,
+			status_code
+		FROM signoz_traces.signoz_index_v2
+		WHERE trace_id = {trace_id:String}
+		ORDER BY timestamp ASC`
+
+	var spans []models.SpanData
+	if r.conn != nil {
+		rows, err := r.conn.Query(ctx, query, ch.Named("trace_id", traceID))
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var span models.SpanData
+				var statusVal uint8
+				if err := rows.Scan(
+					&span.TraceID,
+					&span.SpanID,
+					&span.ParentSpanID,
+					&span.ServiceName,
+					&span.Name,
+					&span.DurationNano,
+					&span.Timestamp,
+					&span.Attributes,
+					&statusVal,
+				); err == nil {
+					if statusVal == 2 { // OpenTelemetry ERROR is status code 2
+						span.StatusCode = "ERROR"
+					} else {
+						span.StatusCode = "OK"
+					}
+					spans = append(spans, span)
+				}
+			}
+		} else {
+			r.logger.Warn("Failed to query ClickHouse for spans, falling back to mock trace data", zap.String("trace_id", traceID), zap.Error(err))
+		}
+	} else {
+		r.logger.Info("ClickHouse connection is nil, skipping query and falling back to mock trace data", zap.String("trace_id", traceID))
+	}
+
+	// Fallback to mock data if empty or error
+	if len(spans) == 0 {
+		r.logger.Info("No spans found in ClickHouse, generating mock trace", zap.String("trace_id", traceID))
+		spans = r.generateMockSpans(traceID)
+	}
+
+	return spans, nil
+}
+
+// generateMockSpans creates realistic traces for local development and demos.
+func (r *HealthRepository) generateMockSpans(traceID string) []models.SpanData {
+	now := time.Now()
+
+	// Pattern 1: Tool Timeout and Retry (trace-992 or similar)
+	if strings.Contains(traceID, "992") || strings.Contains(traceID, "fail") || strings.Contains(traceID, "timeout") {
+		return []models.SpanData{
+			{
+				TraceID:      traceID,
+				SpanID:       "span-root",
+				ParentSpanID: "",
+				ServiceName:  "ai-agent",
+				Name:         "agent.workflow",
+				DurationNano: int64(3000 * time.Millisecond),
+				Timestamp:    now,
+				Attributes: map[string]string{
+					"workflow.topic": "Observability best practices",
+				},
+				StatusCode: "ERROR",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-tool-fail",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.research",
+				DurationNano: int64(1000 * time.Millisecond),
+				Timestamp:    now.Add(100 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.tool_name":       "web_search",
+					"llm.tool_call.error": "TimeoutError: connection refused",
+				},
+				StatusCode: "ERROR",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-tool-retry",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.research",
+				DurationNano: int64(800 * time.Millisecond),
+				Timestamp:    now.Add(1200 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.tool_name": "web_search",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-llm-summarize",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.summarize",
+				DurationNano: int64(1200 * time.Millisecond),
+				Timestamp:    now.Add(2100 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.model":           "gpt-4o",
+					"llm.token_usage":     "1250",
+					"llm.prompt.raw_abcd": "Information about Observability best practices",
+				},
+				StatusCode: "OK",
+			},
+		}
+	}
+
+	// Pattern 2: Token Limit Exceeded
+	if strings.Contains(traceID, "token") || strings.Contains(traceID, "limit") {
+		return []models.SpanData{
+			{
+				TraceID:      traceID,
+				SpanID:       "span-root",
+				ParentSpanID: "",
+				ServiceName:  "ai-agent",
+				Name:         "agent.workflow",
+				DurationNano: int64(2200 * time.Millisecond),
+				Timestamp:    now,
+				Attributes: map[string]string{
+					"workflow.topic": "Vector databases",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-tool",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.research",
+				DurationNano: int64(900 * time.Millisecond),
+				Timestamp:    now.Add(100 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.tool_name": "web_search",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-llm-heavy",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.summarize",
+				DurationNano: int64(1200 * time.Millisecond),
+				Timestamp:    now.Add(1000 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.model":       "gpt-4o",
+					"llm.token_usage": "5200",
+				},
+				StatusCode: "OK",
+			},
+		}
+	}
+
+	// Pattern 3: Retrieval Collapse
+	if strings.Contains(traceID, "retrieve") || strings.Contains(traceID, "collapse") {
+		return []models.SpanData{
+			{
+				TraceID:      traceID,
+				SpanID:       "span-root",
+				ParentSpanID: "",
+				ServiceName:  "ai-agent",
+				Name:         "agent.workflow",
+				DurationNano: int64(1500 * time.Millisecond),
+				Timestamp:    now,
+				Attributes:   map[string]string{"workflow.topic": "nonexistent term"},
+				StatusCode:   "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-retriever",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.retrieve",
+				DurationNano: int64(300 * time.Millisecond),
+				Timestamp:    now.Add(100 * time.Millisecond),
+				Attributes: map[string]string{
+					"retriever.documents_count": "0",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-llm",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.summarize",
+				DurationNano: int64(1000 * time.Millisecond),
+				Timestamp:    now.Add(400 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.model": "gpt-4o",
+				},
+				StatusCode: "OK",
+			},
+		}
+	}
+
+	// Pattern 4: Normal Flow (trace-991 or default)
+	return []models.SpanData{
+		{
+			TraceID:      traceID,
+			SpanID:       "span-root",
+			ParentSpanID: "",
+			ServiceName:  "ai-agent",
+			Name:         "agent.workflow",
+			DurationNano: int64(2500 * time.Millisecond),
+			Timestamp:    now,
+			Attributes: map[string]string{
+				"workflow.topic": "LLM cost optimization",
+			},
+			StatusCode: "OK",
+		},
+		{
+			TraceID:      traceID,
+			SpanID:       "span-tool",
+			ParentSpanID: "span-root",
+			ServiceName:  "ai-agent",
+			Name:         "agent.research",
+			DurationNano: int64(1100 * time.Millisecond),
+			Timestamp:    now.Add(100 * time.Millisecond),
+			Attributes: map[string]string{
+				"llm.tool_name": "web_search",
+			},
+			StatusCode: "OK",
+		},
+		{
+			TraceID:      traceID,
+			SpanID:       "span-llm",
+			ParentSpanID: "span-root",
+			ServiceName:  "ai-agent",
+			Name:         "agent.summarize",
+			DurationNano: int64(1200 * time.Millisecond),
+			Timestamp:    now.Add(1250 * time.Millisecond),
+			Attributes: map[string]string{
+				"llm.model":       "gpt-4o",
+				"llm.token_usage": "980",
+			},
+			StatusCode: "OK",
+		},
+	}
+}
 

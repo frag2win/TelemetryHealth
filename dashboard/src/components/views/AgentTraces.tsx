@@ -270,7 +270,7 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
                 </div>
 
                 {/* Mini Gantt trace waterfall chart preview */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'rgba(0,0,0,0.15)', padding: '6px', borderRadius: '4px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--bezel-soft)', padding: '6px', borderRadius: '4px' }}>
                   {trace.spans.map((span) => {
                     const barColor =
                       span.status === 'error'
@@ -346,7 +346,7 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
                         </div>
 
                         {/* Visual Timeline bar */}
-                        <div style={{ width: '100%', background: 'rgba(255,255,255,0.05)', height: '14px', borderRadius: '3px', position: 'relative' }}>
+                        <div style={{ width: '100%', background: 'var(--bezel-soft)', height: '14px', borderRadius: '3px', position: 'relative' }}>
                           <div
                             style={{
                               position: 'absolute',
@@ -368,7 +368,7 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
                 {activeSpan ? (
                   <div
                     style={{
-                      background: 'rgba(0,0,0,0.2)',
+                      background: 'var(--panel-2)',
                       padding: '12px',
                       borderRadius: '4px',
                       borderLeft: `3px solid ${

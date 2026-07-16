@@ -34,8 +34,8 @@ class ErrorBoundary extends Component<Props, State> {
         <div
           style={{
             padding: '40px',
-            background: '#0B0F0E',
-            color: '#E8ECE9',
+            background: 'var(--ink, #0B0F0E)',
+            color: 'var(--paper, #E8ECE9)',
             height: '100vh',
             display: 'flex',
             flexDirection: 'column',
@@ -51,7 +51,7 @@ class ErrorBoundary extends Component<Props, State> {
           </p>
           <button
             style={{
-              background: '#161D1B',
+              background: 'var(--panel-2, #161D1B)',
               border: '1px solid var(--phosphor, #5CE1A5)',
               color: 'var(--phosphor, #5CE1A5)',
               padding: '8px 16px',

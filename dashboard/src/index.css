@@ -18,11 +18,15 @@
   --mono: 'IBM Plex Mono', ui-monospace, monospace;
   --sans: 'IBM Plex Sans', ui-sans-serif, sans-serif;
   
-  /* Additional UI elements */
+  /* Additional UI elements & glassmorphism tokens */
   --toast-bg: #161D1B;
   --toast-border: #5CE1A5;
   --tooltip-bg: #1c2724;
   --tooltip-text: #ffffff;
+  --panel-bg: rgba(18, 25, 23, 0.75);
+  --panel-border: rgba(92, 225, 165, 0.12);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.45);
 }
 
 [data-theme="light"] {
@@ -31,20 +35,24 @@
   --panel-2: #F0F4F2;
   --bezel: #D0DDD9;
   --bezel-soft: #E2EAE7;
-  --phosphor: #1B8C5A;
-  --phosphor-dim: rgba(27, 140, 90, 0.1);
-  --amber: #C97D00;
-  --amber-dim: rgba(201, 125, 0, 0.1);
-  --red: #D32F2F;
-  --red-dim: rgba(211, 47, 47, 0.1);
-  --paper: #1B2421;
-  --muted: #62726E;
-  --muted-2: #869692;
+  --phosphor: #167D4D;
+  --phosphor-dim: rgba(22, 125, 77, 0.12);
+  --amber: #B86E00;
+  --amber-dim: rgba(184, 110, 0, 0.12);
+  --red: #C62828;
+  --red-dim: rgba(198, 40, 40, 0.12);
+  --paper: #141C1A;
+  --muted: #4E5E5A;
+  --muted-2: #6A7975;
   
   --toast-bg: #FFFFFF;
-  --toast-border: #1B8C5A;
-  --tooltip-bg: #1B2421;
+  --toast-border: #167D4D;
+  --tooltip-bg: #141C1A;
   --tooltip-text: #FFFFFF;
+  --panel-bg: rgba(255, 255, 255, 0.90);
+  --panel-border: rgba(208, 221, 217, 0.9);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.07);
 }
 
 * { box-sizing: border-box; }
@@ -232,8 +240,8 @@ pre.code { margin: 0; padding: 14px 16px; background: var(--ink); font-family: v
 /* ---------- Diff views ---------- */
 .diff-container { display: flex; flex-direction: column; font-family: var(--mono); font-size: 12px; background: var(--ink); border-radius: 4px; overflow: hidden; }
 .diff-line { display: flex; padding: 2px 12px; line-height: 1.6; }
-.diff-line-added { background: rgba(92, 225, 165, 0.08); color: var(--phosphor); border-left: 3px solid var(--phosphor); }
-.diff-line-removed { background: rgba(255, 77, 77, 0.08); color: var(--red); border-left: 3px solid var(--red); }
+.diff-line-added { background: var(--phosphor-dim); color: var(--phosphor); border-left: 3px solid var(--phosphor); }
+.diff-line-removed { background: var(--red-dim); color: var(--red); border-left: 3px solid var(--red); }
 .diff-line-unchanged { color: var(--muted); border-left: 3px solid transparent; }
 .diff-line-num { width: 30px; text-align: right; margin-right: 12px; color: var(--muted-2); user-select: none; }
 
@@ -255,7 +263,7 @@ pre.code { margin: 0; padding: 14px 16px; background: var(--ink); font-family: v
   padding: 6px 10px;
   font-size: 11px;
   line-height: 1.4;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow-sm);
   max-width: 240px;
   z-index: 10000;
 }
@@ -310,11 +318,11 @@ pre.code { margin: 0; padding: 14px 16px; background: var(--ink); font-family: v
 
 /* ---------- Premium Glassmorphism & Cyber Glows ---------- */
 .panel {
-  background: rgba(22, 29, 27, 0.65) !important;
+  background: var(--panel-bg) !important;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(92, 225, 165, 0.1) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  border: 1px solid var(--panel-border) !important;
+  box-shadow: var(--shadow-lg);
 }
 
 .select-dropdown {
