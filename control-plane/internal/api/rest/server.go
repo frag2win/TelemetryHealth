@@ -39,6 +39,7 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
+	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 	_ "github.com/frag2win/TelemetryHealth/control-plane/docs" // imported for swagger
 )
@@ -63,7 +64,11 @@ type Server struct {
 }
 
 func NewServer(logger *zap.Logger, healthRepo *clickhouse.HealthRepository) *Server {
-	replayRepo := clickhouse.NewReplayRepository(healthRepo.DB(), logger)
+	var conn driver.Conn
+	if healthRepo != nil {
+		conn = healthRepo.DB()
+	}
+	replayRepo := clickhouse.NewReplayRepository(conn, logger)
 	return &Server{
 		logger:      logger,
 		healthRepo:  healthRepo,
