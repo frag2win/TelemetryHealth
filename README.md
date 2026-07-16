@@ -51,6 +51,7 @@ Every tenant gets a real-time **Composite Health Score (0–100)**, and when an 
 | 🔔 **Alerting Bridges** | Integrates with SigNoz Alertmanager with deduplication and 15-minute cooldown suppression |
 | 🏢 **Multi-Tenancy** | Zero-trust mTLS authentication validates tenant claims against SPIFFE/X.509 certificate SANs |
 | 🛡 **Fail-Open Design** | All processor logic is wrapped in a circuit breaker — a processor crash **never** blocks the primary OTel pipeline |
+| 🤖 **SigNoz MCP Server** | Exposes the TelemetryHealth insights and autonomous remediation tools to SigNoz's AI agents via the Model Context Protocol |
 
 ---
 
@@ -214,6 +215,17 @@ Returns the current composite health state for a tenant.
 
 ---
 
+## 🤖 SigNoz MCP Server Integration
+
+TelemetryHealth implements a **Model Context Protocol (MCP)** server to natively integrate with SigNoz's AI workflows. The MCP server exposes our deep telemetry insights directly to SigNoz as autonomous tools:
+
+1. **`GetTelemetryHealth`**: SigNoz AI agents can query the real-time composite health score, cardinality metrics, and orphan span rates for any tenant.
+2. **`GenerateRemediation`**: When an issue is detected, SigNoz agents can use this tool to autonomously request a verified, ready-to-deploy OTel YAML configuration patch (e.g., dropping high-cardinality attributes).
+
+This integration is located in `control-plane/internal/mcp/tools.go` and transforms TelemetryHealth from a passive monitoring system into an **Autonomous Telemetry Intelligence Platform**.
+
+---
+
 ## 🔐 Security Model
 
 - **mTLS Everywhere**: The Ingest Gateway requires mutual TLS for all incoming OTLP connections.
@@ -259,7 +271,7 @@ Full technical documentation, implementation status, and build reports are track
 | M2 — Control Plane (Beta) | ✅ Complete | Ingest Gateway, mTLS AuthZ, Stream Jobs, ClickHouse Schema |
 | M3 — Remediation & Hardening (GA) | ✅ Complete | Remediation Generator, SigNoz Bridge, Helm Charts |
 | M4 — Dashboard | ✅ Complete | React UI with Health Gauge, Metric Cards, YAML Viewer |
-| M5 — Kafka Integration | 🔜 Planned | Wire stream jobs to a real Kafka/Redpanda cluster |
+| M5 — Kafka Integration | ✅ Complete | Stream jobs wired to Kafka producer/worker sets in `cmd/ingest-gateway` and `cmd/worker` |
 | M6 — ClickHouse Seeder | 🔜 Planned | Inject realistic historical telemetry data for demo |
 
 ---
