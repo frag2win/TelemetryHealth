@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/frag2win/TelemetryHealth/processor/cardinality"
 	"github.com/frag2win/TelemetryHealth/processor/failopen"
 	"go.opentelemetry.io/collector/component"
 	"go.uber.org/zap"
@@ -24,6 +25,7 @@ type baseConsumer struct {
 	cb             *failopen.CircuitBreaker
 	healthExportCh chan HealthSignal
 	logger         *zap.Logger
+	tracker        *cardinality.Tracker
 }
 
 // HealthSignal carries structural health telemetry to be shipped to the control plane.
@@ -48,6 +50,7 @@ func newBaseConsumer(cfg component.Config, logger *zap.Logger) (baseConsumer, er
 		cb:             failopen.NewCircuitBreaker(procCfg.CircuitBreakerLimit, procCfg.CircuitBreakerTimeout, logger),
 		healthExportCh: make(chan HealthSignal, healthExportQueueSize),
 		logger:         logger,
+		tracker:        cardinality.NewTracker(procCfg.MaxMemoryBytes, 100, logger),
 	}, nil
 }
 

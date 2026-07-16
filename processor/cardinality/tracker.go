@@ -43,7 +43,8 @@ func NewTracker(maxMemoryBytes int64, maxKeys int, logger *zap.Logger) *Tracker 
 }
 
 // Observe records a value for a specific service and attribute key.
-func (t *Tracker) Observe(service, attrKey, attrValue string) {
+// Returns true if the key is allowed/tracked, and false if dropped due to limit/memory.
+func (t *Tracker) Observe(service, attrKey, attrValue string) bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
@@ -61,14 +62,14 @@ func (t *Tracker) Observe(service, attrKey, attrValue string) {
 				zap.String("service", service),
 				zap.String("key", attrKey),
 				zap.Int("max_keys", t.maxKeys))
-			return
+			return false
 		}
 
 		// A precision 14 HLL sketch takes around 12-16KB. Let's assume 16KB.
 		const sketchMem = 16384
 		if t.maxMemoryBytes > 0 && t.currentMemory+sketchMem > t.maxMemoryBytes {
 			t.logger.Warn("Memory limit reached for cardinality tracker", zap.Int64("limit", t.maxMemoryBytes))
-			return
+			return false
 		}
 
 		sketch = hyperloglog.New14()
@@ -77,6 +78,7 @@ func (t *Tracker) Observe(service, attrKey, attrValue string) {
 	}
 
 	sketch.Insert([]byte(attrValue))
+	return true
 }
 
 // Flush returns a deep copy of the current tracking state and resets it (for rolling window export).

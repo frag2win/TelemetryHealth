@@ -21,6 +21,20 @@ resolved:
       telemetryhealth:
         enabled: true
         version: "0.1.0"
+    exporters:
+      signoz:
+        dashboard_path: "./signoz_implementations/agent_health.json"
+        alerts_path: "./alerts/telemetry-health-alerts.yaml"
+  mcp_tools:
+    server: "stitch"
+    enabled: true
+    tools:
+      - "create_project"
+      - "get_project"
+      - "list_projects"
+      - "list_screens"
+      - "get_screen"
 pours:
   path: "pours"
   generated_at: "2026-07-09T00:00:00Z"
+

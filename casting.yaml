@@ -14,3 +14,17 @@ variables:
     processors:
       telemetryhealth:
         enabled: true
+    exporters:
+      signoz:
+        dashboard_path: "./signoz_implementations/agent_health.json"
+        alerts_path: "./alerts/telemetry-health-alerts.yaml"
+  mcp_tools:
+    server: "stitch"
+    enabled: true
+    tools:
+      - "create_project"
+      - "get_project"
+      - "list_projects"
+      - "list_screens"
+      - "get_screen"
+
