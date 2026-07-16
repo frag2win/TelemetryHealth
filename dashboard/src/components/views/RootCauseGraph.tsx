@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import {
   ReactFlow,
-  MiniMap,
   Controls,
   Background,
   useNodesState,
@@ -48,7 +47,7 @@ export function RootCauseGraph({ tenantId, issueId }: RootCauseGraphProps) {
 
   return (
     <div style={{ height: '400px', width: '100%', border: '1px solid #333', borderRadius: '4px', marginTop: '1rem' }}>
-      {error && <ErrorBanner message={errorMsg} />}
+      {error && <ErrorBanner message={errorMsg || 'Error loading root cause'} />}
       <ReactFlow
         nodes={data?.nodes || nodes}
         edges={data?.edges || edges}

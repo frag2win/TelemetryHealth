@@ -11,6 +11,7 @@ interface RemediationCardProps {
   badgeType: string;
   svc: string;
   code: string;
+  rootCauseExplanation?: string;
   onChange: (newVal: string) => void;
   activeTab: 'yaml' | 'diff';
   onTabChange: (tab: 'yaml' | 'diff') => void;
@@ -26,6 +27,7 @@ function RemediationCard({
   badgeType,
   svc,
   code,
+  rootCauseExplanation,
   onChange,
   activeTab,
   onTabChange,
@@ -139,6 +141,24 @@ function RemediationCard({
           </button>
         </div>
       </div>
+
+      {rootCauseExplanation && (
+        <div style={{
+          background: 'var(--panel-2)',
+          borderLeft: '3px solid var(--phosphor)',
+          padding: '10px 14px',
+          marginBottom: '12px',
+          fontSize: '11px',
+          color: 'var(--paper)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '4px',
+          borderRadius: '0 4px 4px 0'
+        }}>
+          <span style={{ fontSize: '10px', textTransform: 'uppercase', color: 'var(--phosphor)', fontWeight: 600 }}>Root Cause Analysis</span>
+          <span>{rootCauseExplanation}</span>
+        </div>
+      )}
 
       {activeTab === 'yaml' ? (
         <div className="yaml-editor-layout" style={{ display: 'flex', background: 'var(--panel)', border: '1px solid var(--bezel)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -439,6 +459,7 @@ export function Remediation({ apiRemediation }: RemediationProps) {
           badgeType={apiRemediation.issueType || 'sandbox auto-healing'}
           svc="API Suggestion"
           code={snippets['rem-api']}
+          rootCauseExplanation="The RCIE (Root Cause Intelligence Engine) dynamically generated this YAML patch in response to a detected behavioral anomaly in the agent trace pipeline."
           onChange={(val) => handleCodeChange('rem-api', val)}
           activeTab={activeTabs['rem-api'] || 'yaml'}
           onTabChange={(tab) => handleTabChange('rem-api', tab)}
@@ -454,6 +475,7 @@ export function Remediation({ apiRemediation }: RemediationProps) {
         badgeType="cardinality redaction"
         svc="checkout-service · user_id_raw"
         code={snippets['rem-1']}
+        rootCauseExplanation="Root Cause Engine detected a Prompt Explosion caused by a Retry Storm. Dropping user_id_raw cardinality will reduce index pressure and unblock the LLM gateway."
         onChange={(val) => handleCodeChange('rem-1', val)}
         activeTab={activeTabs['rem-1'] || 'yaml'}
         onTabChange={(tab) => handleTabChange('rem-1', tab)}
@@ -468,6 +490,7 @@ export function Remediation({ apiRemediation }: RemediationProps) {
         badgeType="sampling adjustment"
         svc="payments-api · high orphan rate"
         code={snippets['rem-2']}
+        rootCauseExplanation="Root Cause Engine traced Span Drop errors back to Collector Queue Saturation. Increasing sampling to 100% on the payments-api temporarily restores trace chain integrity."
         onChange={(val) => handleCodeChange('rem-2', val)}
         activeTab={activeTabs['rem-2'] || 'yaml'}
         onTabChange={(tab) => handleTabChange('rem-2', tab)}

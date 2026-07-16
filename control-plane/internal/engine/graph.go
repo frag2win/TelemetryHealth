@@ -39,14 +39,18 @@ type Graph struct {
 
 // Engine handles graph generation using the ReplayRepository abstraction.
 type Engine struct {
-	repo    ReplayRepository
-	builder BehaviorBuilder
+	repo       ReplayRepository
+	builder    BehaviorBuilder
+	decBuilder DecisionBuilder
+	rcBuilder  RootCauseBuilder
 }
 
 func NewEngine(repo ReplayRepository) *Engine {
 	return &Engine{
-		repo:    repo,
-		builder: NewBehaviorBuilder(),
+		repo:       repo,
+		builder:    NewBehaviorBuilder(),
+		decBuilder: NewDecisionBuilder(),
+		rcBuilder:  NewRootCauseBuilder(),
 	}
 }
 
@@ -68,7 +72,17 @@ func (e *Engine) GenerateBehaviorGraph(tenantID string) Graph {
 
 // GenerateRootCause returns a causal decision graph explaining an issue.
 func (e *Engine) GenerateRootCause(tenantID, traceID string) Graph {
-	events, err := e.repo.GetReplay(context.Background(), tenantID, traceID)
+	var events []ReplayEvent
+	var err error
+
+	// Inject benchmark deterministic scenarios for the demo
+	if len(traceID) > 10 && traceID[:10] == "benchmark-" {
+		scenarioID := traceID[10:]
+		events = GetBenchmarkScenario(scenarioID, tenantID)
+	} else {
+		events, err = e.repo.GetReplay(context.Background(), tenantID, traceID)
+	}
+
 	if err != nil || len(events) == 0 {
 		return defaultRootCause(traceID)
 	}
@@ -78,9 +92,10 @@ func (e *Engine) GenerateRootCause(tenantID, traceID string) Graph {
 		return defaultRootCause(traceID)
 	}
 
-	// For Phase 3: The decision graph is essentially the behavior graph with issue annotations.
-	// We'll just return the behavior graph directly for now, mapped to React Flow.
-	return toReactFlowGraph(bg)
+	dg := e.decBuilder.Build(bg)
+	rcg := e.rcBuilder.Build(dg)
+
+	return toReactFlowRootCauseGraph(rcg)
 }
 
 func toReactFlowGraph(bg *BehaviorGraph) Graph {
@@ -108,6 +123,41 @@ func toReactFlowGraph(bg *BehaviorGraph) Graph {
 			Source:   e.Source,
 			Target:   e.Target,
 			Animated: true,
+		})
+	}
+
+	return Graph{
+		Nodes: nodes,
+		Edges: edges,
+	}
+}
+
+func toReactFlowRootCauseGraph(rcg *RootCauseGraph) Graph {
+	nodes := []GraphNode{}
+	edges := []GraphEdge{}
+
+	xPos := 50.0
+	for _, n := range rcg.Nodes {
+		nodes = append(nodes, GraphNode{
+			ID: n.ID,
+			Position: NodePosition{X: xPos, Y: 100},
+			Data: GraphNodeData{
+				Label:  n.Label,
+				Type:   "issue",
+				Status: n.Severity,
+				Detail: fmt.Sprintf("Category: %s | Confidence: %.2f", n.Category, n.Confidence),
+			},
+		})
+		xPos += 250
+	}
+
+	for _, e := range rcg.Edges {
+		edges = append(edges, GraphEdge{
+			ID:       fmt.Sprintf("e-%s-%s", e.Source, e.Target),
+			Source:   e.Source,
+			Target:   e.Target,
+			Animated: true,
+			Label:    e.Type,
 		})
 	}
 

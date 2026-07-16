@@ -287,7 +287,9 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
                             background: barColor,
                             height: '4px',
                             borderRadius: '2px',
-                            opacity: activeSpan?.id === span.id ? 1 : 0.65
+                            opacity: activeSpan?.id === span.id ? 1 : 0.65,
+                            transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+                            transform: activeSpan?.id === span.id ? 'scaleY(1.5)' : 'scaleY(1)',
                           }}
                         ></div>
                       </div>
@@ -338,11 +340,11 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
                         onClick={() => setActiveSpan(span)}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                          <span style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--paper)', fontFamily: 'var(--mono)' }}>
-                            <Icon size={12} style={{ color: barColor }} />
+                          <span style={{ fontSize: '11px', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--paper)', fontFamily: 'var(--mono)', fontWeight: isSelected ? 600 : 400, transition: 'all 0.2s ease' }}>
+                            <Icon size={14} style={{ color: barColor, filter: isSelected ? `drop-shadow(0 0 6px ${barColor})` : 'none', transition: 'all 0.3s ease' }} />
                             {span.name}
                           </span>
-                          <span style={{ fontSize: '10px', color: 'var(--muted)' }}>{span.latency}</span>
+                          <span style={{ fontSize: '10px', color: isSelected ? barColor : 'var(--muted)', fontWeight: isSelected ? 600 : 400 }}>{span.latency}</span>
                         </div>
 
                         {/* Visual Timeline bar */}
@@ -355,7 +357,9 @@ export function AgentTraces({ tenantId }: AgentTracesProps) {
                               background: barColor,
                               height: '100%',
                               borderRadius: '3px',
-                              opacity: isSelected ? 1 : 0.75
+                              opacity: isSelected ? 1 : 0.75,
+                              boxShadow: isSelected ? `0 0 12px ${barColor}` : 'none',
+                              transition: 'all 0.5s cubic-bezier(0.16, 1, 0.3, 1)',
                             }}
                           ></div>
                         </div>
