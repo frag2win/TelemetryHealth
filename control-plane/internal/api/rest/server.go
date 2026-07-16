@@ -28,6 +28,7 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/mcp"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/rootcause"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/engine"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/simulator"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
@@ -53,19 +54,22 @@ type APIError struct {
 
 // Server is the REST API server for the control plane dashboard.
 type Server struct {
-	logger     *zap.Logger
-	healthRepo *clickhouse.HealthRepository
-	validator  *remediation.Validator
-	generator  *remediation.Generator
-	httpServer *http.Server
+	logger      *zap.Logger
+	healthRepo  *clickhouse.HealthRepository
+	validator   *remediation.Validator
+	generator   *remediation.Generator
+	graphEngine *engine.Engine
+	httpServer  *http.Server
 }
 
 func NewServer(logger *zap.Logger, healthRepo *clickhouse.HealthRepository) *Server {
+	replayRepo := clickhouse.NewReplayRepository(healthRepo.DB(), logger)
 	return &Server{
-		logger:     logger,
-		healthRepo: healthRepo,
-		validator:  remediation.NewValidator(logger),
-		generator:  remediation.NewGenerator(logger),
+		logger:      logger,
+		healthRepo:  healthRepo,
+		validator:   remediation.NewValidator(logger),
+		generator:   remediation.NewGenerator(logger),
+		graphEngine: engine.NewEngine(replayRepo),
 	}
 }
 
@@ -292,6 +296,8 @@ func (s *Server) Start(addr string) error {
 		r.Get("/config", s.HandleTenantConfigGet)
 		r.Put("/config", s.HandleTenantConfigPut)
 		r.Post("/config", s.HandleTenantConfigPut)
+		r.Get("/behavior", s.handleBehaviorGraph)
+		r.Get("/root-cause", s.GetTenantRootCause)
 	})
 
 	// Remediation apply endpoint
@@ -318,7 +324,7 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	if s.httpServer == nil {
 		return nil
 	}
-	s.logger.Info("Shutting down API Server")
+	s.logger.Info("Shutding down API Server")
 	return s.httpServer.Shutdown(ctx)
 }
 
@@ -543,6 +549,16 @@ func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetCoverage returns service coverage status.
+func (s *Server) handleBehaviorGraph(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	if !validateTenantID(w, tenantID) {
+		return
+	}
+	graph := s.graphEngine.GenerateBehaviorGraph(tenantID)
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(graph)
+}
+
 func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
 	tenantID := chi.URLParam(r, "tenant_id")
 	if !validateTenantID(w, tenantID) {
@@ -553,6 +569,20 @@ func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
 		{"service": "inventory-worker", "status": "silent", "lastSeen": "14m ago"},
 		{"service": "auth-service", "status": "active", "lastSeen": "1s ago"},
 	})
+}
+
+
+
+// GetTenantRootCause returns the causal graph explaining an issue.
+func (s *Server) GetTenantRootCause(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	if !validateTenantID(w, tenantID) {
+		return
+	}
+	issueID := r.URL.Query().Get("issue_id")
+	w.Header().Set("Content-Type", "application/json")
+	graph := s.graphEngine.GenerateRootCause(tenantID, issueID)
+	json.NewEncoder(w).Encode(graph)
 }
 
 // GetTracesOrphans returns orphaned trace statistics.
@@ -653,6 +683,8 @@ func (s *Server) SimulateFailure(w http.ResponseWriter, r *http.Request) {
 		err = sim.InjectHighCardinality(ctx, tenantID)
 	case "dropped_spans":
 		err = sim.InjectDroppedSpans(ctx, tenantID)
+	case "agentic_workflow":
+		err = sim.InjectAgenticWorkflow(ctx, tenantID)
 	default:
 		writeError(w, "UNKNOWN_SCENARIO", "unknown scenario: "+req.Scenario, http.StatusBadRequest)
 		return

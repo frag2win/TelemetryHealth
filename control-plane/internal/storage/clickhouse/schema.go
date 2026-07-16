@@ -124,6 +124,22 @@ func (s *Schema) InitSchema() error {
 			updated_at DateTime64(3)
 		) ENGINE = ReplacingMergeTree(updated_at)
 		ORDER BY (tenant_id)`,
+
+		// Phase 3: Lightweight local trace index for Graph Engine
+		`CREATE TABLE IF NOT EXISTS telemetry_health.telemetryhealth_trace_index_spans (
+			trace_id String CODEC(ZSTD(1)),
+			span_id String CODEC(ZSTD(1)),
+			parent_span_id String CODEC(ZSTD(1)),
+			service_name LowCardinality(String) CODEC(ZSTD(1)),
+			operation_name LowCardinality(String) CODEC(ZSTD(1)),
+			start_time DateTime64(9) CODEC(DoubleDelta, LZ4),
+			end_time DateTime64(9) CODEC(DoubleDelta, LZ4),
+			status LowCardinality(String),
+			attributes String,
+			tenant_id LowCardinality(String) CODEC(ZSTD(1))
+		) ENGINE = MergeTree
+		PARTITION BY toDate(start_time)
+		ORDER BY (tenant_id, start_time, service_name, trace_id)`,
 	}
 
 	for _, q := range queries {

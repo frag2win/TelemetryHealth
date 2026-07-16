@@ -14,6 +14,7 @@ const (
 	TopicCardinality = "telemetry.cardinality"
 	TopicOrphan      = "telemetry.orphan"
 	TopicCoverage    = "telemetry.coverage"
+	TopicRawSpan     = "telemetry.rawspan" // Phase 3 Mock Data
 )
 
 // CardinalityEvent is the message published when a cardinality observation is made.
@@ -42,11 +43,26 @@ type CoverageEvent struct {
 	LastSeenAt time.Time `json:"last_seen_at"`
 }
 
+// RawSpanEvent is published for building the mock topology (Phase 3).
+type RawSpanEvent struct {
+	TenantID      string    `json:"tenant_id"`
+	TraceID       string    `json:"trace_id"`
+	SpanID        string    `json:"span_id"`
+	ParentSpanID  string    `json:"parent_span_id"`
+	ServiceName   string    `json:"service_name"`
+	OperationName string    `json:"operation_name"`
+	StartTime     time.Time `json:"start_time"`
+	EndTime       time.Time `json:"end_time"`
+	Status        string    `json:"status"`
+	Attributes    string    `json:"attributes"`
+}
+
 // Producer wraps kafka-go writers for each topic.
 type Producer struct {
 	cardinality *kafkago.Writer
 	orphan      *kafkago.Writer
 	coverage    *kafkago.Writer
+	rawspan     *kafkago.Writer
 	logger      *zap.Logger
 }
 
@@ -65,6 +81,7 @@ func NewProducer(brokers []string, logger *zap.Logger) *Producer {
 		cardinality: makeWriter(TopicCardinality),
 		orphan:      makeWriter(TopicOrphan),
 		coverage:    makeWriter(TopicCoverage),
+		rawspan:     makeWriter(TopicRawSpan),
 		logger:      logger,
 	}
 }
@@ -79,6 +96,10 @@ func (p *Producer) PublishOrphan(ctx context.Context, event OrphanEvent) error {
 
 func (p *Producer) PublishCoverage(ctx context.Context, event CoverageEvent) error {
 	return p.publish(ctx, p.coverage, event.TenantID, event)
+}
+
+func (p *Producer) PublishRawSpan(ctx context.Context, event RawSpanEvent) error {
+	return p.publish(ctx, p.rawspan, event.TenantID, event)
 }
 
 func (p *Producer) publish(ctx context.Context, w *kafkago.Writer, key string, payload any) error {

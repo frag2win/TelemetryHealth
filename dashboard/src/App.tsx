@@ -5,6 +5,7 @@ import { TraceChains } from './components/views/TraceChains';
 import { Coverage } from './components/views/Coverage';
 import { Remediation } from './components/views/Remediation';
 import { AgentTraces } from './components/views/AgentTraces';
+import { DigitalTwin } from './components/views/DigitalTwin';
 import { RefreshCw, Download, Sun, Moon, Menu, X } from 'lucide-react';
 import { ErrorBanner } from './components/Shared';
 
@@ -42,7 +43,8 @@ const titles: Record<string, string> = {
   tracechains: '03 / TRACE CHAINS',
   coverage: '04 / COVERAGE',
   remediation: '05 / REMEDIATION',
-  agenttraces: '06 / AI AGENTS'
+  agenttraces: '06 / AI AGENTS',
+  topology: '07 / TOPOLOGY TWIN'
 };
 
 const tenants = [
@@ -67,7 +69,8 @@ const navItems = [
   { id: 'tracechains', chan: '03', label: 'Trace chains', ledClass: 'on-r' },
   { id: 'coverage', chan: '04', label: 'Coverage', ledClass: 'on-a' },
   { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p' },
-  { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p' }
+  { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p' },
+  { id: 'topology', chan: '07', label: 'Topology Twin', ledClass: 'on-a' }
 ];
 
 interface NavItemProps {
@@ -410,6 +413,7 @@ function App() {
               {activeView === 'coverage' && <Coverage data={data} tenantId={selectedTenantId} />}
               {activeView === 'remediation' && <Remediation apiRemediation={data.remediation} />}
               {activeView === 'agenttraces' && <AgentTraces tenantId={selectedTenantId} />}
+              {activeView === 'topology' && <DigitalTwin tenantId={selectedTenantId} />}
             </>
           )}
         </div>
