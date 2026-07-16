@@ -9,6 +9,7 @@ package ingest
 
 import (
 	"context"
+	"encoding/json"
 	"net"
 	"time"
 
@@ -77,6 +78,23 @@ func (r *receiver) Export(ctx context.Context, req ptraceotlp.ExportRequest) (pt
 				// Extract cardinality signals from span attributes (PRD §8.1, Improvement #2.2).
 				// Key-space explosion protection: track at most maxCardinalityKeysPerService distinct keys.
 				r.publishCardinalityEvents(ctx, tenantStr, serviceName, span.Attributes())
+
+				// Phase 3: Publish raw span tuple for local trace index (Behavior Graph)
+				attrsJSON, _ := json.Marshal(span.Attributes().AsRaw())
+				if err := r.producer.PublishRawSpan(ctx, kafka.RawSpanEvent{
+					TenantID:      tenantStr,
+					TraceID:       span.TraceID().String(),
+					SpanID:        span.SpanID().String(),
+					ParentSpanID:  span.ParentSpanID().String(),
+					ServiceName:   serviceName,
+					OperationName: span.Name(),
+					StartTime:     span.StartTimestamp().AsTime(),
+					EndTime:       span.EndTimestamp().AsTime(),
+					Status:        span.Status().Message(),
+					Attributes:    string(attrsJSON),
+				}); err != nil {
+					r.logger.Warn("failed to publish raw span event", zap.Error(err))
+				}
 			}
 		}
 	}

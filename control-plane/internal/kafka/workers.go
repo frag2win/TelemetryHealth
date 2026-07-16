@@ -26,7 +26,7 @@ func NewWorkerSet(brokers []string, chClient *clickhouse.Client, logger *zap.Log
 // Run starts all three consumer goroutines. Blocks until ctx is cancelled.
 func (w *WorkerSet) Run(ctx context.Context) {
 	var wg sync.WaitGroup
-	wg.Add(3)
+	wg.Add(4)
 
 	go func() {
 		defer wg.Done()
@@ -39,6 +39,10 @@ func (w *WorkerSet) Run(ctx context.Context) {
 	go func() {
 		defer wg.Done()
 		w.runCoverageWorker(ctx)
+	}()
+	go func() {
+		defer wg.Done()
+		w.runRawSpanWorker(ctx)
 	}()
 
 	<-ctx.Done()
@@ -135,6 +139,43 @@ func (w *WorkerSet) runCoverageWorker(ctx context.Context) {
 				return fmt.Errorf("send coverage: %w", err)
 			}
 			w.logger.Debug("wrote coverage batch", zap.Int("count", len(events)))
+			return nil
+		},
+		w.logger,
+	)
+	defer consumer.Close()
+	_ = consumer.Run(ctx)
+}
+
+func (w *WorkerSet) runRawSpanWorker(ctx context.Context) {
+	consumer := NewConsumer(
+		w.brokers, TopicRawSpan, "rawspan-worker",
+		func(ctx context.Context, events []RawSpanEvent) error {
+			batch, err := w.chClient.Conn().PrepareBatch(ctx, `INSERT INTO telemetry_health.telemetryhealth_trace_index_spans
+				(trace_id, span_id, parent_span_id, service_name, operation_name, start_time, end_time, status, attributes, tenant_id)`)
+			if err != nil {
+				return fmt.Errorf("prepare rawspan batch: %w", err)
+			}
+			for _, event := range events {
+				if err := batch.Append(
+					event.TraceID,
+					event.SpanID,
+					event.ParentSpanID,
+					event.ServiceName,
+					event.OperationName,
+					event.StartTime,
+					event.EndTime,
+					event.Status,
+					event.Attributes,
+					event.TenantID,
+				); err != nil {
+					return fmt.Errorf("append rawspan: %w", err)
+				}
+			}
+			if err := batch.Send(); err != nil {
+				return fmt.Errorf("send rawspan: %w", err)
+			}
+			w.logger.Debug("wrote rawspan batch", zap.Int("count", len(events)))
 			return nil
 		},
 		w.logger,

@@ -115,3 +115,71 @@ func (s *Simulator) InjectDroppedSpans(ctx context.Context, tenantID string) err
 	_, err = client.Export(outCtx, req)
 	return err
 }
+
+func (s *Simulator) InjectAgenticWorkflow(ctx context.Context, tenantID string) error {
+	client, conn, err := s.getClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	s.logger.Info("Injecting agentic workflow spans")
+
+	traces := ptrace.NewTraces()
+	rs := traces.ResourceSpans().AppendEmpty()
+	rs.Resource().Attributes().PutStr("tenant_id", tenantID)
+	rs.Resource().Attributes().PutStr("service.name", "ai-agent-service")
+
+	ss := rs.ScopeSpans().AppendEmpty()
+	
+	// 1. Planner Span
+	traceID := pcommon.TraceID(uuid.New())
+	
+	plannerUUID := uuid.New()
+	var plannerIDBytes [8]byte
+	copy(plannerIDBytes[:], plannerUUID[:8])
+	plannerID := pcommon.SpanID(plannerIDBytes)
+	
+	planner := ss.Spans().AppendEmpty()
+	planner.SetTraceID(traceID)
+	planner.SetSpanID(plannerID)
+	planner.SetName("PlanExecution")
+	planner.SetStartTimestamp(pcommon.NewTimestampFromTime(time.Now()))
+	planner.SetEndTimestamp(pcommon.NewTimestampFromTime(time.Now().Add(100 * time.Millisecond)))
+	planner.Attributes().PutStr("llm.role", "planner")
+	
+	// 2. Retriever Span
+	retrieverUUID := uuid.New()
+	var retrieverIDBytes [8]byte
+	copy(retrieverIDBytes[:], retrieverUUID[:8])
+	retrieverID := pcommon.SpanID(retrieverIDBytes)
+
+	retriever := ss.Spans().AppendEmpty()
+	retriever.SetTraceID(traceID)
+	retriever.SetSpanID(retrieverID)
+	retriever.SetParentSpanID(plannerID)
+	retriever.SetName("FetchContext")
+	retriever.SetStartTimestamp(pcommon.NewTimestampFromTime(time.Now().Add(100 * time.Millisecond)))
+	retriever.SetEndTimestamp(pcommon.NewTimestampFromTime(time.Now().Add(200 * time.Millisecond)))
+	retriever.Attributes().PutStr("vector.search", "true")
+
+	// 3. Tool Span
+	toolUUID := uuid.New()
+	var toolIDBytes [8]byte
+	copy(toolIDBytes[:], toolUUID[:8])
+	toolID := pcommon.SpanID(toolIDBytes)
+
+	tool := ss.Spans().AppendEmpty()
+	tool.SetTraceID(traceID)
+	tool.SetSpanID(toolID)
+	tool.SetParentSpanID(plannerID)
+	tool.SetName("ExecuteCommand")
+	tool.SetStartTimestamp(pcommon.NewTimestampFromTime(time.Now().Add(200 * time.Millisecond)))
+	tool.SetEndTimestamp(pcommon.NewTimestampFromTime(time.Now().Add(300 * time.Millisecond)))
+	tool.Attributes().PutStr("tool.name", "bash")
+
+	req := ptraceotlp.NewExportRequestFromTraces(traces)
+	outCtx := metadata.AppendToOutgoingContext(ctx, "x-tenant-id", tenantID)
+	_, err = client.Export(outCtx, req)
+	return err
+}

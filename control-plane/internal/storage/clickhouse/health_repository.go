@@ -31,8 +31,14 @@ type HealthRepository struct {
 	logger *zap.Logger
 }
 
+// NewHealthRepository creates a new repository.
 func NewHealthRepository(conn driver.Conn, logger *zap.Logger) *HealthRepository {
 	return &HealthRepository{conn: conn, logger: logger}
+}
+
+// DB exposes the underlying driver.Conn for other components (like GraphEngine)
+func (r *HealthRepository) DB() driver.Conn {
+	return r.conn
 }
 
 // QueryHealthMetrics fetches aggregated telemetry signals for a tenant.

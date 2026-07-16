@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { ArrowUpRight, ArrowDownRight, AlertTriangle } from 'lucide-react';
-import type { DashboardData } from '../../App';
 import { Metric, useTenantData, ErrorBanner, SkeletonLoader } from '../Shared';
+import { RootCauseGraph } from './RootCauseGraph';
+import type { DashboardData } from '../../App';
 
 interface AnimatedHealthGaugeProps {
   score: number;
@@ -72,6 +73,7 @@ interface OverviewProps {
 
 export function Overview({ data, setView, tenantId }: OverviewProps) {
   const [activeDrilldown, setActiveDrilldown] = useState<string | null>(null);
+  const [expandedIssue, setExpandedIssue] = useState<string | null>(null);
 
   const fallbackIssues: IssueItem[] = [
     { id: 'iss-1', service: 'payments-api', description: 'Broken trace chain · 18% orphan rate · §8.2', impact: -18 },
@@ -301,18 +303,26 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           <SkeletonLoader rows={3} />
         ) : activeIssuesList.length > 0 ? (
           activeIssuesList.map((iss) => (
-            <div className="rack-row" key={iss.id}>
-              <span className={`rled ${iss.impact < -15 ? 'r' : 'a'}`}></span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="rack-svc">{iss.service}</div>
-                <div className="rack-desc">{iss.description}</div>
+            <div key={iss.id} style={{ display: 'flex', flexDirection: 'column' }}>
+              <div className="rack-row">
+                <span className={`rled ${iss.impact < -15 ? 'r' : 'a'}`}></span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="rack-svc">{iss.service}</div>
+                  <div className="rack-desc">{iss.description}</div>
+                </div>
+                <div className="rack-impact">
+                  {iss.impact > 0 ? `+${iss.impact}` : `\u2212${Math.abs(iss.impact)}`}
+                </div>
+                <button className="btn" onClick={() => setExpandedIssue(expandedIssue === iss.id ? null : iss.id)} style={{ marginRight: '8px' }}>
+                  {expandedIssue === iss.id ? 'hide graph' : 'analyze root cause'}
+                </button>
+                <button className="btn" onClick={() => setView('remediation')}>
+                  remediate <ArrowUpRight size={12} />
+                </button>
               </div>
-              <div className="rack-impact">
-                {iss.impact > 0 ? `+${iss.impact}` : `\u2212${Math.abs(iss.impact)}`}
-              </div>
-              <button className="btn" onClick={() => setView('remediation')}>
-                remediate <ArrowUpRight size={12} />
-              </button>
+              {expandedIssue === iss.id && (
+                <RootCauseGraph tenantId={tenantId} issueId={iss.id} />
+              )}
             </div>
           ))
         ) : (
