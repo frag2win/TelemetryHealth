@@ -73,19 +73,13 @@ The architecture is guided by the following goals:
 
 # 4. System Context
 
-```text
-          Users
-             │
-             ▼
-      Web Dashboard
-             │
-             ▼
-      TelemetryHealth
-             │
- ┌───────────┼────────────┐
- ▼           ▼            ▼
-OTel      ClickHouse     AI Models
-Collector
+```mermaid
+graph TD
+    A[Users] --> B[Web Dashboard]
+    B --> C[TelemetryHealth]
+    C --> D[OTel Collector]
+    C --> E[ClickHouse]
+    C --> F[AI Models]
 ```
 
 TelemetryHealth sits between telemetry producers and operational intelligence consumers.
@@ -94,27 +88,19 @@ TelemetryHealth sits between telemetry producers and operational intelligence co
 
 # 5. High-Level Architecture
 
-```text
-                   Dashboard
-                       │
-                       ▼
-                 REST API / MCP
-                       │
-             Application Services
-                       │
-       ┌───────────────┼───────────────┐
-       ▼               ▼               ▼
- Replay Engine   Health Engine   AI Engine
-       │               │               │
-       └───────────────┼───────────────┘
-                       ▼
-                  Event Bus
-                       │
-         Plugin Framework / Workers
-                       │
-                OTel Collector
-                       │
-                  ClickHouse
+```mermaid
+graph TD
+    A[Dashboard] --> B[REST API / MCP]
+    B --> C[Application Services]
+    C --> D[Replay Engine]
+    C --> E[Health Engine]
+    C --> F[AI Engine]
+    D --> G[Event Bus]
+    E --> G
+    F --> G
+    G --> H[Plugin Framework / Workers]
+    H --> I[OTel Collector]
+    I --> J[ClickHouse]
 ```
 
 ---
@@ -154,22 +140,15 @@ Each domain owns its data and business logic.
 
 # 8. Runtime Workflow
 
-```text
-Telemetry
-    │
-Collector
-    │
-Kafka / Redpanda
-    │
-Workers
-    │
-Health Engine
-    │
-AI Intelligence
-    │
-Remediation
-    │
-Dashboard
+```mermaid
+graph TD
+    A[Telemetry] --> B[Collector]
+    B --> C[Kafka / Redpanda]
+    C --> D[Workers]
+    D --> E[Health Engine]
+    E --> F[AI Intelligence]
+    F --> G[Remediation]
+    G --> H[Dashboard]
 ```
 
 ---

@@ -44,34 +44,21 @@ The platform acts as an intelligence layer positioned between telemetry generati
 
 # 3. High-Level Context
 
-```text
-                    ┌─────────────────────┐
-                    │   Developers        │
-                    └──────────┬──────────┘
-                               │
-                               │
-                               ▼
-                    Instrumented Applications
-                               │
-                               ▼
-                    OpenTelemetry SDK
-                               │
-                               ▼
-                  OpenTelemetry Collector
-                               │
-         ┌─────────────────────┼─────────────────────┐
-         │                     │                     │
-         ▼                     ▼                     ▼
-   TelemetryHealth       Observability        Other Exporters
-    Processor             Backend
-                               │
-                               ▼
-                    TelemetryHealth
-                    Control Plane
-                               │
-               ┌───────────────┼───────────────┐
-               ▼               ▼               ▼
-         Dashboard        MCP Clients     Automation
+```mermaid
+graph TD
+    A[Developers] --> B[Instrumented Applications]
+    B --> C[OpenTelemetry SDK]
+    C --> D[OpenTelemetry Collector]
+    
+    D --> E[TelemetryHealth Processor]
+    D --> F[Observability Backend]
+    D --> G[Other Exporters]
+    
+    F --> H[TelemetryHealth Control Plane]
+    
+    H --> I[Dashboard]
+    H --> J[MCP Clients]
+    H --> K[Automation]
 ```
 
 ---
