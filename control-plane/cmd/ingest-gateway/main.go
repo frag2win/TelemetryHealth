@@ -81,7 +81,7 @@ func main() {
 		}
 	}()
 
-	logger.Info("Ingest Gateway started on :4317, metrics on :9090")
+	logger.Info("Ingest Gateway started on :4317, metrics on :9094")
 
 	// Wait for termination signal or startup error
 	sigChan := make(chan os.Signal, 1)

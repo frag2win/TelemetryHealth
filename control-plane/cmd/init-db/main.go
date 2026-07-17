@@ -11,7 +11,7 @@ import (
 
 func main() {
 	// Connect to default DB
-	db, err := sql.Open("clickhouse", "clickhouse://default:@127.0.0.1:9000/default?dial_timeout=5s")
+	db, err := sql.Open("clickhouse", "clickhouse://127.0.0.1:9000?dial_timeout=5s")
 	if err != nil {
 		log.Fatalf("connect: %v", err)
 	}
