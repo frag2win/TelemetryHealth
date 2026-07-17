@@ -47,48 +47,28 @@ Contexts MUST NOT access each other's internal implementation.
 
 # 3. Context Map
 
-```text
-                   +----------------------+
-                   |   Edge Processing    |
-                   +----------+-----------+
-                              |
-                              v
-                   +----------------------+
-                   |      Ingestion       |
-                   +----------+-----------+
-                              |
-                              v
-                   +----------------------+
-                   |      Streaming       |
-                   +----------+-----------+
-                              |
-          +-------------------+-------------------+
-          |                   |                   |
-          v                   v                   v
-+----------------+   +----------------+   +----------------+
-| Health Engine  |   | Behavior Engine|   | Replay Engine  |
-+-------+--------+   +-------+--------+   +-------+--------+
-        |                    |                    |
-        +----------+---------+---------+----------+
-                   |                   |
-                   v                   v
-          +----------------+   +----------------+
-          | Decision Engine|   | Root Cause     |
-          +-------+--------+   +-------+--------+
-                  |                    |
-                  +---------+----------+
-                            |
-                            v
-                  +----------------------+
-                  | Remediation Engine   |
-                  +----------+-----------+
-                             |
-         +-------------------+-------------------+
-         |                                       |
-         v                                       v
- +------------------+                  +------------------+
- | Alerting Context |                  | Dashboard Context|
- +------------------+                  +------------------+
+```mermaid
+graph TD
+    A[Edge Processing] --> B[Ingestion]
+    B --> C[Streaming]
+    
+    C --> D[Health Engine]
+    C --> E[Behavior Engine]
+    C --> F[Replay Engine]
+    
+    D --> G[Decision Engine]
+    E --> G
+    F --> G
+    
+    D --> H[Root Cause]
+    E --> H
+    F --> H
+    
+    G --> I[Remediation Engine]
+    H --> I
+    
+    I --> J[Alerting Context]
+    I --> K[Dashboard Context]
 ```
 
 ---
