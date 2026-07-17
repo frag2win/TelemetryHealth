@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-000  
 **Title:** Project Vision  
-**Status:** Draft v1.0  
+**Status:** Approved  
 **Version:** 3.0  
 **Owner:** TelemetryHealth Core Team  
 **Authors:** Shubham Pawar & Contributors  
@@ -111,52 +111,24 @@ The telemetry pipeline itself has become a critical production dependency, yet i
 
 Today's monitoring tools primarily answer:
 
-```
-Application
-↓
-
-Telemetry
-
-↓
-
-Storage
-
-↓
-
-Visualization
+```mermaid
+graph TD;
+    "Application" --> "Telemetry";
+    "Telemetry" --> "Storage";
+    "Storage" --> "Visualization";
 ```
 
 TelemetryHealth extends this model into:
 
-```
-Application
-↓
-
-Telemetry
-
-↓
-
-Telemetry Intelligence
-
-↓
-
-Behavior Analysis
-
-↓
-
-Root Cause Discovery
-
-↓
-
-Health Assessment
-
-↓
-
-Automated Remediation
-
-↓
-
-Visualization
+```mermaid
+graph TD;
+    "Application" --> "Telemetry";
+    "Telemetry" --> "Telemetry Intelligence";
+    "Telemetry Intelligence" --> "Behavior Analysis";
+    "Behavior Analysis" --> "Root Cause Discovery";
+    "Root Cause Discovery" --> "Health Assessment";
+    "Health Assessment" --> "Automated Remediation";
+    "Automated Remediation" --> "Visualization";
 ```
 
 The intelligence layer continuously evaluates telemetry quality rather than assuming telemetry is always correct.

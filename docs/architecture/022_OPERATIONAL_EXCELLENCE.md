@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-022
 **Title:** Operational Excellence
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -159,20 +159,11 @@ These objectives should evolve with operational maturity.
 
 Error budgets balance innovation and reliability.
 
-```
-Availability Goal
-
-↓
-
-Allowed Failure
-
-↓
-
-Operational Budget
-
-↓
-
-Deployment Decisions
+```mermaid
+graph TD;
+    "Availability Goal" --> "Allowed Failure";
+    "Allowed Failure" --> "Operational Budget";
+    "Operational Budget" --> "Deployment Decisions";
 ```
 
 If the error budget is exhausted:
@@ -187,36 +178,15 @@ If the error budget is exhausted:
 
 Every production incident follows a standard lifecycle.
 
-```
-Detection
-
-↓
-
-Classification
-
-↓
-
-Assignment
-
-↓
-
-Mitigation
-
-↓
-
-Recovery
-
-↓
-
-Root Cause Analysis
-
-↓
-
-Postmortem
-
-↓
-
-Improvement
+```mermaid
+graph TD;
+    "Detection" --> "Classification";
+    "Classification" --> "Assignment";
+    "Assignment" --> "Mitigation";
+    "Mitigation" --> "Recovery";
+    "Recovery" --> "Root Cause Analysis";
+    "Root Cause Analysis" --> "Postmortem";
+    "Postmortem" --> "Improvement";
 ```
 
 Incidents should produce long-term improvements rather than temporary fixes.

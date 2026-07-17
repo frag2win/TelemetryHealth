@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-024
 **Title:** Coding Standards
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -55,20 +55,11 @@ The easiest code to maintain is the code that is easiest to understand.
 
 Every implementation SHALL respect the architectural boundaries.
 
-```
-Domain
-
-↓
-
-Application
-
-↓
-
-Infrastructure
-
-↓
-
-Presentation
+```mermaid
+graph TD;
+    "Domain" --> "Application";
+    "Application" --> "Infrastructure";
+    "Infrastructure" --> "Presentation";
 ```
 
 Dependencies may only point inward.

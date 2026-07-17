@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-019
 **Title:** AI Intelligence Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -32,28 +32,13 @@ Telemetry alone does not solve operational problems.
 
 The purpose of AI is to transform:
 
-```
-Raw Data
-
-↓
-
-Information
-
-↓
-
-Analysis
-
-↓
-
-Knowledge
-
-↓
-
-Decision
-
-↓
-
-Recommended Action
+```mermaid
+graph TD;
+    "Raw Data" --> "Information";
+    "Information" --> "Analysis";
+    "Analysis" --> "Knowledge";
+    "Knowledge" --> "Decision";
+    "Decision" --> "Recommended Action";
 ```
 
 AI exists to assist human operators—not replace them.
@@ -78,56 +63,20 @@ Business rules remain outside the AI layer.
 
 # 4. AI Architecture Overview
 
-```
-Telemetry
-
-↓
-
-Replay Engine
-
-↓
-
-Behavior Engine
-
-↓
-
-Health Engine
-
-↓
-
-Root Cause Engine
-
-↓
-
-Context Builder
-
-↓
-
-Prompt Composer
-
-↓
-
-AI Orchestrator
-
-↓
-
-LLM Provider
-
-↓
-
-Response Validator
-
-↓
-
-Decision Engine
-
-↓
-
-Remediation Generator
-
-↓
-
-Dashboard / MCP
+```mermaid
+graph TD;
+    "Telemetry" --> "Replay Engine";
+    "Replay Engine" --> "Behavior Engine";
+    "Behavior Engine" --> "Health Engine";
+    "Health Engine" --> "Root Cause Engine";
+    "Root Cause Engine" --> "Context Builder";
+    "Context Builder" --> "Prompt Composer";
+    "Prompt Composer" --> "AI Orchestrator";
+    "AI Orchestrator" --> "LLM Provider";
+    "LLM Provider" --> "Response Validator";
+    "Response Validator" --> "Decision Engine";
+    "Decision Engine" --> "Remediation Generator";
+    "Remediation Generator" --> "Dashboard / MCP";
 ```
 
 Every stage has a single responsibility.
@@ -138,36 +87,15 @@ Every stage has a single responsibility.
 
 The AI workflow consists of independent stages.
 
-```
-Collect
-
-↓
-
-Normalize
-
-↓
-
-Analyze
-
-↓
-
-Enrich
-
-↓
-
-Reason
-
-↓
-
-Validate
-
-↓
-
-Recommend
-
-↓
-
-Explain
+```mermaid
+graph TD;
+    "Collect" --> "Normalize";
+    "Normalize" --> "Analyze";
+    "Analyze" --> "Enrich";
+    "Enrich" --> "Reason";
+    "Reason" --> "Validate";
+    "Validate" --> "Recommend";
+    "Recommend" --> "Explain";
 ```
 
 Each stage produces structured outputs.
@@ -216,28 +144,13 @@ Prompts are generated—not hardcoded.
 
 Prompt structure includes:
 
-```
-Role
-
-↓
-
-Objective
-
-↓
-
-Context
-
-↓
-
-Constraints
-
-↓
-
-Expected Output
-
-↓
-
-Validation Rules
+```mermaid
+graph TD;
+    "Role" --> "Objective";
+    "Objective" --> "Context";
+    "Context" --> "Constraints";
+    "Constraints" --> "Expected Output";
+    "Expected Output" --> "Validation Rules";
 ```
 
 Prompt templates are versioned.
@@ -384,28 +297,13 @@ Future architecture may support specialized agents.
 
 Examples
 
-```
-Replay Agent
-
-↓
-
-Behavior Agent
-
-↓
-
-Health Agent
-
-↓
-
-Root Cause Agent
-
-↓
-
-Decision Agent
-
-↓
-
-Remediation Agent
+```mermaid
+graph TD;
+    "Replay Agent" --> "Behavior Agent";
+    "Behavior Agent" --> "Health Agent";
+    "Health Agent" --> "Root Cause Agent";
+    "Root Cause Agent" --> "Decision Agent";
+    "Decision Agent" --> "Remediation Agent";
 ```
 
 Agents collaborate through structured interfaces rather than direct coupling.
@@ -461,56 +359,20 @@ Future capabilities must preserve explainability and governance.
 
 # 21. AI Architecture Diagram
 
-```
-Telemetry
-
-↓
-
-Replay
-
-↓
-
-Behavior Analysis
-
-↓
-
-Health Analysis
-
-↓
-
-Root Cause
-
-↓
-
-Context Builder
-
-↓
-
-Prompt Builder
-
-↓
-
-AI Orchestrator
-
-↓
-
-LLM
-
-↓
-
-Validator
-
-↓
-
-Decision Engine
-
-↓
-
-Remediation
-
-↓
-
-Dashboard / MCP
+```mermaid
+graph TD;
+    "Telemetry" --> "Replay";
+    "Replay" --> "Behavior Analysis";
+    "Behavior Analysis" --> "Health Analysis";
+    "Health Analysis" --> "Root Cause";
+    "Root Cause" --> "Context Builder";
+    "Context Builder" --> "Prompt Builder";
+    "Prompt Builder" --> "AI Orchestrator";
+    "AI Orchestrator" --> "LLM";
+    "LLM" --> "Validator";
+    "Validator" --> "Decision Engine";
+    "Decision Engine" --> "Remediation";
+    "Remediation" --> "Dashboard / MCP";
 ```
 
 ---

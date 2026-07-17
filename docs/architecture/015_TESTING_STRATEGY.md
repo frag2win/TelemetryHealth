@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-015
 **Title:** Testing Strategy
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -76,32 +76,14 @@ Higher layers depend on confidence established by lower layers.
 
 Testing follows the system architecture.
 
-```
-Domain
-
-↓
-
-Application
-
-↓
-
-Events
-
-↓
-
-Plugins
-
-↓
-
-Infrastructure
-
-↓
-
-Deployment
-
-↓
-
-Operations
+```mermaid
+graph TD;
+    "Domain" --> "Application";
+    "Application" --> "Events";
+    "Events" --> "Plugins";
+    "Plugins" --> "Infrastructure";
+    "Infrastructure" --> "Deployment";
+    "Deployment" --> "Operations";
 ```
 
 Every architectural layer owns its corresponding tests.
@@ -209,36 +191,15 @@ Event replay should produce deterministic outcomes.
 
 The complete telemetry pipeline should be validated.
 
-```
-OTLP
-
-↓
-
-Collector
-
-↓
-
-Processor
-
-↓
-
-Kafka
-
-↓
-
-Workers
-
-↓
-
-ClickHouse
-
-↓
-
-Health Engine
-
-↓
-
-Dashboard
+```mermaid
+graph TD;
+    "OTLP" --> "Collector";
+    "Collector" --> "Processor";
+    "Processor" --> "Kafka";
+    "Kafka" --> "Workers";
+    "Workers" --> "ClickHouse";
+    "ClickHouse" --> "Health Engine";
+    "Health Engine" --> "Dashboard";
 ```
 
 Expected outcomes include:
@@ -272,32 +233,14 @@ End-to-end scenarios simulate complete user workflows.
 
 Example
 
-```
-Telemetry Generated
-
-↓
-
-OTLP Export
-
-↓
-
-Collector
-
-↓
-
-Processor
-
-↓
-
-Analysis
-
-↓
-
-Dashboard
-
-↓
-
-Alert Generated
+```mermaid
+graph TD;
+    "Telemetry Generated" --> "OTLP Export";
+    "OTLP Export" --> "Collector";
+    "Collector" --> "Processor";
+    "Processor" --> "Analysis";
+    "Analysis" --> "Dashboard";
+    "Dashboard" --> "Alert Generated";
 ```
 
 The entire platform is validated as a single system.
@@ -415,36 +358,15 @@ Testing is integrated into CI/CD.
 
 Pipeline stages
 
-```
-Lint
-
-↓
-
-Static Analysis
-
-↓
-
-Unit Tests
-
-↓
-
-Contract Tests
-
-↓
-
-Integration Tests
-
-↓
-
-Security Scans
-
-↓
-
-Performance Smoke Tests
-
-↓
-
-Deployment
+```mermaid
+graph TD;
+    "Lint" --> "Static Analysis";
+    "Static Analysis" --> "Unit Tests";
+    "Unit Tests" --> "Contract Tests";
+    "Contract Tests" --> "Integration Tests";
+    "Integration Tests" --> "Security Scans";
+    "Security Scans" --> "Performance Smoke Tests";
+    "Performance Smoke Tests" --> "Deployment";
 ```
 
 A failed stage blocks promotion.

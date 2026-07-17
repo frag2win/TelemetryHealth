@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-006
 **Title:** Repository Structure
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 3.0
 **Owner:** TelemetryHealth Core Team
 **Related RFCs:**
@@ -577,28 +577,19 @@ old.go
 
 Allowed:
 
-```
-Interface
-
-↓
-
-Application
-
-↓
-
-Domain
+```mermaid
+graph TD;
+    "Interface" --> "Application";
+    "Application" --> "Domain";
 ```
 
 Infrastructure implements interfaces.
 
 Forbidden:
 
-```
-Domain
-
-↓
-
-Infrastructure
+```mermaid
+graph TD;
+    "Domain" --> "Infrastructure";
 ```
 
 Circular imports are prohibited.

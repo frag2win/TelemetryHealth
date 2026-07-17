@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-007
 **Title:** Dependency Rules
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 3.0
 **Owner:** TelemetryHealth Core Team
 **Related Documents:**
@@ -31,24 +31,13 @@ These rules are normative.
 
 Dependencies SHALL always point toward the Domain.
 
-```
-Presentation
-
-↓
-
-Interfaces
-
-↓
-
-Application
-
-↓
-
-Domain
-
-↑
-
-Infrastructure
+```mermaid
+graph TD;
+    "Presentation" --> "Interfaces";
+    "Interfaces" --> "Application";
+    "Application" --> "Domain";
+    "Domain" --> "↑";
+    "↑" --> "Infrastructure";
 ```
 
 The Domain Layer is the center of the architecture.
@@ -228,20 +217,11 @@ Cross-context communication SHOULD use domain events.
 
 Example:
 
-```
-ReplayCreated
-
-↓
-
-BehaviorGenerated
-
-↓
-
-HealthCalculated
-
-↓
-
-DecisionGenerated
+```mermaid
+graph TD;
+    "ReplayCreated" --> "BehaviorGenerated";
+    "BehaviorGenerated" --> "HealthCalculated";
+    "HealthCalculated" --> "DecisionGenerated";
 ```
 
 Services should communicate through events when synchronous coupling is unnecessary.
@@ -290,16 +270,10 @@ InsertRow()
 
 Allowed:
 
-```
-domain
-
-↓
-
-application
-
-↓
-
-interfaces
+```mermaid
+graph TD;
+    "domain" --> "application";
+    "application" --> "interfaces";
 ```
 
 Infrastructure may import Domain interfaces.
@@ -342,16 +316,10 @@ They depend on public interfaces only.
 
 Example:
 
-```
-Slack Plugin
-
-↓
-
-NotificationPort
-
-↓
-
-Application
+```mermaid
+graph TD;
+    "Slack Plugin" --> "NotificationPort";
+    "NotificationPort" --> "Application";
 ```
 
 The Application layer is unaware of plugin implementations.

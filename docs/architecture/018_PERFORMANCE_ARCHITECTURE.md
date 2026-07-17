@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-018
 **Title:** Performance Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -59,36 +59,15 @@ Performance targets should be measurable and continuously monitored.
 
 # 4. Performance Architecture
 
-```
-Telemetry Sources
-
-↓
-
-OpenTelemetry Collector
-
-↓
-
-Streaming Layer
-
-↓
-
-Worker Pool
-
-↓
-
-Analytical Storage
-
-↓
-
-Health Engine
-
-↓
-
-API Layer
-
-↓
-
-Dashboard / MCP
+```mermaid
+graph TD;
+    "Telemetry Sources" --> "OpenTelemetry Collector";
+    "OpenTelemetry Collector" --> "Streaming Layer";
+    "Streaming Layer" --> "Worker Pool";
+    "Worker Pool" --> "Analytical Storage";
+    "Analytical Storage" --> "Health Engine";
+    "Health Engine" --> "API Layer";
+    "API Layer" --> "Dashboard / MCP";
 ```
 
 Each stage has independent scaling characteristics.
@@ -395,44 +374,17 @@ Potential enhancements include:
 
 # 21. Performance Architecture Overview
 
-```
-Telemetry Sources
-
-↓
-
-Collector
-
-↓
-
-Streaming Layer
-
-↓
-
-Worker Pool
-
-↓
-
-ClickHouse
-
-↓
-
-Health Engine
-
-↓
-
-API Layer
-
-↓
-
-Dashboard
-
-↓
-
-AI Layer
-
-↓
-
-MCP Clients
+```mermaid
+graph TD;
+    "Telemetry Sources" --> "Collector";
+    "Collector" --> "Streaming Layer";
+    "Streaming Layer" --> "Worker Pool";
+    "Worker Pool" --> "ClickHouse";
+    "ClickHouse" --> "Health Engine";
+    "Health Engine" --> "API Layer";
+    "API Layer" --> "Dashboard";
+    "Dashboard" --> "AI Layer";
+    "AI Layer" --> "MCP Clients";
 ```
 
 Each stage is independently scalable and observable.

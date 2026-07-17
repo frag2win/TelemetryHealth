@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-003  
 **Title:** Bounded Contexts  
-**Status:** Draft v1.0  
+**Status:** Approved  
 **Version:** 3.0  
 **Owner:** TelemetryHealth Core Team  
 **Authors:** Shubham Pawar & Contributors  
@@ -371,36 +371,15 @@ It does not own business logic.
 
 The following events form the backbone of the platform.
 
-```
-TelemetryObserved
-
-↓
-
-HealthCalculated
-
-↓
-
-BehaviorGenerated
-
-↓
-
-ReplayStored
-
-↓
-
-RootCauseDiscovered
-
-↓
-
-DecisionCreated
-
-↓
-
-RemediationGenerated
-
-↓
-
-AlertPublished
+```mermaid
+graph TD;
+    "TelemetryObserved" --> "HealthCalculated";
+    "HealthCalculated" --> "BehaviorGenerated";
+    "BehaviorGenerated" --> "ReplayStored";
+    "ReplayStored" --> "RootCauseDiscovered";
+    "RootCauseDiscovered" --> "DecisionCreated";
+    "DecisionCreated" --> "RemediationGenerated";
+    "RemediationGenerated" --> "AlertPublished";
 ```
 
 Every context SHOULD publish domain events rather than directly invoking downstream services.
@@ -411,32 +390,14 @@ Every context SHOULD publish domain events rather than directly invoking downstr
 
 Allowed:
 
-```
-Edge
-
-↓
-
-Ingestion
-
-↓
-
-Streaming
-
-↓
-
-Analysis
-
-↓
-
-Decision
-
-↓
-
-Remediation
-
-↓
-
-Alerting
+```mermaid
+graph TD;
+    "Edge" --> "Ingestion";
+    "Ingestion" --> "Streaming";
+    "Streaming" --> "Analysis";
+    "Analysis" --> "Decision";
+    "Decision" --> "Remediation";
+    "Remediation" --> "Alerting";
 ```
 
 Forbidden:

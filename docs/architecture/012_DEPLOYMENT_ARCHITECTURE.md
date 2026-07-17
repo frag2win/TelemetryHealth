@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-012
 **Title:** Deployment Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 **Related Documents:**
@@ -163,34 +163,19 @@ Each service SHOULD run in its own Deployment.
 
 External traffic:
 
-```
-Internet
-
-↓
-
-Ingress
-
-↓
-
-API Gateway
+```mermaid
+graph TD;
+    "Internet" --> "Ingress";
+    "Ingress" --> "API Gateway";
 ```
 
 Internal communication:
 
-```
-API
-
-↓
-
-Kafka
-
-↓
-
-Workers
-
-↓
-
-ClickHouse
+```mermaid
+graph TD;
+    "API" --> "Kafka";
+    "Kafka" --> "Workers";
+    "Workers" --> "ClickHouse";
 ```
 
 Internal services SHOULD remain inaccessible from the public Internet.
@@ -301,24 +286,12 @@ Deployments SHOULD support zero-downtime upgrades.
 
 Typical strategy:
 
-```
-Old Pods
-
-↓
-
-New Pods
-
-↓
-
-Health Verification
-
-↓
-
-Traffic Shift
-
-↓
-
-Old Pods Removed
+```mermaid
+graph TD;
+    "Old Pods" --> "New Pods";
+    "New Pods" --> "Health Verification";
+    "Health Verification" --> "Traffic Shift";
+    "Traffic Shift" --> "Old Pods Removed";
 ```
 
 ---
@@ -365,28 +338,13 @@ Deployment health is monitored continuously.
 
 Local development stack:
 
-```
-Docker Compose
-
-↓
-
-ClickHouse
-
-↓
-
-Redpanda
-
-↓
-
-API
-
-↓
-
-Dashboard
-
-↓
-
-Processor
+```mermaid
+graph TD;
+    "Docker Compose" --> "ClickHouse";
+    "ClickHouse" --> "Redpanda";
+    "Redpanda" --> "API";
+    "API" --> "Dashboard";
+    "Dashboard" --> "Processor";
 ```
 
 One command should start the complete development environment.

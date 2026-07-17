@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-016
 **Title:** Data Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -45,44 +45,17 @@ The architecture follows five principles:
 
 TelemetryHealth manages several distinct data domains.
 
-```
-Raw Telemetry
-
-↓
-
-Replay Data
-
-↓
-
-Behavior Intelligence
-
-↓
-
-Health Intelligence
-
-↓
-
-Root Cause Analysis
-
-↓
-
-Decision Intelligence
-
-↓
-
-Remediation Knowledge
-
-↓
-
-Platform Observability
-
-↓
-
-Configuration
-
-↓
-
-Audit
+```mermaid
+graph TD;
+    "Raw Telemetry" --> "Replay Data";
+    "Replay Data" --> "Behavior Intelligence";
+    "Behavior Intelligence" --> "Health Intelligence";
+    "Health Intelligence" --> "Root Cause Analysis";
+    "Root Cause Analysis" --> "Decision Intelligence";
+    "Decision Intelligence" --> "Remediation Knowledge";
+    "Remediation Knowledge" --> "Platform Observability";
+    "Platform Observability" --> "Configuration";
+    "Configuration" --> "Audit";
 ```
 
 Each domain owns its own lifecycle and schema.
@@ -179,44 +152,17 @@ Examples
 
 # 6. Canonical Data Flow
 
-```
-Telemetry
-
-↓
-
-Collection
-
-↓
-
-Validation
-
-↓
-
-Normalization
-
-↓
-
-Enrichment
-
-↓
-
-Analysis
-
-↓
-
-Decision
-
-↓
-
-Recommendation
-
-↓
-
-Storage
-
-↓
-
-Visualization
+```mermaid
+graph TD;
+    "Telemetry" --> "Collection";
+    "Collection" --> "Validation";
+    "Validation" --> "Normalization";
+    "Normalization" --> "Enrichment";
+    "Enrichment" --> "Analysis";
+    "Analysis" --> "Decision";
+    "Decision" --> "Recommendation";
+    "Recommendation" --> "Storage";
+    "Storage" --> "Visualization";
 ```
 
 Each transformation produces new information while preserving lineage.
@@ -229,32 +175,14 @@ Every derived artifact maintains lineage to its source.
 
 Example
 
-```
-Trace
-
-↓
-
-Replay
-
-↓
-
-Behavior Analysis
-
-↓
-
-Health Score
-
-↓
-
-Root Cause
-
-↓
-
-Decision
-
-↓
-
-Remediation
+```mermaid
+graph TD;
+    "Trace" --> "Replay";
+    "Replay" --> "Behavior Analysis";
+    "Behavior Analysis" --> "Health Score";
+    "Health Score" --> "Root Cause";
+    "Root Cause" --> "Decision";
+    "Decision" --> "Remediation";
 ```
 
 Lineage supports traceability, debugging, and explainability.
@@ -297,32 +225,14 @@ Each stage enriches rather than replaces earlier data.
 
 Every data type has a lifecycle.
 
-```
-Created
-
-↓
-
-Validated
-
-↓
-
-Processed
-
-↓
-
-Stored
-
-↓
-
-Archived
-
-↓
-
-Expired
-
-↓
-
-Deleted
+```mermaid
+graph TD;
+    "Created" --> "Validated";
+    "Validated" --> "Processed";
+    "Processed" --> "Stored";
+    "Stored" --> "Archived";
+    "Archived" --> "Expired";
+    "Expired" --> "Deleted";
 ```
 
 Retention policies are defined separately in the Storage Architecture.
@@ -371,24 +281,12 @@ Consumers should tolerate unknown fields.
 
 Every tenant owns a logically isolated dataset.
 
-```
-Tenant A
-
-↓
-
-Telemetry
-
-↓
-
-Health
-
-↓
-
-Alerts
-
-↓
-
-Reports
+```mermaid
+graph TD;
+    "Tenant A" --> "Telemetry";
+    "Telemetry" --> "Health";
+    "Health" --> "Alerts";
+    "Alerts" --> "Reports";
 ```
 
 Cross-tenant access is prohibited unless explicitly authorized.
@@ -470,32 +368,14 @@ Future versions may model relationships between entities as a knowledge graph.
 
 Example relationships
 
-```
-Service
-
-↓
-
-Trace
-
-↓
-
-Replay
-
-↓
-
-Behavior
-
-↓
-
-Health
-
-↓
-
-Incident
-
-↓
-
-Remediation
+```mermaid
+graph TD;
+    "Service" --> "Trace";
+    "Trace" --> "Replay";
+    "Replay" --> "Behavior";
+    "Behavior" --> "Health";
+    "Health" --> "Incident";
+    "Incident" --> "Remediation";
 ```
 
 This enables advanced reasoning and dependency analysis.

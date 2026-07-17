@@ -192,44 +192,17 @@ The platform processes telemetry through the following stages:
 
 # 10. Intelligence Pipeline
 
-```text
-Telemetry
-
-↓
-
-Health Analysis
-
-↓
-
-Behavior Analysis
-
-↓
-
-Root Cause
-
-↓
-
-Context Builder
-
-↓
-
-Prompt Builder
-
-↓
-
-LLM
-
-↓
-
-Validator
-
-↓
-
-Decision Engine
-
-↓
-
-Remediation
+```mermaid
+graph TD;
+    "Telemetry" --> "Health Analysis";
+    "Health Analysis" --> "Behavior Analysis";
+    "Behavior Analysis" --> "Root Cause";
+    "Root Cause" --> "Context Builder";
+    "Context Builder" --> "Prompt Builder";
+    "Prompt Builder" --> "LLM";
+    "LLM" --> "Validator";
+    "Validator" --> "Decision Engine";
+    "Decision Engine" --> "Remediation";
 ```
 
 ---

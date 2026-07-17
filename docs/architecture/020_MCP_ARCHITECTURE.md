@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-020
 **Title:** MCP Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -99,36 +99,15 @@ The MCP layer is not responsible for decision making.
 
 # 5. MCP Components
 
-```
-MCP Server
-
-↓
-
-Authentication
-
-↓
-
-Tool Registry
-
-↓
-
-Request Validator
-
-↓
-
-Context Builder
-
-↓
-
-Tool Dispatcher
-
-↓
-
-Application Services
-
-↓
-
-Response Formatter
+```mermaid
+graph TD;
+    "MCP Server" --> "Authentication";
+    "Authentication" --> "Tool Registry";
+    "Tool Registry" --> "Request Validator";
+    "Request Validator" --> "Context Builder";
+    "Context Builder" --> "Tool Dispatcher";
+    "Tool Dispatcher" --> "Application Services";
+    "Application Services" --> "Response Formatter";
 ```
 
 Each component owns a single responsibility.
@@ -155,28 +134,13 @@ Tools expose business capabilities rather than infrastructure details.
 
 # 7. Tool Lifecycle
 
-```
-Registered
-
-↓
-
-Validated
-
-↓
-
-Discovered
-
-↓
-
-Executed
-
-↓
-
-Observed
-
-↓
-
-Completed
+```mermaid
+graph TD;
+    "Registered" --> "Validated";
+    "Validated" --> "Discovered";
+    "Discovered" --> "Executed";
+    "Executed" --> "Observed";
+    "Observed" --> "Completed";
 ```
 
 All executions are traced.
@@ -234,40 +198,16 @@ Only relevant context is included.
 
 # 10. Request Flow
 
-```
-Assistant
-
-↓
-
-MCP
-
-↓
-
-Authentication
-
-↓
-
-Authorization
-
-↓
-
-Validation
-
-↓
-
-Tool Dispatcher
-
-↓
-
-Application Service
-
-↓
-
-Response
-
-↓
-
-Assistant
+```mermaid
+graph TD;
+    "Assistant" --> "MCP";
+    "MCP" --> "Authentication";
+    "Authentication" --> "Authorization";
+    "Authorization" --> "Validation";
+    "Validation" --> "Tool Dispatcher";
+    "Tool Dispatcher" --> "Application Service";
+    "Application Service" --> "Response";
+    "Response" --> "Assistant";
 ```
 
 ---
@@ -331,24 +271,12 @@ Errors are structured.
 
 Example
 
-```
-Validation Failed
-
-↓
-
-Tool Not Found
-
-↓
-
-Permission Denied
-
-↓
-
-Execution Failed
-
-↓
-
-Internal Error
+```mermaid
+graph TD;
+    "Validation Failed" --> "Tool Not Found";
+    "Tool Not Found" --> "Permission Denied";
+    "Permission Denied" --> "Execution Failed";
+    "Execution Failed" --> "Internal Error";
 ```
 
 Responses should remain deterministic.

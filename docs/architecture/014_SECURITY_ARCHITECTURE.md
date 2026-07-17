@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-014
 **Title:** Security Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -74,48 +74,18 @@ The default configuration should always be the safest configuration.
 
 # 3. Security Domains
 
-```
-Identity
-
-↓
-
-Authentication
-
-↓
-
-Authorization
-
-↓
-
-Tenant Isolation
-
-↓
-
-Network Security
-
-↓
-
-Application Security
-
-↓
-
-Data Security
-
-↓
-
-Plugin Security
-
-↓
-
-AI Security
-
-↓
-
-Observability Security
-
-↓
-
-Audit
+```mermaid
+graph TD;
+    "Identity" --> "Authentication";
+    "Authentication" --> "Authorization";
+    "Authorization" --> "Tenant Isolation";
+    "Tenant Isolation" --> "Network Security";
+    "Network Security" --> "Application Security";
+    "Application Security" --> "Data Security";
+    "Data Security" --> "Plugin Security";
+    "Plugin Security" --> "AI Security";
+    "AI Security" --> "Observability Security";
+    "Observability Security" --> "Audit";
 ```
 
 ---
@@ -187,30 +157,18 @@ A tenant must never access another tenant's resources.
 
 External traffic
 
-```
-Internet
-
-↓
-
-Ingress
-
-↓
-
-API Gateway
+```mermaid
+graph TD;
+    "Internet" --> "Ingress";
+    "Ingress" --> "API Gateway";
 ```
 
 Internal communication
 
-```
-API
-
-↓
-
-Workers
-
-↓
-
-Storage
+```mermaid
+graph TD;
+    "API" --> "Workers";
+    "Workers" --> "Storage";
 ```
 
 Future enhancements include:
@@ -363,28 +321,13 @@ Security events are observable through TelemetryHealth itself.
 
 Security incidents should follow a documented workflow.
 
-```
-Detection
-
-↓
-
-Classification
-
-↓
-
-Containment
-
-↓
-
-Investigation
-
-↓
-
-Recovery
-
-↓
-
-Post-Incident Review
+```mermaid
+graph TD;
+    "Detection" --> "Classification";
+    "Classification" --> "Containment";
+    "Containment" --> "Investigation";
+    "Investigation" --> "Recovery";
+    "Recovery" --> "Post-Incident Review";
 ```
 
 Security telemetry supports forensic analysis.

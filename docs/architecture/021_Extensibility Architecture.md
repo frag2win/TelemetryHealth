@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-021
 **Title:** Extensibility Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -167,40 +167,16 @@ Developer Plugins
 
 Every extension follows a standard lifecycle.
 
-```
-Installed
-
-↓
-
-Discovered
-
-↓
-
-Validated
-
-↓
-
-Initialized
-
-↓
-
-Activated
-
-↓
-
-Observed
-
-↓
-
-Updated
-
-↓
-
-Disabled
-
-↓
-
-Removed
+```mermaid
+graph TD;
+    "Installed" --> "Discovered";
+    "Discovered" --> "Validated";
+    "Validated" --> "Initialized";
+    "Initialized" --> "Activated";
+    "Activated" --> "Observed";
+    "Observed" --> "Updated";
+    "Updated" --> "Disabled";
+    "Disabled" --> "Removed";
 ```
 
 Lifecycle management is centralized.
@@ -373,40 +349,16 @@ The architecture should support these additions without changes to the core.
 
 # 19. Example Extension Flow
 
-```
-Developer
-
-↓
-
-Creates Plugin
-
-↓
-
-Implements Contract
-
-↓
-
-Registers Metadata
-
-↓
-
-Platform Discovery
-
-↓
-
-Validation
-
-↓
-
-Activation
-
-↓
-
-Execution
-
-↓
-
-Observability
+```mermaid
+graph TD;
+    "Developer" --> "Creates Plugin";
+    "Creates Plugin" --> "Implements Contract";
+    "Implements Contract" --> "Registers Metadata";
+    "Registers Metadata" --> "Platform Discovery";
+    "Platform Discovery" --> "Validation";
+    "Validation" --> "Activation";
+    "Activation" --> "Execution";
+    "Execution" --> "Observability";
 ```
 
 Every extension follows the same lifecycle regardless of type.

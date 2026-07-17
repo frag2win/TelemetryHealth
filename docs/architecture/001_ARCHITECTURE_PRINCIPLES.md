@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-001  
 **Title:** Architecture Principles  
-**Status:** Draft v1.0  
+**Status:** Approved  
 **Version:** 3.0  
 **Owner:** TelemetryHealth Core Team  
 **Authors:** Shubham Pawar & Contributors  
@@ -95,20 +95,12 @@ The repository SHALL follow Clean Architecture.
 
 Dependencies MUST point inward.
 
-```text
-Presentation
-
-↓
-
-Application
-
-↓
-
-Domain
-
-↑
-
-Infrastructure
+```mermaid
+graph TD;
+    "Presentation" --> "Application";
+    "Application" --> "Domain";
+    "Domain" --> "↑";
+    "↑" --> "Infrastructure";
 ```
 
 Business rules MUST NOT depend on infrastructure.
@@ -138,28 +130,13 @@ Independent components SHOULD communicate through domain events whenever possibl
 
 Example:
 
-```
-Replay Imported
-
-↓
-
-Behavior Generated
-
-↓
-
-Decision Created
-
-↓
-
-Root Cause Identified
-
-↓
-
-Health Updated
-
-↓
-
-Remediation Generated
+```mermaid
+graph TD;
+    "Replay Imported" --> "Behavior Generated";
+    "Behavior Generated" --> "Decision Created";
+    "Decision Created" --> "Root Cause Identified";
+    "Root Cause Identified" --> "Health Updated";
+    "Health Updated" --> "Remediation Generated";
 ```
 
 This reduces coupling between services.
@@ -335,20 +312,11 @@ Infrastructure depends on the domain—not vice versa.
 
 Allowed:
 
-```
-Presentation
-
-↓
-
-Interface
-
-↓
-
-Application
-
-↓
-
-Domain
+```mermaid
+graph TD;
+    "Presentation" --> "Interface";
+    "Interface" --> "Application";
+    "Application" --> "Domain";
 ```
 
 Infrastructure implements interfaces defined by higher layers.

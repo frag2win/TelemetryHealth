@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-017
 **Title:** Storage Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -133,32 +133,14 @@ Optimized for
 
 # 6. Storage Topology
 
-```
-Telemetry
-
-↓
-
-Collector
-
-↓
-
-Kafka
-
-↓
-
-Workers
-
-↓
-
-ClickHouse
-
-↓
-
-Dashboard
-
-↓
-
-Archive
+```mermaid
+graph TD;
+    "Telemetry" --> "Collector";
+    "Collector" --> "Kafka";
+    "Kafka" --> "Workers";
+    "Workers" --> "ClickHouse";
+    "ClickHouse" --> "Dashboard";
+    "Dashboard" --> "Archive";
 ```
 
 Streaming and analytical storage remain independent.
@@ -167,24 +149,12 @@ Streaming and analytical storage remain independent.
 
 # 7. Data Categories
 
-```
-Transient
-
-↓
-
-Operational
-
-↓
-
-Analytical
-
-↓
-
-Historical
-
-↓
-
-Archived
+```mermaid
+graph TD;
+    "Transient" --> "Operational";
+    "Operational" --> "Analytical";
+    "Analytical" --> "Historical";
+    "Historical" --> "Archived";
 ```
 
 Each category has different retention policies.
@@ -267,16 +237,10 @@ Critical storage supports replication.
 
 Examples
 
-```
-Primary
-
-↓
-
-Replica 1
-
-↓
-
-Replica 2
+```mermaid
+graph TD;
+    "Primary" --> "Replica 1";
+    "Replica 1" --> "Replica 2";
 ```
 
 Replication protects against node failure.
@@ -294,16 +258,10 @@ Backups include
 
 Backup policy
 
-```
-Daily Incremental
-
-↓
-
-Weekly Full
-
-↓
-
-Monthly Archive
+```mermaid
+graph TD;
+    "Daily Incremental" --> "Weekly Full";
+    "Weekly Full" --> "Monthly Archive";
 ```
 
 Backups should be tested regularly through restoration exercises.
@@ -314,16 +272,10 @@ Backups should be tested regularly through restoration exercises.
 
 Application Services access storage through repositories.
 
-```
-Application
-
-↓
-
-Repository
-
-↓
-
-Storage
+```mermaid
+graph TD;
+    "Application" --> "Repository";
+    "Repository" --> "Storage";
 ```
 
 The Domain Layer remains unaware of storage technology.

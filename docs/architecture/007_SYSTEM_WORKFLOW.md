@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-007
 **Title:** System Workflow
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 **Related Documents:**
@@ -31,36 +31,15 @@ Its responsibility is to observe telemetry, analyze its quality and behavior, de
 
 At a high level, the workflow is:
 
-```
-Telemetry
-
-↓
-
-Collection
-
-↓
-
-Inspection
-
-↓
-
-Storage
-
-↓
-
-Analysis
-
-↓
-
-Decision
-
-↓
-
-Remediation
-
-↓
-
-Visualization
+```mermaid
+graph TD;
+    "Telemetry" --> "Collection";
+    "Collection" --> "Inspection";
+    "Inspection" --> "Storage";
+    "Storage" --> "Analysis";
+    "Analysis" --> "Decision";
+    "Decision" --> "Remediation";
+    "Remediation" --> "Visualization";
 ```
 
 ---
@@ -256,28 +235,13 @@ Once telemetry has been persisted, the intelligence pipeline begins.
 
 The pipeline consists of multiple independent analysis engines.
 
-```
-Replay
-
-↓
-
-Behavior
-
-↓
-
-Health
-
-↓
-
-Root Cause
-
-↓
-
-Decision
-
-↓
-
-Remediation
+```mermaid
+graph TD;
+    "Replay" --> "Behavior";
+    "Behavior" --> "Health";
+    "Health" --> "Root Cause";
+    "Root Cause" --> "Decision";
+    "Decision" --> "Remediation";
 ```
 
 Each engine enriches the information produced by the previous stage.
@@ -394,24 +358,12 @@ The Dashboard interacts only with the public API.
 
 Workflow:
 
-```
-Dashboard
-
-↓
-
-REST API
-
-↓
-
-Application Service
-
-↓
-
-Repository
-
-↓
-
-ClickHouse
+```mermaid
+graph TD;
+    "Dashboard" --> "REST API";
+    "REST API" --> "Application Service";
+    "Application Service" --> "Repository";
+    "Repository" --> "ClickHouse";
 ```
 
 The Dashboard never communicates directly with infrastructure components.
@@ -424,28 +376,13 @@ AI systems interact through the MCP Server.
 
 Typical workflow:
 
-```
-AI Client
-
-↓
-
-MCP Server
-
-↓
-
-Application Service
-
-↓
-
-Domain
-
-↓
-
-Repository
-
-↓
-
-Response
+```mermaid
+graph TD;
+    "AI Client" --> "MCP Server";
+    "MCP Server" --> "Application Service";
+    "Application Service" --> "Domain";
+    "Domain" --> "Repository";
+    "Repository" --> "Response";
 ```
 
 Supported operations include:

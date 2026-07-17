@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-023
 **Title:** Contributing Guidelines
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -68,36 +68,15 @@ Code should not be written before understanding the existing architecture.
 
 # 4. Contribution Workflow
 
-```
-Issue
-
-↓
-
-Discussion
-
-↓
-
-Architecture Review
-
-↓
-
-Implementation
-
-↓
-
-Testing
-
-↓
-
-Documentation
-
-↓
-
-Code Review
-
-↓
-
-Merge
+```mermaid
+graph TD;
+    "Issue" --> "Discussion";
+    "Discussion" --> "Architecture Review";
+    "Architecture Review" --> "Implementation";
+    "Implementation" --> "Testing";
+    "Testing" --> "Documentation";
+    "Documentation" --> "Code Review";
+    "Code Review" --> "Merge";
 ```
 
 Every significant change should follow this lifecycle.
@@ -422,28 +401,13 @@ Architecture debates should focus on trade-offs rather than preferences.
 
 Major changes follow:
 
-```
-Proposal
-
-↓
-
-Architecture Discussion
-
-↓
-
-ADR
-
-↓
-
-Implementation
-
-↓
-
-Review
-
-↓
-
-Merge
+```mermaid
+graph TD;
+    "Proposal" --> "Architecture Discussion";
+    "Architecture Discussion" --> "ADR";
+    "ADR" --> "Implementation";
+    "Implementation" --> "Review";
+    "Review" --> "Merge";
 ```
 
 Architectural decisions should be documented before implementation.

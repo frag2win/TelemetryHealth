@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-009
 **Title:** Event-Driven Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 **Related Documents:**
@@ -46,36 +46,15 @@ The architecture SHALL NOT:
 
 # 3. Event Flow Overview
 
-```
-Telemetry
-
-↓
-
-ReplayCreated
-
-↓
-
-BehaviorGenerated
-
-↓
-
-HealthCalculated
-
-↓
-
-RootCauseDetected
-
-↓
-
-DecisionGenerated
-
-↓
-
-RemediationGenerated
-
-↓
-
-AlertPublished
+```mermaid
+graph TD;
+    "Telemetry" --> "ReplayCreated";
+    "ReplayCreated" --> "BehaviorGenerated";
+    "BehaviorGenerated" --> "HealthCalculated";
+    "HealthCalculated" --> "RootCauseDetected";
+    "RootCauseDetected" --> "DecisionGenerated";
+    "DecisionGenerated" --> "RemediationGenerated";
+    "RemediationGenerated" --> "AlertPublished";
 ```
 
 Every event represents something that **has already happened**.
@@ -127,32 +106,14 @@ Examples:
 
 # 5. Event Lifecycle
 
-```
-Business Action
-
-↓
-
-Domain Event Created
-
-↓
-
-Validation
-
-↓
-
-Event Bus
-
-↓
-
-Subscribers
-
-↓
-
-Processing
-
-↓
-
-Acknowledgement
+```mermaid
+graph TD;
+    "Business Action" --> "Domain Event Created";
+    "Domain Event Created" --> "Validation";
+    "Validation" --> "Event Bus";
+    "Event Bus" --> "Subscribers";
+    "Subscribers" --> "Processing";
+    "Processing" --> "Acknowledgement";
 ```
 
 Events are immutable after publication.
@@ -260,28 +221,13 @@ Multiple consumers may subscribe to the same event.
 
 Example:
 
-```
-HealthCalculated
-
-↓
-
-Dashboard
-
-↓
-
-Alert Engine
-
-↓
-
-Reporting
-
-↓
-
-MCP
-
-↓
-
-Analytics
+```mermaid
+graph TD;
+    "HealthCalculated" --> "Dashboard";
+    "Dashboard" --> "Alert Engine";
+    "Alert Engine" --> "Reporting";
+    "Reporting" --> "MCP";
+    "MCP" --> "Analytics";
 ```
 
 Publishers remain unaware of subscribers.
@@ -294,16 +240,10 @@ Ordering is required only within a logical aggregate.
 
 Example:
 
-```
-ReplayCreated
-
-↓
-
-ReplayUpdated
-
-↓
-
-ReplayArchived
+```mermaid
+graph TD;
+    "ReplayCreated" --> "ReplayUpdated";
+    "ReplayUpdated" --> "ReplayArchived";
 ```
 
 Ordering across unrelated aggregates is not guaranteed.
@@ -322,12 +262,9 @@ Versioning rules:
 
 Example:
 
-```
-HealthCalculated v1
-
-↓
-
-HealthCalculated v2
+```mermaid
+graph TD;
+    "HealthCalculated v1" --> "HealthCalculated v2";
 ```
 
 Both may coexist during migration.

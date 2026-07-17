@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-002  
 **Title:** System Context  
-**Status:** Draft v1.0  
+**Status:** Approved  
 **Version:** 3.0  
 **Owner:** TelemetryHealth Core Team  
 **Authors:** Shubham Pawar & Contributors  
@@ -300,32 +300,16 @@ Future protocols:
 
 The platform contains multiple trust boundaries.
 
-```
-Internet
-
-↓
-
-Dashboard
-
-↓
-
-API Gateway
-
-======================
-
-Internal Cluster
-
-↓
-
-Application Services
-
-↓
-
-Infrastructure
-
-======================
-
-Database Layer
+```mermaid
+graph TD;
+    "Internet" --> "Dashboard";
+    "Dashboard" --> "API Gateway";
+    "API Gateway" --> "======================";
+    "======================" --> "Internal Cluster";
+    "Internal Cluster" --> "Application Services";
+    "Application Services" --> "Infrastructure";
+    "Infrastructure" --> "======================";
+    "======================" --> "Database Layer";
 ```
 
 Authentication should occur whenever data crosses a trust boundary.

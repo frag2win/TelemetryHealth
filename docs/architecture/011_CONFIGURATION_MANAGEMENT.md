@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-011
 **Title:** Configuration Management
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 **Related Documents:**
@@ -65,24 +65,12 @@ Configuration may originate from:
 
 Configuration precedence:
 
-```
-CLI Flags
-
-↓
-
-Environment Variables
-
-↓
-
-Secrets
-
-↓
-
-Configuration Files
-
-↓
-
-Built-in Defaults
+```mermaid
+graph TD;
+    "CLI Flags" --> "Environment Variables";
+    "Environment Variables" --> "Secrets";
+    "Secrets" --> "Configuration Files";
+    "Configuration Files" --> "Built-in Defaults";
 ```
 
 ---

@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-010
 **Title:** API Design Guidelines
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 **Related Documents:**
@@ -51,28 +51,13 @@ Every API SHOULD:
 
 # 3. API Architecture
 
-```
-Client
-
-↓
-
-API Gateway
-
-↓
-
-Interface Layer
-
-↓
-
-Application Service
-
-↓
-
-Domain
-
-↓
-
-Infrastructure
+```mermaid
+graph TD;
+    "Client" --> "API Gateway";
+    "API Gateway" --> "Interface Layer";
+    "Interface Layer" --> "Application Service";
+    "Application Service" --> "Domain";
+    "Domain" --> "Infrastructure";
 ```
 
 Business logic SHALL exist only in the Application and Domain layers.

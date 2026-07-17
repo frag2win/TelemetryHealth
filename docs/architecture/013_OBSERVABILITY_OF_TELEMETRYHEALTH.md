@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-013
 **Title:** Observability of TelemetryHealth
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 
@@ -94,24 +94,12 @@ The platform continuously observes itself.
 
 TelemetryHealth observes five layers.
 
-```
-Infrastructure
-
-↓
-
-Platform Services
-
-↓
-
-Application Logic
-
-↓
-
-Telemetry Pipeline
-
-↓
-
-User Experience
+```mermaid
+graph TD;
+    "Infrastructure" --> "Platform Services";
+    "Platform Services" --> "Application Logic";
+    "Application Logic" --> "Telemetry Pipeline";
+    "Telemetry Pipeline" --> "User Experience";
 ```
 
 Each layer contributes to the overall Platform Health Score.
@@ -241,34 +229,21 @@ Every service computes its own health.
 
 Example
 
-```
-Worker
-
-↓
-
-Queue Length
-
-Latency
-
-CPU
-
-Failures
-
-Retries
-
-↓
-
-Worker Health Score
+```mermaid
+graph TD;
+    "Worker" --> "Queue Length";
+    "Queue Length" --> "Latency";
+    "Latency" --> "CPU";
+    "CPU" --> "Failures";
+    "Failures" --> "Retries";
+    "Retries" --> "Worker Health Score";
 ```
 
 Health scores range from:
 
-```
-0
-
-↓
-
-100
+```mermaid
+graph TD;
+    "0" --> "100";
 ```
 
 ---
@@ -408,20 +383,11 @@ If alerts cannot be delivered, the platform reports degraded health.
 
 Health is stored historically.
 
-```
-Today
-
-↓
-
-Yesterday
-
-↓
-
-Last Week
-
-↓
-
-Last Month
+```mermaid
+graph TD;
+    "Today" --> "Yesterday";
+    "Yesterday" --> "Last Week";
+    "Last Week" --> "Last Month";
 ```
 
 Historical health enables trend analysis.
@@ -434,28 +400,13 @@ Every internal request SHALL be traced.
 
 Example
 
-```
-Dashboard
-
-↓
-
-API
-
-↓
-
-Application
-
-↓
-
-Worker
-
-↓
-
-ClickHouse
-
-↓
-
-Response
+```mermaid
+graph TD;
+    "Dashboard" --> "API";
+    "API" --> "Application";
+    "Application" --> "Worker";
+    "Worker" --> "ClickHouse";
+    "ClickHouse" --> "Response";
 ```
 
 The platform can visualize its own execution paths.

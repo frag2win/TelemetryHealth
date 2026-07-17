@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-008
 **Title:** Plugin Architecture
-**Status:** Draft v1.0
+**Status:** Approved
 **Version:** 1.0
 **Owner:** TelemetryHealth Core Team
 **Related Documents:**
@@ -135,32 +135,14 @@ Examples:
 
 Every plugin follows the same lifecycle.
 
-```
-Discovered
-
-↓
-
-Registered
-
-↓
-
-Initialized
-
-↓
-
-Validated
-
-↓
-
-Running
-
-↓
-
-Stopped
-
-↓
-
-Unloaded
+```mermaid
+graph TD;
+    "Discovered" --> "Registered";
+    "Registered" --> "Initialized";
+    "Initialized" --> "Validated";
+    "Validated" --> "Running";
+    "Running" --> "Stopped";
+    "Stopped" --> "Unloaded";
 ```
 
 Plugins SHALL cleanly release all resources during shutdown.
@@ -171,24 +153,12 @@ Plugins SHALL cleanly release all resources during shutdown.
 
 Plugins register themselves through a registry.
 
-```
-Plugin
-
-↓
-
-Registry
-
-↓
-
-Capability Discovery
-
-↓
-
-Dependency Resolution
-
-↓
-
-Activation
+```mermaid
+graph TD;
+    "Plugin" --> "Registry";
+    "Registry" --> "Capability Discovery";
+    "Capability Discovery" --> "Dependency Resolution";
+    "Dependency Resolution" --> "Activation";
 ```
 
 Registration MUST occur during application startup.
@@ -378,20 +348,11 @@ Plugin failures SHALL remain isolated.
 
 Example:
 
-```
-Slack Failure
-
-↓
-
-Alert Logged
-
-↓
-
-Retry
-
-↓
-
-Continue Platform Operation
+```mermaid
+graph TD;
+    "Slack Failure" --> "Alert Logged";
+    "Alert Logged" --> "Retry";
+    "Retry" --> "Continue Platform Operation";
 ```
 
 Core services must continue operating.
@@ -429,24 +390,12 @@ The architecture should remain compatible with these capabilities.
 
 # 18. Example Workflow
 
-```
-Health Score Generated
-
-↓
-
-Application Service
-
-↓
-
-Notification Interface
-
-↓
-
-Slack Plugin
-
-↓
-
-Slack API
+```mermaid
+graph TD;
+    "Health Score Generated" --> "Application Service";
+    "Application Service" --> "Notification Interface";
+    "Notification Interface" --> "Slack Plugin";
+    "Slack Plugin" --> "Slack API";
 ```
 
 The Application Service remains unaware of Slack-specific implementation details.

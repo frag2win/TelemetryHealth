@@ -2,7 +2,7 @@
 
 **Document ID:** TH-ARCH-004  
 **Title:** Domain Model  
-**Status:** Draft v1.0  
+**Status:** Approved  
 **Version:** 3.0  
 **Owner:** TelemetryHealth Core Team  
 **Authors:** Shubham Pawar & Contributors  
@@ -60,36 +60,15 @@ TelemetryHealth transforms raw telemetry into operational intelligence.
 
 The high-level business flow is:
 
-```
-Telemetry
-
-↓
-
-Observation
-
-↓
-
-Replay
-
-↓
-
-Behavior Analysis
-
-↓
-
-Health Assessment
-
-↓
-
-Root Cause
-
-↓
-
-Decision
-
-↓
-
-Remediation
+```mermaid
+graph TD;
+    "Telemetry" --> "Observation";
+    "Observation" --> "Replay";
+    "Replay" --> "Behavior Analysis";
+    "Behavior Analysis" --> "Health Assessment";
+    "Health Assessment" --> "Root Cause";
+    "Root Cause" --> "Decision";
+    "Decision" --> "Remediation";
 ```
 
 Every stage enriches the understanding of the system.
@@ -264,20 +243,11 @@ Represents an operational recommendation.
 
 ### States
 
-```
-Pending
-
-↓
-
-Validated
-
-↓
-
-Approved
-
-↓
-
-Executed
+```mermaid
+graph TD;
+    "Pending" --> "Validated";
+    "Validated" --> "Approved";
+    "Approved" --> "Executed";
 ```
 
 ### Invariants
@@ -329,20 +299,11 @@ Represents notification delivery.
 
 ### States
 
-```
-Created
-
-↓
-
-Queued
-
-↓
-
-Delivered
-
-↓
-
-Acknowledged
+```mermaid
+graph TD;
+    "Created" --> "Queued";
+    "Queued" --> "Delivered";
+    "Delivered" --> "Acknowledged";
 ```
 
 Alerting owns communication, not business decisions.
@@ -445,32 +406,14 @@ They should be immutable.
 
 # 16. Aggregate Relationships
 
-```
-Replay
-
-↓
-
-Behavior
-
-↓
-
-Health
-
-↓
-
-Root Cause
-
-↓
-
-Decision
-
-↓
-
-Remediation
-
-↓
-
-Alert
+```mermaid
+graph TD;
+    "Replay" --> "Behavior";
+    "Behavior" --> "Health";
+    "Health" --> "Root Cause";
+    "Root Cause" --> "Decision";
+    "Decision" --> "Remediation";
+    "Remediation" --> "Alert";
 ```
 
 Each aggregate consumes information from previous aggregates.
@@ -497,72 +440,36 @@ The following rules define platform behavior.
 
 ## Replay
 
-```
-Collected
-
-↓
-
-Stored
-
-↓
-
-Reconstructed
-
-↓
-
-Analyzed
-
-↓
-
-Archived
+```mermaid
+graph TD;
+    "Collected" --> "Stored";
+    "Stored" --> "Reconstructed";
+    "Reconstructed" --> "Analyzed";
+    "Analyzed" --> "Archived";
 ```
 
 ---
 
 ## Remediation
 
-```
-Generated
-
-↓
-
-Validated
-
-↓
-
-Approved
-
-↓
-
-Applied
-
-↓
-
-Verified
+```mermaid
+graph TD;
+    "Generated" --> "Validated";
+    "Validated" --> "Approved";
+    "Approved" --> "Applied";
+    "Applied" --> "Verified";
 ```
 
 ---
 
 ## Alert
 
-```
-Created
-
-↓
-
-Queued
-
-↓
-
-Sent
-
-↓
-
-Acknowledged
-
-↓
-
-Closed
+```mermaid
+graph TD;
+    "Created" --> "Queued";
+    "Queued" --> "Sent";
+    "Sent" --> "Acknowledged";
+    "Acknowledged" --> "Closed";
 ```
 
 ---
