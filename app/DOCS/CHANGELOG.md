@@ -22,6 +22,8 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
+- fix O(n^2) processor loop latency and safeguard nil healthRepo ([0bc34be](https://github.com/frag2win/TelemetryHealth/commit/0bc34bea0078c3c26c6d6ebc1659b8791abda0d0))
+
 - Fix #root flex layout for React integration ([08105bd](https://github.com/frag2win/TelemetryHealth/commit/08105bdab67439a468a665cfe9a15d6db06e59e3))
 
 ### Changed
