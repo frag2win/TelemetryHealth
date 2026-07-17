@@ -16,7 +16,7 @@ variables:
         enabled: true
     exporters:
       signoz:
-        dashboard_path: "./signoz_implementations/agent_health.json"
+        dashboard_path: "./dashboard/signoz-dashboard.json"
         alerts_path: "./alerts/telemetry-health-alerts.yaml"
   mcp_tools:
     server: "stitch"
