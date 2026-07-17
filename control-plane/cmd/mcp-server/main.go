@@ -15,8 +15,50 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
+	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
 	"go.uber.org/zap"
 )
+
+// MockHealthRepository implements the full footprint of storage.HealthRepository.
+type MockHealthRepository struct{}
+
+func (m *MockHealthRepository) QueryHealthMetrics(ctx context.Context, tenantID string) (*storage.HealthMetrics, error) {
+	return &storage.HealthMetrics{
+		TenantID:            tenantID,
+		CardinalityMax:      0,
+		OrphanCount:         0,
+		PreviousOrphanCount: 0,
+		ActiveServices:      0,
+		CompositeScore:      100.0,
+		RemediationIssue:    "",
+		Window:              time.Now(),
+	}, nil
+}
+
+func (m *MockHealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.AgentTrace, error) {
+	return []storage.AgentTrace{}, nil
+}
+
+func (m *MockHealthRepository) GetTenantWeights(ctx context.Context, tenantID string) (telemetry.TenantWeights, error) {
+	return telemetry.TenantWeights{
+		CardinalityWeight: 0.20,
+		OrphanWeight:      0.30,
+		CoverageWeight:    0.50,
+	}, nil
+}
+
+func (m *MockHealthRepository) SaveTenantConfig(ctx context.Context, tenantID string, weights telemetry.TenantWeights) error {
+	return nil
+}
+
+func (m *MockHealthRepository) LogRemediationEvent(ctx context.Context, tenantID string, issueType string, yamlConfig string, validated, applied bool, actorID, actorRole, sourceIP, action, resourceID string) error {
+	return nil
+}
+
+func (m *MockHealthRepository) QuerySpansByTraceID(ctx context.Context, traceID string) ([]models.SpanData, error) {
+	return []models.SpanData{}, nil
+}
 
 func main() {
 	stdioFlag := flag.Bool("stdio", false, "Start MCP server in stdio mode")
@@ -41,7 +83,8 @@ func main() {
 	)
 	cancel()
 	if err != nil {
-		logger.Warn("ClickHouse unavailable — MCP queries will fallback or fail", zap.Error(err))
+		logger.Warn("ClickHouse unavailable — falling back to safe in-memory repository store to block runtime panics", zap.Error(err))
+		healthRepo = &MockHealthRepository{}
 	} else {
 		defer client.Close()
 		healthRepo = ch.NewHealthRepository(client.Conn(), logger)

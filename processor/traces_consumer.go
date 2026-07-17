@@ -205,6 +205,23 @@ func (c *tracesConsumer) processTracesDefensively(ctx context.Context, td ptrace
 		}
 	}
 
+	traceToServiceMap := make(map[string]string, td.SpanCount())
+	for i := 0; i < rss.Len(); i++ {
+		rs := rss.At(i)
+		serviceName := "unknown-service"
+		if v, ok := rs.Resource().Attributes().Get("service.name"); ok {
+			serviceName = v.Str()
+		}
+		sss := rs.ScopeSpans()
+		for j := 0; j < sss.Len(); j++ {
+			ss := sss.At(j)
+			spans := ss.Spans()
+			for k := 0; k < spans.Len(); k++ {
+				traceToServiceMap[spans.At(k).TraceID().String()] = serviceName
+			}
+		}
+	}
+
 	// Record health scores per trace/agent
 	for traceIDStr, isAIAgent := range aiAgentTraces {
 		if isAIAgent {
@@ -217,30 +234,9 @@ func (c *tracesConsumer) processTracesDefensively(ctx context.Context, td ptrace
 				score = 0.0
 			}
 			
-			serviceName := "unknown-service"
-			for i := 0; i < rss.Len(); i++ {
-				rs := rss.At(i)
-				sss := rs.ScopeSpans()
-				foundSvc := false
-				for j := 0; j < sss.Len(); j++ {
-					ss := sss.At(j)
-					spans := ss.Spans()
-					for k := 0; k < spans.Len(); k++ {
-						if spans.At(k).TraceID().String() == traceIDStr {
-							if v, ok := rs.Resource().Attributes().Get("service.name"); ok {
-								serviceName = v.Str()
-							}
-							foundSvc = true
-							break
-						}
-					}
-					if foundSvc {
-						break
-					}
-				}
-				if foundSvc {
-					break
-				}
+			serviceName, exists := traceToServiceMap[traceIDStr]
+			if !exists {
+				serviceName = "unknown-service"
 			}
 
 			c.metrics.RecordAgentHealth(ctx, serviceName, agentID, score)

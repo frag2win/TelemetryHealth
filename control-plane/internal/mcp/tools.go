@@ -68,7 +68,9 @@ func (t *Toolset) GetTelemetryHealth(ctx context.Context, tenantID string) (*Hea
 		var genErr error
 		remediationYaml, genErr = t.Generator.Generate(ctx, issueType)
 		if genErr != nil {
-			t.Logger.Error("failed to generate remediation yaml", zap.Error(genErr))
+			if t.Logger != nil {
+				t.Logger.Error("failed to generate remediation yaml", zap.Error(genErr))
+			}
 		}
 		if t.Validator != nil && remediationYaml != "" {
 			validated, _ = t.Validator.Validate(ctx, remediationYaml)

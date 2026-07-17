@@ -60,6 +60,32 @@ Before hitting "Record", ensure the environment is fully running on your local m
 
 ---
 
+---
+
+## 🔌 Offline Mock-Mode Verification (For Judges/Reviewers)
+
+To make it as simple as possible for judges to verify and test the TelemetryHealth platform without setting up Docker or a ClickHouse database, you can run the entire workspace in **Offline Mock-Mode**. This uses our safe, fallback mock repository architecture.
+
+### How to run the MCP Server in Mock-Mode:
+1. Open a terminal and navigate to `control-plane`:
+   ```bash
+   cd control-plane
+   ```
+2. Start the MCP server. If ClickHouse is not running locally, the server will automatically detect it, log a warning, and fall back to the safe, in-memory mock repository:
+   ```bash
+   go run ./cmd/mcp-server
+   ```
+   *To run the MCP server in `stdio` mode for direct connection (e.g. Claude Desktop), add the `--stdio` flag:*
+   ```bash
+   go run ./cmd/mcp-server --stdio
+   ```
+
+### Mock-Mode Behavior:
+- **`get_telemetry_health` Tool Call**: When ClickHouse is offline, invoking the `get_telemetry_health` tool through the MCP client returns pre-seeded, zero-panic fallback mock metrics safely (health score `100`, cardinality `0`, orphans `0`, active services `0`) instead of panicking.
+- **`generate_remediation` Tool Call**: Generates Collector remediation snippets using the live rule validation engine.
+
+---
+
 ## 💡 Pro-Tips for the Video
 - **Keep it under 3 minutes.** Judges have a short attention span.
 - **Hide your bookmarks bar** and put the browser in fullscreen mode for a cleaner look.
