@@ -113,22 +113,22 @@ Today's monitoring tools primarily answer:
 
 ```mermaid
 graph TD;
-    "Application" --> "Telemetry";
-    "Telemetry" --> "Storage";
-    "Storage" --> "Visualization";
+    Application --> Telemetry
+    Telemetry --> Storage
+    Storage --> Visualization
 ```
 
 TelemetryHealth extends this model into:
 
 ```mermaid
 graph TD;
-    "Application" --> "Telemetry";
-    "Telemetry" --> "Telemetry Intelligence";
-    "Telemetry Intelligence" --> "Behavior Analysis";
-    "Behavior Analysis" --> "Root Cause Discovery";
-    "Root Cause Discovery" --> "Health Assessment";
-    "Health Assessment" --> "Automated Remediation";
-    "Automated Remediation" --> "Visualization";
+    Application --> Telemetry
+    Telemetry --> N1["Telemetry Intelligence"]
+    N1["Telemetry Intelligence"] --> N2["Behavior Analysis"]
+    N2["Behavior Analysis"] --> N3["Root Cause Discovery"]
+    N3["Root Cause Discovery"] --> N4["Health Assessment"]
+    N4["Health Assessment"] --> N5["Automated Remediation"]
+    N5["Automated Remediation"] --> Visualization
 ```
 
 The intelligence layer continuously evaluates telemetry quality rather than assuming telemetry is always correct.
@@ -715,24 +715,23 @@ flowchart LR
 
 Application
 
---> OpenTelemetry
+    N1[""] --> OpenTelemetry
 
---> TelemetryHealth Intelligence Layer
+    N1[""] --> N2["TelemetryHealth Intelligence Layer"]
 
---> Behavior Analysis
+    N1[""] --> N3["Behavior Analysis"]
 
---> Root Cause Analysis
+    N1[""] --> N4["Root Cause Analysis"]
 
---> Health Engine
+    N1[""] --> N5["Health Engine"]
 
---> Decision Engine
+    N1[""] --> N6["Decision Engine"]
 
---> Auto Remediation
+    N1[""] --> N7["Auto Remediation"]
 
---> Observability Backend
+    N1[""] --> N8["Observability Backend"]
 
---> Dashboard
-
+    N1[""] --> Dashboard
 ```
 
 ---

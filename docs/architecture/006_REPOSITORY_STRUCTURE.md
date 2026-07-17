@@ -579,8 +579,8 @@ Allowed:
 
 ```mermaid
 graph TD;
-    "Interface" --> "Application";
-    "Application" --> "Domain";
+    Interface --> Application
+    Application --> Domain
 ```
 
 Infrastructure implements interfaces.
@@ -589,7 +589,7 @@ Forbidden:
 
 ```mermaid
 graph TD;
-    "Domain" --> "Infrastructure";
+    Domain --> Infrastructure
 ```
 
 Circular imports are prohibited.

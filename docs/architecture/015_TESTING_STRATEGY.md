@@ -78,12 +78,12 @@ Testing follows the system architecture.
 
 ```mermaid
 graph TD;
-    "Domain" --> "Application";
-    "Application" --> "Events";
-    "Events" --> "Plugins";
-    "Plugins" --> "Infrastructure";
-    "Infrastructure" --> "Deployment";
-    "Deployment" --> "Operations";
+    Domain --> Application
+    Application --> Events
+    Events --> Plugins
+    Plugins --> Infrastructure
+    Infrastructure --> Deployment
+    Deployment --> Operations
 ```
 
 Every architectural layer owns its corresponding tests.
@@ -193,13 +193,13 @@ The complete telemetry pipeline should be validated.
 
 ```mermaid
 graph TD;
-    "OTLP" --> "Collector";
-    "Collector" --> "Processor";
-    "Processor" --> "Kafka";
-    "Kafka" --> "Workers";
-    "Workers" --> "ClickHouse";
-    "ClickHouse" --> "Health Engine";
-    "Health Engine" --> "Dashboard";
+    OTLP --> Collector
+    Collector --> Processor
+    Processor --> Kafka
+    Kafka --> Workers
+    Workers --> ClickHouse
+    ClickHouse --> N1["Health Engine"]
+    N1["Health Engine"] --> Dashboard
 ```
 
 Expected outcomes include:
@@ -235,12 +235,12 @@ Example
 
 ```mermaid
 graph TD;
-    "Telemetry Generated" --> "OTLP Export";
-    "OTLP Export" --> "Collector";
-    "Collector" --> "Processor";
-    "Processor" --> "Analysis";
-    "Analysis" --> "Dashboard";
-    "Dashboard" --> "Alert Generated";
+    N1["Telemetry Generated"] --> N2["OTLP Export"]
+    N2["OTLP Export"] --> Collector
+    Collector --> Processor
+    Processor --> Analysis
+    Analysis --> Dashboard
+    Dashboard --> N3["Alert Generated"]
 ```
 
 The entire platform is validated as a single system.
@@ -360,13 +360,13 @@ Pipeline stages
 
 ```mermaid
 graph TD;
-    "Lint" --> "Static Analysis";
-    "Static Analysis" --> "Unit Tests";
-    "Unit Tests" --> "Contract Tests";
-    "Contract Tests" --> "Integration Tests";
-    "Integration Tests" --> "Security Scans";
-    "Security Scans" --> "Performance Smoke Tests";
-    "Performance Smoke Tests" --> "Deployment";
+    Lint --> N1["Static Analysis"]
+    N1["Static Analysis"] --> N2["Unit Tests"]
+    N2["Unit Tests"] --> N3["Contract Tests"]
+    N3["Contract Tests"] --> N4["Integration Tests"]
+    N4["Integration Tests"] --> N5["Security Scans"]
+    N5["Security Scans"] --> N6["Performance Smoke Tests"]
+    N6["Performance Smoke Tests"] --> Deployment
 ```
 
 A failed stage blocks promotion.

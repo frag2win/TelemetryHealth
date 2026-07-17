@@ -34,11 +34,11 @@ The purpose of AI is to transform:
 
 ```mermaid
 graph TD;
-    "Raw Data" --> "Information";
-    "Information" --> "Analysis";
-    "Analysis" --> "Knowledge";
-    "Knowledge" --> "Decision";
-    "Decision" --> "Recommended Action";
+    N1["Raw Data"] --> Information
+    Information --> Analysis
+    Analysis --> Knowledge
+    Knowledge --> Decision
+    Decision --> N2["Recommended Action"]
 ```
 
 AI exists to assist human operators—not replace them.
@@ -65,18 +65,18 @@ Business rules remain outside the AI layer.
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "Replay Engine";
-    "Replay Engine" --> "Behavior Engine";
-    "Behavior Engine" --> "Health Engine";
-    "Health Engine" --> "Root Cause Engine";
-    "Root Cause Engine" --> "Context Builder";
-    "Context Builder" --> "Prompt Composer";
-    "Prompt Composer" --> "AI Orchestrator";
-    "AI Orchestrator" --> "LLM Provider";
-    "LLM Provider" --> "Response Validator";
-    "Response Validator" --> "Decision Engine";
-    "Decision Engine" --> "Remediation Generator";
-    "Remediation Generator" --> "Dashboard / MCP";
+    Telemetry --> N1["Replay Engine"]
+    N1["Replay Engine"] --> N2["Behavior Engine"]
+    N2["Behavior Engine"] --> N3["Health Engine"]
+    N3["Health Engine"] --> N4["Root Cause Engine"]
+    N4["Root Cause Engine"] --> N5["Context Builder"]
+    N5["Context Builder"] --> N6["Prompt Composer"]
+    N6["Prompt Composer"] --> N7["AI Orchestrator"]
+    N7["AI Orchestrator"] --> N8["LLM Provider"]
+    N8["LLM Provider"] --> N9["Response Validator"]
+    N9["Response Validator"] --> N10["Decision Engine"]
+    N10["Decision Engine"] --> N11["Remediation Generator"]
+    N11["Remediation Generator"] --> N12["Dashboard / MCP"]
 ```
 
 Every stage has a single responsibility.
@@ -89,13 +89,13 @@ The AI workflow consists of independent stages.
 
 ```mermaid
 graph TD;
-    "Collect" --> "Normalize";
-    "Normalize" --> "Analyze";
-    "Analyze" --> "Enrich";
-    "Enrich" --> "Reason";
-    "Reason" --> "Validate";
-    "Validate" --> "Recommend";
-    "Recommend" --> "Explain";
+    Collect --> Normalize
+    Normalize --> Analyze
+    Analyze --> Enrich
+    Enrich --> Reason
+    Reason --> Validate
+    Validate --> Recommend
+    Recommend --> Explain
 ```
 
 Each stage produces structured outputs.
@@ -146,11 +146,11 @@ Prompt structure includes:
 
 ```mermaid
 graph TD;
-    "Role" --> "Objective";
-    "Objective" --> "Context";
-    "Context" --> "Constraints";
-    "Constraints" --> "Expected Output";
-    "Expected Output" --> "Validation Rules";
+    Role --> Objective
+    Objective --> Context
+    Context --> Constraints
+    Constraints --> N1["Expected Output"]
+    N1["Expected Output"] --> N2["Validation Rules"]
 ```
 
 Prompt templates are versioned.
@@ -299,11 +299,11 @@ Examples
 
 ```mermaid
 graph TD;
-    "Replay Agent" --> "Behavior Agent";
-    "Behavior Agent" --> "Health Agent";
-    "Health Agent" --> "Root Cause Agent";
-    "Root Cause Agent" --> "Decision Agent";
-    "Decision Agent" --> "Remediation Agent";
+    N1["Replay Agent"] --> N2["Behavior Agent"]
+    N2["Behavior Agent"] --> N3["Health Agent"]
+    N3["Health Agent"] --> N4["Root Cause Agent"]
+    N4["Root Cause Agent"] --> N5["Decision Agent"]
+    N5["Decision Agent"] --> N6["Remediation Agent"]
 ```
 
 Agents collaborate through structured interfaces rather than direct coupling.
@@ -361,18 +361,18 @@ Future capabilities must preserve explainability and governance.
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "Replay";
-    "Replay" --> "Behavior Analysis";
-    "Behavior Analysis" --> "Health Analysis";
-    "Health Analysis" --> "Root Cause";
-    "Root Cause" --> "Context Builder";
-    "Context Builder" --> "Prompt Builder";
-    "Prompt Builder" --> "AI Orchestrator";
-    "AI Orchestrator" --> "LLM";
-    "LLM" --> "Validator";
-    "Validator" --> "Decision Engine";
-    "Decision Engine" --> "Remediation";
-    "Remediation" --> "Dashboard / MCP";
+    Telemetry --> Replay
+    Replay --> N1["Behavior Analysis"]
+    N1["Behavior Analysis"] --> N2["Health Analysis"]
+    N2["Health Analysis"] --> N3["Root Cause"]
+    N3["Root Cause"] --> N4["Context Builder"]
+    N4["Context Builder"] --> N5["Prompt Builder"]
+    N5["Prompt Builder"] --> N6["AI Orchestrator"]
+    N6["AI Orchestrator"] --> LLM
+    LLM --> Validator
+    Validator --> N7["Decision Engine"]
+    N7["Decision Engine"] --> Remediation
+    Remediation --> N8["Dashboard / MCP"]
 ```
 
 ---

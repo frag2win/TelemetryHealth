@@ -169,14 +169,14 @@ Every extension follows a standard lifecycle.
 
 ```mermaid
 graph TD;
-    "Installed" --> "Discovered";
-    "Discovered" --> "Validated";
-    "Validated" --> "Initialized";
-    "Initialized" --> "Activated";
-    "Activated" --> "Observed";
-    "Observed" --> "Updated";
-    "Updated" --> "Disabled";
-    "Disabled" --> "Removed";
+    Installed --> Discovered
+    Discovered --> Validated
+    Validated --> Initialized
+    Initialized --> Activated
+    Activated --> Observed
+    Observed --> Updated
+    Updated --> Disabled
+    Disabled --> Removed
 ```
 
 Lifecycle management is centralized.
@@ -351,14 +351,14 @@ The architecture should support these additions without changes to the core.
 
 ```mermaid
 graph TD;
-    "Developer" --> "Creates Plugin";
-    "Creates Plugin" --> "Implements Contract";
-    "Implements Contract" --> "Registers Metadata";
-    "Registers Metadata" --> "Platform Discovery";
-    "Platform Discovery" --> "Validation";
-    "Validation" --> "Activation";
-    "Activation" --> "Execution";
-    "Execution" --> "Observability";
+    Developer --> N1["Creates Plugin"]
+    N1["Creates Plugin"] --> N2["Implements Contract"]
+    N2["Implements Contract"] --> N3["Registers Metadata"]
+    N3["Registers Metadata"] --> N4["Platform Discovery"]
+    N4["Platform Discovery"] --> Validation
+    Validation --> Activation
+    Activation --> Execution
+    Execution --> Observability
 ```
 
 Every extension follows the same lifecycle regardless of type.

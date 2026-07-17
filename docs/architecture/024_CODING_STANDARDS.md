@@ -57,9 +57,9 @@ Every implementation SHALL respect the architectural boundaries.
 
 ```mermaid
 graph TD;
-    "Domain" --> "Application";
-    "Application" --> "Infrastructure";
-    "Infrastructure" --> "Presentation";
+    Domain --> Application
+    Application --> Infrastructure
+    Infrastructure --> Presentation
 ```
 
 Dependencies may only point inward.

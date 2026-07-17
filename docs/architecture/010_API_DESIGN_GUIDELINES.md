@@ -53,11 +53,11 @@ Every API SHOULD:
 
 ```mermaid
 graph TD;
-    "Client" --> "API Gateway";
-    "API Gateway" --> "Interface Layer";
-    "Interface Layer" --> "Application Service";
-    "Application Service" --> "Domain";
-    "Domain" --> "Infrastructure";
+    Client --> N1["API Gateway"]
+    N1["API Gateway"] --> N2["Interface Layer"]
+    N2["Interface Layer"] --> N3["Application Service"]
+    N3["Application Service"] --> Domain
+    Domain --> Infrastructure
 ```
 
 Business logic SHALL exist only in the Application and Domain layers.

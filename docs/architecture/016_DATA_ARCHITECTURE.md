@@ -47,15 +47,15 @@ TelemetryHealth manages several distinct data domains.
 
 ```mermaid
 graph TD;
-    "Raw Telemetry" --> "Replay Data";
-    "Replay Data" --> "Behavior Intelligence";
-    "Behavior Intelligence" --> "Health Intelligence";
-    "Health Intelligence" --> "Root Cause Analysis";
-    "Root Cause Analysis" --> "Decision Intelligence";
-    "Decision Intelligence" --> "Remediation Knowledge";
-    "Remediation Knowledge" --> "Platform Observability";
-    "Platform Observability" --> "Configuration";
-    "Configuration" --> "Audit";
+    N1["Raw Telemetry"] --> N2["Replay Data"]
+    N2["Replay Data"] --> N3["Behavior Intelligence"]
+    N3["Behavior Intelligence"] --> N4["Health Intelligence"]
+    N4["Health Intelligence"] --> N5["Root Cause Analysis"]
+    N5["Root Cause Analysis"] --> N6["Decision Intelligence"]
+    N6["Decision Intelligence"] --> N7["Remediation Knowledge"]
+    N7["Remediation Knowledge"] --> N8["Platform Observability"]
+    N8["Platform Observability"] --> Configuration
+    Configuration --> Audit
 ```
 
 Each domain owns its own lifecycle and schema.
@@ -154,15 +154,15 @@ Examples
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "Collection";
-    "Collection" --> "Validation";
-    "Validation" --> "Normalization";
-    "Normalization" --> "Enrichment";
-    "Enrichment" --> "Analysis";
-    "Analysis" --> "Decision";
-    "Decision" --> "Recommendation";
-    "Recommendation" --> "Storage";
-    "Storage" --> "Visualization";
+    Telemetry --> Collection
+    Collection --> Validation
+    Validation --> Normalization
+    Normalization --> Enrichment
+    Enrichment --> Analysis
+    Analysis --> Decision
+    Decision --> Recommendation
+    Recommendation --> Storage
+    Storage --> Visualization
 ```
 
 Each transformation produces new information while preserving lineage.
@@ -177,12 +177,12 @@ Example
 
 ```mermaid
 graph TD;
-    "Trace" --> "Replay";
-    "Replay" --> "Behavior Analysis";
-    "Behavior Analysis" --> "Health Score";
-    "Health Score" --> "Root Cause";
-    "Root Cause" --> "Decision";
-    "Decision" --> "Remediation";
+    Trace --> Replay
+    Replay --> N1["Behavior Analysis"]
+    N1["Behavior Analysis"] --> N2["Health Score"]
+    N2["Health Score"] --> N3["Root Cause"]
+    N3["Root Cause"] --> Decision
+    Decision --> Remediation
 ```
 
 Lineage supports traceability, debugging, and explainability.
@@ -227,12 +227,12 @@ Every data type has a lifecycle.
 
 ```mermaid
 graph TD;
-    "Created" --> "Validated";
-    "Validated" --> "Processed";
-    "Processed" --> "Stored";
-    "Stored" --> "Archived";
-    "Archived" --> "Expired";
-    "Expired" --> "Deleted";
+    Created --> Validated
+    Validated --> Processed
+    Processed --> Stored
+    Stored --> Archived
+    Archived --> Expired
+    Expired --> Deleted
 ```
 
 Retention policies are defined separately in the Storage Architecture.
@@ -283,10 +283,10 @@ Every tenant owns a logically isolated dataset.
 
 ```mermaid
 graph TD;
-    "Tenant A" --> "Telemetry";
-    "Telemetry" --> "Health";
-    "Health" --> "Alerts";
-    "Alerts" --> "Reports";
+    N1["Tenant A"] --> Telemetry
+    Telemetry --> Health
+    Health --> Alerts
+    Alerts --> Reports
 ```
 
 Cross-tenant access is prohibited unless explicitly authorized.
@@ -370,12 +370,12 @@ Example relationships
 
 ```mermaid
 graph TD;
-    "Service" --> "Trace";
-    "Trace" --> "Replay";
-    "Replay" --> "Behavior";
-    "Behavior" --> "Health";
-    "Health" --> "Incident";
-    "Incident" --> "Remediation";
+    Service --> Trace
+    Trace --> Replay
+    Replay --> Behavior
+    Behavior --> Health
+    Health --> Incident
+    Incident --> Remediation
 ```
 
 This enables advanced reasoning and dependency analysis.

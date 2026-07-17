@@ -33,13 +33,13 @@ At a high level, the workflow is:
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "Collection";
-    "Collection" --> "Inspection";
-    "Inspection" --> "Storage";
-    "Storage" --> "Analysis";
-    "Analysis" --> "Decision";
-    "Decision" --> "Remediation";
-    "Remediation" --> "Visualization";
+    Telemetry --> Collection
+    Collection --> Inspection
+    Inspection --> Storage
+    Storage --> Analysis
+    Analysis --> Decision
+    Decision --> Remediation
+    Remediation --> Visualization
 ```
 
 ---
@@ -237,11 +237,11 @@ The pipeline consists of multiple independent analysis engines.
 
 ```mermaid
 graph TD;
-    "Replay" --> "Behavior";
-    "Behavior" --> "Health";
-    "Health" --> "Root Cause";
-    "Root Cause" --> "Decision";
-    "Decision" --> "Remediation";
+    Replay --> Behavior
+    Behavior --> Health
+    Health --> N1["Root Cause"]
+    N1["Root Cause"] --> Decision
+    Decision --> Remediation
 ```
 
 Each engine enriches the information produced by the previous stage.
@@ -360,10 +360,10 @@ Workflow:
 
 ```mermaid
 graph TD;
-    "Dashboard" --> "REST API";
-    "REST API" --> "Application Service";
-    "Application Service" --> "Repository";
-    "Repository" --> "ClickHouse";
+    Dashboard --> N1["REST API"]
+    N1["REST API"] --> N2["Application Service"]
+    N2["Application Service"] --> Repository
+    Repository --> ClickHouse
 ```
 
 The Dashboard never communicates directly with infrastructure components.
@@ -378,11 +378,11 @@ Typical workflow:
 
 ```mermaid
 graph TD;
-    "AI Client" --> "MCP Server";
-    "MCP Server" --> "Application Service";
-    "Application Service" --> "Domain";
-    "Domain" --> "Repository";
-    "Repository" --> "Response";
+    N1["AI Client"] --> N2["MCP Server"]
+    N2["MCP Server"] --> N3["Application Service"]
+    N3["Application Service"] --> Domain
+    Domain --> Repository
+    Repository --> Response
 ```
 
 Supported operations include:

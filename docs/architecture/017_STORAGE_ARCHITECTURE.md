@@ -135,12 +135,12 @@ Optimized for
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "Collector";
-    "Collector" --> "Kafka";
-    "Kafka" --> "Workers";
-    "Workers" --> "ClickHouse";
-    "ClickHouse" --> "Dashboard";
-    "Dashboard" --> "Archive";
+    Telemetry --> Collector
+    Collector --> Kafka
+    Kafka --> Workers
+    Workers --> ClickHouse
+    ClickHouse --> Dashboard
+    Dashboard --> Archive
 ```
 
 Streaming and analytical storage remain independent.
@@ -151,10 +151,10 @@ Streaming and analytical storage remain independent.
 
 ```mermaid
 graph TD;
-    "Transient" --> "Operational";
-    "Operational" --> "Analytical";
-    "Analytical" --> "Historical";
-    "Historical" --> "Archived";
+    Transient --> Operational
+    Operational --> Analytical
+    Analytical --> Historical
+    Historical --> Archived
 ```
 
 Each category has different retention policies.
@@ -239,8 +239,8 @@ Examples
 
 ```mermaid
 graph TD;
-    "Primary" --> "Replica 1";
-    "Replica 1" --> "Replica 2";
+    Primary --> N1["Replica 1"]
+    N1["Replica 1"] --> N2["Replica 2"]
 ```
 
 Replication protects against node failure.
@@ -260,8 +260,8 @@ Backup policy
 
 ```mermaid
 graph TD;
-    "Daily Incremental" --> "Weekly Full";
-    "Weekly Full" --> "Monthly Archive";
+    N1["Daily Incremental"] --> N2["Weekly Full"]
+    N2["Weekly Full"] --> N3["Monthly Archive"]
 ```
 
 Backups should be tested regularly through restoration exercises.
@@ -274,8 +274,8 @@ Application Services access storage through repositories.
 
 ```mermaid
 graph TD;
-    "Application" --> "Repository";
-    "Repository" --> "Storage";
+    Application --> Repository
+    Repository --> Storage
 ```
 
 The Domain Layer remains unaware of storage technology.

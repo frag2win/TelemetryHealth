@@ -61,13 +61,13 @@ Performance targets should be measurable and continuously monitored.
 
 ```mermaid
 graph TD;
-    "Telemetry Sources" --> "OpenTelemetry Collector";
-    "OpenTelemetry Collector" --> "Streaming Layer";
-    "Streaming Layer" --> "Worker Pool";
-    "Worker Pool" --> "Analytical Storage";
-    "Analytical Storage" --> "Health Engine";
-    "Health Engine" --> "API Layer";
-    "API Layer" --> "Dashboard / MCP";
+    N1["Telemetry Sources"] --> N2["OpenTelemetry Collector"]
+    N2["OpenTelemetry Collector"] --> N3["Streaming Layer"]
+    N3["Streaming Layer"] --> N4["Worker Pool"]
+    N4["Worker Pool"] --> N5["Analytical Storage"]
+    N5["Analytical Storage"] --> N6["Health Engine"]
+    N6["Health Engine"] --> N7["API Layer"]
+    N7["API Layer"] --> N8["Dashboard / MCP"]
 ```
 
 Each stage has independent scaling characteristics.
@@ -376,15 +376,15 @@ Potential enhancements include:
 
 ```mermaid
 graph TD;
-    "Telemetry Sources" --> "Collector";
-    "Collector" --> "Streaming Layer";
-    "Streaming Layer" --> "Worker Pool";
-    "Worker Pool" --> "ClickHouse";
-    "ClickHouse" --> "Health Engine";
-    "Health Engine" --> "API Layer";
-    "API Layer" --> "Dashboard";
-    "Dashboard" --> "AI Layer";
-    "AI Layer" --> "MCP Clients";
+    N1["Telemetry Sources"] --> Collector
+    Collector --> N2["Streaming Layer"]
+    N2["Streaming Layer"] --> N3["Worker Pool"]
+    N3["Worker Pool"] --> ClickHouse
+    ClickHouse --> N4["Health Engine"]
+    N4["Health Engine"] --> N5["API Layer"]
+    N5["API Layer"] --> Dashboard
+    Dashboard --> N6["AI Layer"]
+    N6["AI Layer"] --> N7["MCP Clients"]
 ```
 
 Each stage is independently scalable and observable.

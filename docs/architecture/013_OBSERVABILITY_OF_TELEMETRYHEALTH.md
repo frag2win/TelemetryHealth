@@ -96,10 +96,10 @@ TelemetryHealth observes five layers.
 
 ```mermaid
 graph TD;
-    "Infrastructure" --> "Platform Services";
-    "Platform Services" --> "Application Logic";
-    "Application Logic" --> "Telemetry Pipeline";
-    "Telemetry Pipeline" --> "User Experience";
+    Infrastructure --> N1["Platform Services"]
+    N1["Platform Services"] --> N2["Application Logic"]
+    N2["Application Logic"] --> N3["Telemetry Pipeline"]
+    N3["Telemetry Pipeline"] --> N4["User Experience"]
 ```
 
 Each layer contributes to the overall Platform Health Score.
@@ -231,19 +231,19 @@ Example
 
 ```mermaid
 graph TD;
-    "Worker" --> "Queue Length";
-    "Queue Length" --> "Latency";
-    "Latency" --> "CPU";
-    "CPU" --> "Failures";
-    "Failures" --> "Retries";
-    "Retries" --> "Worker Health Score";
+    Worker --> N1["Queue Length"]
+    N1["Queue Length"] --> Latency
+    Latency --> CPU
+    CPU --> Failures
+    Failures --> Retries
+    Retries --> N2["Worker Health Score"]
 ```
 
 Health scores range from:
 
 ```mermaid
 graph TD;
-    "0" --> "100";
+    0 --> 100
 ```
 
 ---
@@ -385,9 +385,9 @@ Health is stored historically.
 
 ```mermaid
 graph TD;
-    "Today" --> "Yesterday";
-    "Yesterday" --> "Last Week";
-    "Last Week" --> "Last Month";
+    Today --> Yesterday
+    Yesterday --> N1["Last Week"]
+    N1["Last Week"] --> N2["Last Month"]
 ```
 
 Historical health enables trend analysis.
@@ -402,11 +402,11 @@ Example
 
 ```mermaid
 graph TD;
-    "Dashboard" --> "API";
-    "API" --> "Application";
-    "Application" --> "Worker";
-    "Worker" --> "ClickHouse";
-    "ClickHouse" --> "Response";
+    Dashboard --> API
+    API --> Application
+    Application --> Worker
+    Worker --> ClickHouse
+    ClickHouse --> Response
 ```
 
 The platform can visualize its own execution paths.

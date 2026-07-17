@@ -165,17 +165,17 @@ External traffic:
 
 ```mermaid
 graph TD;
-    "Internet" --> "Ingress";
-    "Ingress" --> "API Gateway";
+    Internet --> Ingress
+    Ingress --> N1["API Gateway"]
 ```
 
 Internal communication:
 
 ```mermaid
 graph TD;
-    "API" --> "Kafka";
-    "Kafka" --> "Workers";
-    "Workers" --> "ClickHouse";
+    API --> Kafka
+    Kafka --> Workers
+    Workers --> ClickHouse
 ```
 
 Internal services SHOULD remain inaccessible from the public Internet.
@@ -288,10 +288,10 @@ Typical strategy:
 
 ```mermaid
 graph TD;
-    "Old Pods" --> "New Pods";
-    "New Pods" --> "Health Verification";
-    "Health Verification" --> "Traffic Shift";
-    "Traffic Shift" --> "Old Pods Removed";
+    N1["Old Pods"] --> N2["New Pods"]
+    N2["New Pods"] --> N3["Health Verification"]
+    N3["Health Verification"] --> N4["Traffic Shift"]
+    N4["Traffic Shift"] --> N5["Old Pods Removed"]
 ```
 
 ---
@@ -340,11 +340,11 @@ Local development stack:
 
 ```mermaid
 graph TD;
-    "Docker Compose" --> "ClickHouse";
-    "ClickHouse" --> "Redpanda";
-    "Redpanda" --> "API";
-    "API" --> "Dashboard";
-    "Dashboard" --> "Processor";
+    N1["Docker Compose"] --> ClickHouse
+    ClickHouse --> Redpanda
+    Redpanda --> API
+    API --> Dashboard
+    Dashboard --> Processor
 ```
 
 One command should start the complete development environment.

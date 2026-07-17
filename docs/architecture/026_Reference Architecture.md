@@ -75,11 +75,11 @@ The architecture is guided by the following goals:
 
 ```mermaid
 graph TD
-    A[Users] --> B[Web Dashboard]
-    B --> C[TelemetryHealth]
-    C --> D[OTel Collector]
-    C --> E[ClickHouse]
-    C --> F[AI Models]
+A[Users] --> B[Web Dashboard]
+    B --> N1["C[TelemetryHealth]"]
+    C --> N2["D[OTel Collector]"]
+    C --> N3["E[ClickHouse]"]
+    C --> N4["F[AI Models]"]
 ```
 
 TelemetryHealth sits between telemetry producers and operational intelligence consumers.
@@ -90,17 +90,17 @@ TelemetryHealth sits between telemetry producers and operational intelligence co
 
 ```mermaid
 graph TD
-    A[Dashboard] --> B[REST API / MCP]
-    B --> C[Application Services]
-    C --> D[Replay Engine]
-    C --> E[Health Engine]
-    C --> F[AI Engine]
-    D --> G[Event Bus]
+A[Dashboard] --> B[REST API / MCP]
+    B --> N1["C[Application Services]"]
+    C --> N2["D[Replay Engine]"]
+    C --> N3["E[Health Engine]"]
+    C --> N4["F[AI Engine]"]
+    D --> N5["G[Event Bus]"]
     E --> G
     F --> G
-    G --> H[Plugin Framework / Workers]
-    H --> I[OTel Collector]
-    I --> J[ClickHouse]
+    G --> N6["H[Plugin Framework / Workers]"]
+    H --> N7["I[OTel Collector]"]
+    I --> N8["J[ClickHouse]"]
 ```
 
 ---
@@ -142,13 +142,13 @@ Each domain owns its data and business logic.
 
 ```mermaid
 graph TD
-    A[Telemetry] --> B[Collector]
-    B --> C[Kafka / Redpanda]
-    C --> D[Workers]
-    D --> E[Health Engine]
-    E --> F[AI Intelligence]
-    F --> G[Remediation]
-    G --> H[Dashboard]
+A[Telemetry] --> B[Collector]
+    B --> N1["C[Kafka / Redpanda]"]
+    C --> N2["D[Workers]"]
+    D --> N3["E[Health Engine]"]
+    E --> N4["F[AI Intelligence]"]
+    F --> N5["G[Remediation]"]
+    G --> N6["H[Dashboard]"]
 ```
 
 ---
@@ -173,15 +173,15 @@ The platform processes telemetry through the following stages:
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "Health Analysis";
-    "Health Analysis" --> "Behavior Analysis";
-    "Behavior Analysis" --> "Root Cause";
-    "Root Cause" --> "Context Builder";
-    "Context Builder" --> "Prompt Builder";
-    "Prompt Builder" --> "LLM";
-    "LLM" --> "Validator";
-    "Validator" --> "Decision Engine";
-    "Decision Engine" --> "Remediation";
+    Telemetry --> N1["Health Analysis"]
+    N1["Health Analysis"] --> N2["Behavior Analysis"]
+    N2["Behavior Analysis"] --> N3["Root Cause"]
+    N3["Root Cause"] --> N4["Context Builder"]
+    N4["Context Builder"] --> N5["Prompt Builder"]
+    N5["Prompt Builder"] --> LLM
+    LLM --> Validator
+    Validator --> N6["Decision Engine"]
+    N6["Decision Engine"] --> Remediation
 ```
 
 ---

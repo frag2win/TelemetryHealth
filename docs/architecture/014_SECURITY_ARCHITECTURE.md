@@ -76,16 +76,16 @@ The default configuration should always be the safest configuration.
 
 ```mermaid
 graph TD;
-    "Identity" --> "Authentication";
-    "Authentication" --> "Authorization";
-    "Authorization" --> "Tenant Isolation";
-    "Tenant Isolation" --> "Network Security";
-    "Network Security" --> "Application Security";
-    "Application Security" --> "Data Security";
-    "Data Security" --> "Plugin Security";
-    "Plugin Security" --> "AI Security";
-    "AI Security" --> "Observability Security";
-    "Observability Security" --> "Audit";
+    Identity --> Authentication
+    Authentication --> Authorization
+    Authorization --> N1["Tenant Isolation"]
+    N1["Tenant Isolation"] --> N2["Network Security"]
+    N2["Network Security"] --> N3["Application Security"]
+    N3["Application Security"] --> N4["Data Security"]
+    N4["Data Security"] --> N5["Plugin Security"]
+    N5["Plugin Security"] --> N6["AI Security"]
+    N6["AI Security"] --> N7["Observability Security"]
+    N7["Observability Security"] --> Audit
 ```
 
 ---
@@ -159,16 +159,16 @@ External traffic
 
 ```mermaid
 graph TD;
-    "Internet" --> "Ingress";
-    "Ingress" --> "API Gateway";
+    Internet --> Ingress
+    Ingress --> N1["API Gateway"]
 ```
 
 Internal communication
 
 ```mermaid
 graph TD;
-    "API" --> "Workers";
-    "Workers" --> "Storage";
+    API --> Workers
+    Workers --> Storage
 ```
 
 Future enhancements include:
@@ -323,11 +323,11 @@ Security incidents should follow a documented workflow.
 
 ```mermaid
 graph TD;
-    "Detection" --> "Classification";
-    "Classification" --> "Containment";
-    "Containment" --> "Investigation";
-    "Investigation" --> "Recovery";
-    "Recovery" --> "Post-Incident Review";
+    Detection --> Classification
+    Classification --> Containment
+    Containment --> Investigation
+    Investigation --> Recovery
+    Recovery --> N1["Post-Incident Review"]
 ```
 
 Security telemetry supports forensic analysis.

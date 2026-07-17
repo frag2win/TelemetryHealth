@@ -46,19 +46,19 @@ The platform acts as an intelligence layer positioned between telemetry generati
 
 ```mermaid
 graph TD
-    A[Developers] --> B[Instrumented Applications]
-    B --> C[OpenTelemetry SDK]
-    C --> D[OpenTelemetry Collector]
-    
-    D --> E[TelemetryHealth Processor]
-    D --> F[Observability Backend]
-    D --> G[Other Exporters]
-    
-    F --> H[TelemetryHealth Control Plane]
-    
-    H --> I[Dashboard]
-    H --> J[MCP Clients]
-    H --> K[Automation]
+A[Developers] --> B[Instrumented Applications]
+    B --> N1["C[OpenTelemetry SDK]"]
+    C --> N2["D[OpenTelemetry Collector]"]
+
+    D --> N3["E[TelemetryHealth Processor]"]
+    D --> N4["F[Observability Backend]"]
+    D --> N5["G[Other Exporters]"]
+
+    F --> N6["H[TelemetryHealth Control Plane]"]
+
+    H --> N7["I[Dashboard]"]
+    H --> N8["J[MCP Clients]"]
+    H --> N9["K[Automation]"]
 ```
 
 ---
@@ -289,14 +289,14 @@ The platform contains multiple trust boundaries.
 
 ```mermaid
 graph TD;
-    "Internet" --> "Dashboard";
-    "Dashboard" --> "API Gateway";
-    "API Gateway" --> "======================";
-    "======================" --> "Internal Cluster";
-    "Internal Cluster" --> "Application Services";
-    "Application Services" --> "Infrastructure";
-    "Infrastructure" --> "======================";
-    "======================" --> "Database Layer";
+    Internet --> Dashboard
+    Dashboard --> N1["API Gateway"]
+    N1["API Gateway"] --> N2["======================"]
+    N2["======================"] --> N3["Internal Cluster"]
+    N3["Internal Cluster"] --> N4["Application Services"]
+    N4["Application Services"] --> Infrastructure
+    Infrastructure --> N2["======================"]
+    N2["======================"] --> N5["Database Layer"]
 ```
 
 Authentication should occur whenever data crosses a trust boundary.
@@ -424,27 +424,27 @@ Kafka
 
 MCP
 
-Developer --> Application
+    Developer --> Application
 
-Application --> SDK
+    Application --> SDK
 
-SDK --> Collector
+    SDK --> Collector
 
-Collector --> Processor
+    Collector --> Processor
 
-Collector --> SigNoz
+    Collector --> SigNoz
 
-Processor --> Control
+    Processor --> Control
 
-Control --> Kafka
+    Control --> Kafka
 
-Kafka --> ClickHouse
+    Kafka --> ClickHouse
 
-Dashboard --> Control
+    Dashboard --> Control
 
-MCP --> Control
+    MCP --> Control
 
-Control --> SigNoz
+    Control --> SigNoz
 ```
 
 ---

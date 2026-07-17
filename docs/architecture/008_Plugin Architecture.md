@@ -137,12 +137,12 @@ Every plugin follows the same lifecycle.
 
 ```mermaid
 graph TD;
-    "Discovered" --> "Registered";
-    "Registered" --> "Initialized";
-    "Initialized" --> "Validated";
-    "Validated" --> "Running";
-    "Running" --> "Stopped";
-    "Stopped" --> "Unloaded";
+    Discovered --> Registered
+    Registered --> Initialized
+    Initialized --> Validated
+    Validated --> Running
+    Running --> Stopped
+    Stopped --> Unloaded
 ```
 
 Plugins SHALL cleanly release all resources during shutdown.
@@ -155,10 +155,10 @@ Plugins register themselves through a registry.
 
 ```mermaid
 graph TD;
-    "Plugin" --> "Registry";
-    "Registry" --> "Capability Discovery";
-    "Capability Discovery" --> "Dependency Resolution";
-    "Dependency Resolution" --> "Activation";
+    Plugin --> Registry
+    Registry --> N1["Capability Discovery"]
+    N1["Capability Discovery"] --> N2["Dependency Resolution"]
+    N2["Dependency Resolution"] --> Activation
 ```
 
 Registration MUST occur during application startup.
@@ -350,9 +350,9 @@ Example:
 
 ```mermaid
 graph TD;
-    "Slack Failure" --> "Alert Logged";
-    "Alert Logged" --> "Retry";
-    "Retry" --> "Continue Platform Operation";
+    N1["Slack Failure"] --> N2["Alert Logged"]
+    N2["Alert Logged"] --> Retry
+    Retry --> N3["Continue Platform Operation"]
 ```
 
 Core services must continue operating.
@@ -392,10 +392,10 @@ The architecture should remain compatible with these capabilities.
 
 ```mermaid
 graph TD;
-    "Health Score Generated" --> "Application Service";
-    "Application Service" --> "Notification Interface";
-    "Notification Interface" --> "Slack Plugin";
-    "Slack Plugin" --> "Slack API";
+    N1["Health Score Generated"] --> N2["Application Service"]
+    N2["Application Service"] --> N3["Notification Interface"]
+    N3["Notification Interface"] --> N4["Slack Plugin"]
+    N4["Slack Plugin"] --> N5["Slack API"]
 ```
 
 The Application Service remains unaware of Slack-specific implementation details.

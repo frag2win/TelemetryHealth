@@ -49,26 +49,26 @@ Contexts MUST NOT access each other's internal implementation.
 
 ```mermaid
 graph TD
-    A[Edge Processing] --> B[Ingestion]
-    B --> C[Streaming]
-    
-    C --> D[Health Engine]
-    C --> E[Behavior Engine]
-    C --> F[Replay Engine]
-    
-    D --> G[Decision Engine]
+A[Edge Processing] --> B[Ingestion]
+    B --> N1["C[Streaming]"]
+
+    C --> N2["D[Health Engine]"]
+    C --> N3["E[Behavior Engine]"]
+    C --> N4["F[Replay Engine]"]
+
+    D --> N5["G[Decision Engine]"]
     E --> G
     F --> G
-    
-    D --> H[Root Cause]
+
+    D --> N6["H[Root Cause]"]
     E --> H
     F --> H
-    
-    G --> I[Remediation Engine]
+
+    G --> N7["I[Remediation Engine]"]
     H --> I
-    
-    I --> J[Alerting Context]
-    I --> K[Dashboard Context]
+
+    I --> N8["J[Alerting Context]"]
+    I --> N9["K[Dashboard Context]"]
 ```
 
 ---
@@ -353,13 +353,13 @@ The following events form the backbone of the platform.
 
 ```mermaid
 graph TD;
-    "TelemetryObserved" --> "HealthCalculated";
-    "HealthCalculated" --> "BehaviorGenerated";
-    "BehaviorGenerated" --> "ReplayStored";
-    "ReplayStored" --> "RootCauseDiscovered";
-    "RootCauseDiscovered" --> "DecisionCreated";
-    "DecisionCreated" --> "RemediationGenerated";
-    "RemediationGenerated" --> "AlertPublished";
+    TelemetryObserved --> HealthCalculated
+    HealthCalculated --> BehaviorGenerated
+    BehaviorGenerated --> ReplayStored
+    ReplayStored --> RootCauseDiscovered
+    RootCauseDiscovered --> DecisionCreated
+    DecisionCreated --> RemediationGenerated
+    RemediationGenerated --> AlertPublished
 ```
 
 Every context SHOULD publish domain events rather than directly invoking downstream services.
@@ -372,12 +372,12 @@ Allowed:
 
 ```mermaid
 graph TD;
-    "Edge" --> "Ingestion";
-    "Ingestion" --> "Streaming";
-    "Streaming" --> "Analysis";
-    "Analysis" --> "Decision";
-    "Decision" --> "Remediation";
-    "Remediation" --> "Alerting";
+    Edge --> Ingestion
+    Ingestion --> Streaming
+    Streaming --> Analysis
+    Analysis --> Decision
+    Decision --> Remediation
+    Remediation --> Alerting
 ```
 
 Forbidden:

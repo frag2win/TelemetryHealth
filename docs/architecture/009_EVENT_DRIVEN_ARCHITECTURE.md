@@ -48,13 +48,13 @@ The architecture SHALL NOT:
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "ReplayCreated";
-    "ReplayCreated" --> "BehaviorGenerated";
-    "BehaviorGenerated" --> "HealthCalculated";
-    "HealthCalculated" --> "RootCauseDetected";
-    "RootCauseDetected" --> "DecisionGenerated";
-    "DecisionGenerated" --> "RemediationGenerated";
-    "RemediationGenerated" --> "AlertPublished";
+    Telemetry --> ReplayCreated
+    ReplayCreated --> BehaviorGenerated
+    BehaviorGenerated --> HealthCalculated
+    HealthCalculated --> RootCauseDetected
+    RootCauseDetected --> DecisionGenerated
+    DecisionGenerated --> RemediationGenerated
+    RemediationGenerated --> AlertPublished
 ```
 
 Every event represents something that **has already happened**.
@@ -108,12 +108,12 @@ Examples:
 
 ```mermaid
 graph TD;
-    "Business Action" --> "Domain Event Created";
-    "Domain Event Created" --> "Validation";
-    "Validation" --> "Event Bus";
-    "Event Bus" --> "Subscribers";
-    "Subscribers" --> "Processing";
-    "Processing" --> "Acknowledgement";
+    N1["Business Action"] --> N2["Domain Event Created"]
+    N2["Domain Event Created"] --> Validation
+    Validation --> N3["Event Bus"]
+    N3["Event Bus"] --> Subscribers
+    Subscribers --> Processing
+    Processing --> Acknowledgement
 ```
 
 Events are immutable after publication.
@@ -223,11 +223,11 @@ Example:
 
 ```mermaid
 graph TD;
-    "HealthCalculated" --> "Dashboard";
-    "Dashboard" --> "Alert Engine";
-    "Alert Engine" --> "Reporting";
-    "Reporting" --> "MCP";
-    "MCP" --> "Analytics";
+    HealthCalculated --> Dashboard
+    Dashboard --> N1["Alert Engine"]
+    N1["Alert Engine"] --> Reporting
+    Reporting --> MCP
+    MCP --> Analytics
 ```
 
 Publishers remain unaware of subscribers.
@@ -242,8 +242,8 @@ Example:
 
 ```mermaid
 graph TD;
-    "ReplayCreated" --> "ReplayUpdated";
-    "ReplayUpdated" --> "ReplayArchived";
+    ReplayCreated --> ReplayUpdated
+    ReplayUpdated --> ReplayArchived
 ```
 
 Ordering across unrelated aggregates is not guaranteed.
@@ -264,7 +264,7 @@ Example:
 
 ```mermaid
 graph TD;
-    "HealthCalculated v1" --> "HealthCalculated v2";
+    N1["HealthCalculated v1"] --> N2["HealthCalculated v2"]
 ```
 
 Both may coexist during migration.

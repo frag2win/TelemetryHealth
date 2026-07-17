@@ -70,13 +70,13 @@ Code should not be written before understanding the existing architecture.
 
 ```mermaid
 graph TD;
-    "Issue" --> "Discussion";
-    "Discussion" --> "Architecture Review";
-    "Architecture Review" --> "Implementation";
-    "Implementation" --> "Testing";
-    "Testing" --> "Documentation";
-    "Documentation" --> "Code Review";
-    "Code Review" --> "Merge";
+    Issue --> Discussion
+    Discussion --> N1["Architecture Review"]
+    N1["Architecture Review"] --> Implementation
+    Implementation --> Testing
+    Testing --> Documentation
+    Documentation --> N2["Code Review"]
+    N2["Code Review"] --> Merge
 ```
 
 Every significant change should follow this lifecycle.
@@ -403,11 +403,11 @@ Major changes follow:
 
 ```mermaid
 graph TD;
-    "Proposal" --> "Architecture Discussion";
-    "Architecture Discussion" --> "ADR";
-    "ADR" --> "Implementation";
-    "Implementation" --> "Review";
-    "Review" --> "Merge";
+    Proposal --> N1["Architecture Discussion"]
+    N1["Architecture Discussion"] --> ADR
+    ADR --> Implementation
+    Implementation --> Review
+    Review --> Merge
 ```
 
 Architectural decisions should be documented before implementation.

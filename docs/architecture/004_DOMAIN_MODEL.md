@@ -62,13 +62,13 @@ The high-level business flow is:
 
 ```mermaid
 graph TD;
-    "Telemetry" --> "Observation";
-    "Observation" --> "Replay";
-    "Replay" --> "Behavior Analysis";
-    "Behavior Analysis" --> "Health Assessment";
-    "Health Assessment" --> "Root Cause";
-    "Root Cause" --> "Decision";
-    "Decision" --> "Remediation";
+    Telemetry --> Observation
+    Observation --> Replay
+    Replay --> N1["Behavior Analysis"]
+    N1["Behavior Analysis"] --> N2["Health Assessment"]
+    N2["Health Assessment"] --> N3["Root Cause"]
+    N3["Root Cause"] --> Decision
+    Decision --> Remediation
 ```
 
 Every stage enriches the understanding of the system.
@@ -245,9 +245,9 @@ Represents an operational recommendation.
 
 ```mermaid
 graph TD;
-    "Pending" --> "Validated";
-    "Validated" --> "Approved";
-    "Approved" --> "Executed";
+    Pending --> Validated
+    Validated --> Approved
+    Approved --> Executed
 ```
 
 ### Invariants
@@ -301,9 +301,9 @@ Represents notification delivery.
 
 ```mermaid
 graph TD;
-    "Created" --> "Queued";
-    "Queued" --> "Delivered";
-    "Delivered" --> "Acknowledged";
+    Created --> Queued
+    Queued --> Delivered
+    Delivered --> Acknowledged
 ```
 
 Alerting owns communication, not business decisions.
@@ -408,12 +408,12 @@ They should be immutable.
 
 ```mermaid
 graph TD;
-    "Replay" --> "Behavior";
-    "Behavior" --> "Health";
-    "Health" --> "Root Cause";
-    "Root Cause" --> "Decision";
-    "Decision" --> "Remediation";
-    "Remediation" --> "Alert";
+    Replay --> Behavior
+    Behavior --> Health
+    Health --> N1["Root Cause"]
+    N1["Root Cause"] --> Decision
+    Decision --> Remediation
+    Remediation --> Alert
 ```
 
 Each aggregate consumes information from previous aggregates.
@@ -442,10 +442,10 @@ The following rules define platform behavior.
 
 ```mermaid
 graph TD;
-    "Collected" --> "Stored";
-    "Stored" --> "Reconstructed";
-    "Reconstructed" --> "Analyzed";
-    "Analyzed" --> "Archived";
+    Collected --> Stored
+    Stored --> Reconstructed
+    Reconstructed --> Analyzed
+    Analyzed --> Archived
 ```
 
 ---
@@ -454,10 +454,10 @@ graph TD;
 
 ```mermaid
 graph TD;
-    "Generated" --> "Validated";
-    "Validated" --> "Approved";
-    "Approved" --> "Applied";
-    "Applied" --> "Verified";
+    Generated --> Validated
+    Validated --> Approved
+    Approved --> Applied
+    Applied --> Verified
 ```
 
 ---
@@ -466,10 +466,10 @@ graph TD;
 
 ```mermaid
 graph TD;
-    "Created" --> "Queued";
-    "Queued" --> "Sent";
-    "Sent" --> "Acknowledged";
-    "Acknowledged" --> "Closed";
+    Created --> Queued
+    Queued --> Sent
+    Sent --> Acknowledged
+    Acknowledged --> Closed
 ```
 
 ---

@@ -67,10 +67,10 @@ Configuration precedence:
 
 ```mermaid
 graph TD;
-    "CLI Flags" --> "Environment Variables";
-    "Environment Variables" --> "Secrets";
-    "Secrets" --> "Configuration Files";
-    "Configuration Files" --> "Built-in Defaults";
+    N1["CLI Flags"] --> N2["Environment Variables"]
+    N2["Environment Variables"] --> Secrets
+    Secrets --> N3["Configuration Files"]
+    N3["Configuration Files"] --> N4["Built-in Defaults"]
 ```
 
 ---

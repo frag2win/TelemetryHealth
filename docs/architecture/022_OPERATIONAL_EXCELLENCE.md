@@ -161,9 +161,9 @@ Error budgets balance innovation and reliability.
 
 ```mermaid
 graph TD;
-    "Availability Goal" --> "Allowed Failure";
-    "Allowed Failure" --> "Operational Budget";
-    "Operational Budget" --> "Deployment Decisions";
+    N1["Availability Goal"] --> N2["Allowed Failure"]
+    N2["Allowed Failure"] --> N3["Operational Budget"]
+    N3["Operational Budget"] --> N4["Deployment Decisions"]
 ```
 
 If the error budget is exhausted:
@@ -180,13 +180,13 @@ Every production incident follows a standard lifecycle.
 
 ```mermaid
 graph TD;
-    "Detection" --> "Classification";
-    "Classification" --> "Assignment";
-    "Assignment" --> "Mitigation";
-    "Mitigation" --> "Recovery";
-    "Recovery" --> "Root Cause Analysis";
-    "Root Cause Analysis" --> "Postmortem";
-    "Postmortem" --> "Improvement";
+    Detection --> Classification
+    Classification --> Assignment
+    Assignment --> Mitigation
+    Mitigation --> Recovery
+    Recovery --> N1["Root Cause Analysis"]
+    N1["Root Cause Analysis"] --> Postmortem
+    Postmortem --> Improvement
 ```
 
 Incidents should produce long-term improvements rather than temporary fixes.

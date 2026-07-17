@@ -101,13 +101,13 @@ The MCP layer is not responsible for decision making.
 
 ```mermaid
 graph TD;
-    "MCP Server" --> "Authentication";
-    "Authentication" --> "Tool Registry";
-    "Tool Registry" --> "Request Validator";
-    "Request Validator" --> "Context Builder";
-    "Context Builder" --> "Tool Dispatcher";
-    "Tool Dispatcher" --> "Application Services";
-    "Application Services" --> "Response Formatter";
+    N1["MCP Server"] --> Authentication
+    Authentication --> N2["Tool Registry"]
+    N2["Tool Registry"] --> N3["Request Validator"]
+    N3["Request Validator"] --> N4["Context Builder"]
+    N4["Context Builder"] --> N5["Tool Dispatcher"]
+    N5["Tool Dispatcher"] --> N6["Application Services"]
+    N6["Application Services"] --> N7["Response Formatter"]
 ```
 
 Each component owns a single responsibility.
@@ -136,11 +136,11 @@ Tools expose business capabilities rather than infrastructure details.
 
 ```mermaid
 graph TD;
-    "Registered" --> "Validated";
-    "Validated" --> "Discovered";
-    "Discovered" --> "Executed";
-    "Executed" --> "Observed";
-    "Observed" --> "Completed";
+    Registered --> Validated
+    Validated --> Discovered
+    Discovered --> Executed
+    Executed --> Observed
+    Observed --> Completed
 ```
 
 All executions are traced.
@@ -200,14 +200,14 @@ Only relevant context is included.
 
 ```mermaid
 graph TD;
-    "Assistant" --> "MCP";
-    "MCP" --> "Authentication";
-    "Authentication" --> "Authorization";
-    "Authorization" --> "Validation";
-    "Validation" --> "Tool Dispatcher";
-    "Tool Dispatcher" --> "Application Service";
-    "Application Service" --> "Response";
-    "Response" --> "Assistant";
+    Assistant --> MCP
+    MCP --> Authentication
+    Authentication --> Authorization
+    Authorization --> Validation
+    Validation --> N1["Tool Dispatcher"]
+    N1["Tool Dispatcher"] --> N2["Application Service"]
+    N2["Application Service"] --> Response
+    Response --> Assistant
 ```
 
 ---
@@ -273,10 +273,10 @@ Example
 
 ```mermaid
 graph TD;
-    "Validation Failed" --> "Tool Not Found";
-    "Tool Not Found" --> "Permission Denied";
-    "Permission Denied" --> "Execution Failed";
-    "Execution Failed" --> "Internal Error";
+    N1["Validation Failed"] --> N2["Tool Not Found"]
+    N2["Tool Not Found"] --> N3["Permission Denied"]
+    N3["Permission Denied"] --> N4["Execution Failed"]
+    N4["Execution Failed"] --> N5["Internal Error"]
 ```
 
 Responses should remain deterministic.

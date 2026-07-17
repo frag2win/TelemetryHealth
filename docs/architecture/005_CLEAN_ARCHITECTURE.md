@@ -33,11 +33,11 @@ Dependencies SHALL always point toward the Domain.
 
 ```mermaid
 graph TD;
-    "Presentation" --> "Interfaces";
-    "Interfaces" --> "Application";
-    "Application" --> "Domain";
-    "Domain" --> "↑";
-    "↑" --> "Infrastructure";
+    Presentation --> Interfaces
+    Interfaces --> Application
+    Application --> Domain
+    Domain --> N1["↑"]
+    N1["↑"] --> Infrastructure
 ```
 
 The Domain Layer is the center of the architecture.
@@ -219,9 +219,9 @@ Example:
 
 ```mermaid
 graph TD;
-    "ReplayCreated" --> "BehaviorGenerated";
-    "BehaviorGenerated" --> "HealthCalculated";
-    "HealthCalculated" --> "DecisionGenerated";
+    ReplayCreated --> BehaviorGenerated
+    BehaviorGenerated --> HealthCalculated
+    HealthCalculated --> DecisionGenerated
 ```
 
 Services should communicate through events when synchronous coupling is unnecessary.
@@ -272,8 +272,8 @@ Allowed:
 
 ```mermaid
 graph TD;
-    "domain" --> "application";
-    "application" --> "interfaces";
+    domain --> application
+    application --> interfaces
 ```
 
 Infrastructure may import Domain interfaces.
@@ -318,8 +318,8 @@ Example:
 
 ```mermaid
 graph TD;
-    "Slack Plugin" --> "NotificationPort";
-    "NotificationPort" --> "Application";
+    N1["Slack Plugin"] --> NotificationPort
+    NotificationPort --> Application
 ```
 
 The Application layer is unaware of plugin implementations.

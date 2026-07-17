@@ -97,10 +97,10 @@ Dependencies MUST point inward.
 
 ```mermaid
 graph TD;
-    "Presentation" --> "Application";
-    "Application" --> "Domain";
-    "Domain" --> "↑";
-    "↑" --> "Infrastructure";
+    Presentation --> Application
+    Application --> Domain
+    Domain --> N1["↑"]
+    N1["↑"] --> Infrastructure
 ```
 
 Business rules MUST NOT depend on infrastructure.
@@ -132,11 +132,11 @@ Example:
 
 ```mermaid
 graph TD;
-    "Replay Imported" --> "Behavior Generated";
-    "Behavior Generated" --> "Decision Created";
-    "Decision Created" --> "Root Cause Identified";
-    "Root Cause Identified" --> "Health Updated";
-    "Health Updated" --> "Remediation Generated";
+    N1["Replay Imported"] --> N2["Behavior Generated"]
+    N2["Behavior Generated"] --> N3["Decision Created"]
+    N3["Decision Created"] --> N4["Root Cause Identified"]
+    N4["Root Cause Identified"] --> N5["Health Updated"]
+    N5["Health Updated"] --> N6["Remediation Generated"]
 ```
 
 This reduces coupling between services.
@@ -314,9 +314,9 @@ Allowed:
 
 ```mermaid
 graph TD;
-    "Presentation" --> "Interface";
-    "Interface" --> "Application";
-    "Application" --> "Domain";
+    Presentation --> Interface
+    Interface --> Application
+    Application --> Domain
 ```
 
 Infrastructure implements interfaces defined by higher layers.
