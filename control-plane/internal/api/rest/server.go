@@ -46,6 +46,9 @@ import (
 // uuidRegex validates that a tenant_id conforms to UUID v4 format (PRD §13.1 — input sanitization).
 var uuidRegex = regexp.MustCompile(`^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`)
 
+// devSlugRegex validates that a tenant_id conforms to a clean slug format in development.
+var devSlugRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+
 // APIError is the standard structured error response body (Improvement #1.6).
 type APIError struct {
 	Code    string `json:"code"`
@@ -89,9 +92,8 @@ func validateTenantID(w http.ResponseWriter, tenantID string) bool {
 			return false
 		}
 	} else {
-		isValidSlug := tenantID == "acme-prod" || tenantID == "acme-staging" || tenantID == "tenant-alpha" || tenantID == "tenant-beta" || tenantID == "tenant-gamma"
-		if !uuidRegex.MatchString(tenantID) && !isValidSlug {
-			writeError(w, "INVALID_TENANT_ID", "tenant_id must be a valid UUID or a known dev slug", http.StatusBadRequest)
+		if !uuidRegex.MatchString(tenantID) && !devSlugRegex.MatchString(tenantID) {
+			writeError(w, "INVALID_TENANT_ID", "tenant_id must be a valid UUID or a valid alphanumeric slug", http.StatusBadRequest)
 			return false
 		}
 	}
