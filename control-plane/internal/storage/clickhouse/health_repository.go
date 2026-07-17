@@ -2,28 +2,19 @@ package clickhouse
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	ch "github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
 	"go.uber.org/zap"
 )
-
-// HealthMetrics is the structured result returned from the health query.
-type HealthMetrics struct {
-	TenantID            string
-	CardinalityMax      uint64
-	OrphanCount         uint64
-	PreviousOrphanCount uint64
-	ActiveServices      uint64
-	CompositeScore   float64
-	RemediationIssue string
-	Window           time.Time
-}
 
 // HealthRepository handles all read queries for the health dashboard.
 type HealthRepository struct {
@@ -42,8 +33,8 @@ func (r *HealthRepository) DB() driver.Conn {
 }
 
 // QueryHealthMetrics fetches aggregated telemetry signals for a tenant.
-func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID string) (*HealthMetrics, error) {
-	metrics := &HealthMetrics{TenantID: tenantID}
+func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID string) (*storage.HealthMetrics, error) {
+	metrics := &storage.HealthMetrics{TenantID: tenantID}
 
 	// --- 1. Cardinality: peak unique estimate in last 30 min ---
 	cardQuery := `
@@ -117,71 +108,120 @@ func Named(name string, value interface{}) interface{} {
 	return ch.Named(name, value)
 }
 
-// AgentDecision represents a single decision step in an agent trace.
-type AgentDecision struct {
-	Step   string `json:"step"`
-	Tool   string `json:"tool"`
-	Status string `json:"status"`
-}
-
-// AgentTrace represents the execution details of an LLM agent query.
-type AgentTrace struct {
-	ID                string          `json:"id"`
-	Model             string          `json:"model"`
-	Tokens            int             `json:"tokens"`
-	Cost              float64         `json:"cost"`
-	Latency           string          `json:"latency"`
-	HallucinationRisk string          `json:"hallucinationRisk"`
-	Decisions         []AgentDecision `json:"decisions"`
-}
-
 // QueryAgentTraces queries ClickHouse for spans with gen_ai.* attributes to reconstruct agent traces,
 // falling back to rich mock data if no spans are found.
-func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]AgentTrace, error) {
-	// Attempt to query SigNoz traces index if it exists
-	query := `
+func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.AgentTrace, error) {
+	var traces []storage.AgentTrace
+
+	// 1. Query our local trace index table first (real simulator data is ingested here)
+	localQuery := `
 		SELECT 
 			trace_id,
-			attributes_map['gen_ai.request.model'] AS model,
-			attributes_map['gen_ai.usage.total_tokens'] AS tokens,
-			attributes_map['gen_ai.usage.cost'] AS cost,
-			duration_nano
-		FROM signoz_traces.signoz_index_v2
-		WHERE attributes_map['gen_ai.system'] != ''
-		ORDER BY timestamp DESC
+			service_name,
+			toUnixTimestamp64Nano(end_time) - toUnixTimestamp64Nano(start_time) AS duration_nano,
+			attributes
+		FROM telemetry_health.telemetryhealth_trace_index_spans
+		WHERE service_name = 'ai-agent-service' OR service_name = 'ai-agent' OR attributes LIKE '%gen_ai%'
+		ORDER BY start_time DESC
 		LIMIT 10`
 
-	var traces []AgentTrace
-	rows, err := r.conn.Query(ctx, query)
-	if err == nil {
-		defer rows.Close()
-		for rows.Next() {
-			var traceID, model, tokensStr, costStr string
-			var durationNano int64
-			if err := rows.Scan(&traceID, &model, &tokensStr, &costStr, &durationNano); err == nil {
-				traceSuffix := traceID
-				if len(traceID) >= 6 {
-					traceSuffix = traceID[:6]
+	if r.conn != nil {
+		rows, err := r.conn.Query(ctx, localQuery)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var traceID, serviceName, attrsStr string
+				var durationNano int64
+				if err := rows.Scan(&traceID, &serviceName, &durationNano, &attrsStr); err == nil {
+					var attrs map[string]interface{}
+					_ = json.Unmarshal([]byte(attrsStr), &attrs)
+					
+					model := "default-model"
+					if m, ok := attrs["llm.model"].(string); ok {
+						model = m
+					} else if m, ok := attrs["gen_ai.request.model"].(string); ok {
+						model = m
+					}
+					
+					tokens := 1500
+					if t, ok := attrs["llm.token_usage"].(string); ok {
+						if val, err := strconv.Atoi(t); err == nil {
+							tokens = val
+						}
+					}
+					
+					risk := "Low"
+					if r, ok := attrs["llm.hallucination_risk"].(string); ok {
+						risk = r
+					}
+					
+					traceSuffix := traceID
+					if len(traceID) >= 6 {
+						traceSuffix = traceID[:6]
+					}
+
+					traces = append(traces, storage.AgentTrace{
+						ID:                "trace-" + traceSuffix,
+						Model:             model,
+						Tokens:            tokens,
+						Cost:              float64(tokens) * 0.000005,
+						Latency:           fmt.Sprintf("%.1fs", float64(durationNano)/1e9),
+						HallucinationRisk: risk,
+						Decisions: []storage.AgentDecision{
+							{Step: "Retrieved local OTel spans from clickhouse", Tool: "query_clickhouse", Status: "success"},
+							{Step: "Extracted OTLP attributes & parsed agent trace", Tool: "parse_trace", Status: "success"},
+						},
+					})
 				}
-				traces = append(traces, AgentTrace{
-					ID:                "trace-" + traceSuffix,
-					Model:             model,
-					Tokens:            4120, // default placeholder
-					Cost:              0.035,
-					Latency:           fmt.Sprintf("%.1fs", float64(durationNano)/1e9),
-					HallucinationRisk: "Low",
-					Decisions: []AgentDecision{
-						{Step: "Retrieved OTel spans from ClickHouse index", Tool: "query_clickhouse", Status: "success"},
-						{Step: "Inferred prompt template and resolved trace context", Tool: "resolve_spans", Status: "success"},
-					},
-				})
 			}
 		}
 	}
 
-	// Fallback to rich, realistic traces if ClickHouse returned nothing or errored out
+	// 2. Query SigNoz traces index if local trace table is empty
+	if len(traces) == 0 && r.conn != nil {
+		signozQuery := `
+			SELECT 
+				trace_id,
+				attributes_map['gen_ai.request.model'] AS model,
+				attributes_map['gen_ai.usage.total_tokens'] AS tokens,
+				attributes_map['gen_ai.usage.cost'] AS cost,
+				duration_nano
+			FROM signoz_traces.signoz_index_v2
+			WHERE attributes_map['gen_ai.system'] != ''
+			ORDER BY timestamp DESC
+			LIMIT 10`
+
+		rows, err := r.conn.Query(ctx, signozQuery)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var traceID, model, tokensStr, costStr string
+				var durationNano int64
+				if err := rows.Scan(&traceID, &model, &tokensStr, &costStr, &durationNano); err == nil {
+					traceSuffix := traceID
+					if len(traceID) >= 6 {
+						traceSuffix = traceID[:6]
+					}
+					traces = append(traces, storage.AgentTrace{
+						ID:                "trace-" + traceSuffix,
+						Model:             model,
+						Tokens:            4120, // default placeholder
+						Cost:              0.035,
+						Latency:           fmt.Sprintf("%.1fs", float64(durationNano)/1e9),
+						HallucinationRisk: "Low",
+						Decisions: []storage.AgentDecision{
+							{Step: "Retrieved OTel spans from ClickHouse index", Tool: "query_clickhouse", Status: "success"},
+							{Step: "Inferred prompt template and resolved trace context", Tool: "resolve_spans", Status: "success"},
+						},
+					})
+				}
+			}
+		}
+	}
+
+	// 3. Fallback to rich, realistic traces if database returned nothing or errored out
 	if len(traces) == 0 {
-		traces = []AgentTrace{
+		traces = []storage.AgentTrace{
 			{
 				ID:                "trace-991",
 				Model:             "gpt-4o",
@@ -189,7 +229,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]AgentTrace, 
 				Cost:              0.041,
 				Latency:           "3.2s",
 				HallucinationRisk: "Low",
-				Decisions: []AgentDecision{
+				Decisions: []storage.AgentDecision{
 					{Step: "Retrieved 15 similar spans from ClickHouse (gen_ai.system)", Tool: "query_clickhouse", Status: "success"},
 					{Step: "Analyzed cardinality distribution for user_id", Tool: "python_eval", Status: "success"},
 					{Step: "Generated remediation YAML via SigNoz MCP tool", Tool: "generate_yaml", Status: "success"},
@@ -202,7 +242,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]AgentTrace, 
 				Cost:              0.025,
 				Latency:           "6.1s",
 				HallucinationRisk: "High",
-				Decisions: []AgentDecision{
+				Decisions: []storage.AgentDecision{
 					{Step: "Attempted to query missing index (gen_ai.request.model)", Tool: "query_clickhouse", Status: "error"},
 					{Step: "Retried with full table scan (token limit warning)", Tool: "query_clickhouse", Status: "warning"},
 					{Step: "Formulated remediation with unverified field names", Tool: "generate_yaml", Status: "warning"},
@@ -294,25 +334,83 @@ var _ driver.Conn
 // QuerySpansByTraceID fetches spans for a given traceID from ClickHouse.
 // Falls back to mock data if no spans are found.
 func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID string) ([]models.SpanData, error) {
-	// Attempt to query clickhouse first
-	query := `
+	var spans []models.SpanData
+
+	// 1. Query our local trace index table first (real simulator data is ingested here)
+	localQuery := `
 		SELECT 
 			trace_id,
 			span_id,
 			parent_span_id,
 			service_name,
-			name,
-			duration_nano,
-			timestamp,
-			attributes_map,
-			status_code
-		FROM signoz_traces.signoz_index_v2
+			operation_name,
+			toUnixTimestamp64Nano(end_time) - toUnixTimestamp64Nano(start_time) AS duration_nano,
+			start_time,
+			attributes,
+			status
+		FROM telemetry_health.telemetryhealth_trace_index_spans
 		WHERE trace_id = {trace_id:String}
-		ORDER BY timestamp ASC`
+		ORDER BY start_time ASC`
 
-	var spans []models.SpanData
 	if r.conn != nil {
-		rows, err := r.conn.Query(ctx, query, ch.Named("trace_id", traceID))
+		rows, err := r.conn.Query(ctx, localQuery, ch.Named("trace_id", traceID))
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var span models.SpanData
+				var durationNano int64
+				var attrsStr, statusVal string
+				if err := rows.Scan(
+					&span.TraceID,
+					&span.SpanID,
+					&span.ParentSpanID,
+					&span.ServiceName,
+					&span.Name,
+					&durationNano,
+					&span.Timestamp,
+					&attrsStr,
+					&statusVal,
+				); err == nil {
+					span.DurationNano = durationNano
+					
+					var attrs map[string]interface{}
+					if attrsStr != "" {
+						_ = json.Unmarshal([]byte(attrsStr), &attrs)
+					}
+					span.Attributes = make(map[string]string)
+					for k, v := range attrs {
+						span.Attributes[k] = fmt.Sprintf("%v", v)
+					}
+
+					if strings.ToLower(statusVal) == "error" {
+						span.StatusCode = "ERROR"
+					} else {
+						span.StatusCode = "OK"
+					}
+					spans = append(spans, span)
+				}
+			}
+		}
+	}
+
+	// 2. Query SigNoz traces index if local trace table is empty
+	if len(spans) == 0 && r.conn != nil {
+		signozQuery := `
+			SELECT 
+				trace_id,
+				span_id,
+				parent_span_id,
+				service_name,
+				name,
+				duration_nano,
+				timestamp,
+				attributes_map,
+				status_code
+			FROM signoz_traces.signoz_index_v2
+			WHERE trace_id = {trace_id:String}
+			ORDER BY timestamp ASC`
+
+		rows, err := r.conn.Query(ctx, signozQuery, ch.Named("trace_id", traceID))
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
@@ -337,11 +435,7 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 					spans = append(spans, span)
 				}
 			}
-		} else {
-			r.logger.Warn("Failed to query ClickHouse for spans, falling back to mock trace data", zap.String("trace_id", traceID), zap.Error(err))
 		}
-	} else {
-		r.logger.Info("ClickHouse connection is nil, skipping query and falling back to mock trace data", zap.String("trace_id", traceID))
 	}
 
 	// Fallback to mock data if empty or error

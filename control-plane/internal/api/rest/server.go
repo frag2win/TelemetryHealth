@@ -30,7 +30,7 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/rootcause"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/engine"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/simulator"
-	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -39,7 +39,6 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
-	"github.com/ClickHouse/clickhouse-go/v2/lib/driver"
 
 	_ "github.com/frag2win/TelemetryHealth/control-plane/docs" // imported for swagger
 )
@@ -56,19 +55,14 @@ type APIError struct {
 // Server is the REST API server for the control plane dashboard.
 type Server struct {
 	logger      *zap.Logger
-	healthRepo  *clickhouse.HealthRepository
+	healthRepo  storage.HealthRepository
 	validator   *remediation.Validator
 	generator   *remediation.Generator
 	graphEngine *engine.Engine
 	httpServer  *http.Server
 }
 
-func NewServer(logger *zap.Logger, healthRepo *clickhouse.HealthRepository) *Server {
-	var conn driver.Conn
-	if healthRepo != nil {
-		conn = healthRepo.DB()
-	}
-	replayRepo := clickhouse.NewReplayRepository(conn, logger)
+func NewServer(logger *zap.Logger, healthRepo storage.HealthRepository, replayRepo engine.ReplayRepository) *Server {
 	return &Server{
 		logger:      logger,
 		healthRepo:  healthRepo,
@@ -88,12 +82,22 @@ func writeError(w http.ResponseWriter, code string, message string, status int) 
 // validateTenantID checks that tenant_id is a valid UUID (PRD §13.1 — input sanitization).
 // Returns false and writes a 400 response if invalid.
 func validateTenantID(w http.ResponseWriter, tenantID string) bool {
-	if !uuidRegex.MatchString(tenantID) && tenantID != "acme-prod" && tenantID != "acme-staging" && tenantID != "tenant-alpha" && tenantID != "tenant-beta" && tenantID != "tenant-gamma" {
-		writeError(w, "INVALID_TENANT_ID", "tenant_id must be a valid UUID or a known slug", http.StatusBadRequest)
-		return false
+	isProduction := os.Getenv("ENV") == "production"
+	if isProduction {
+		if !uuidRegex.MatchString(tenantID) {
+			writeError(w, "INVALID_TENANT_ID", "tenant_id must be a valid UUID", http.StatusBadRequest)
+			return false
+		}
+	} else {
+		isValidSlug := tenantID == "acme-prod" || tenantID == "acme-staging" || tenantID == "tenant-alpha" || tenantID == "tenant-beta" || tenantID == "tenant-gamma"
+		if !uuidRegex.MatchString(tenantID) && !isValidSlug {
+			writeError(w, "INVALID_TENANT_ID", "tenant_id must be a valid UUID or a known dev slug", http.StatusBadRequest)
+			return false
+		}
 	}
 	return true
 }
+
 
 // ── Middleware ────────────────────────────────────────────────────────────────
 
@@ -547,6 +551,37 @@ func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
 			writeError(w, "DATA_SOURCE_ERROR", "Failed to query agent traces", http.StatusServiceUnavailable)
 			return
 		}
+
+		// Record Prometheus agent metrics (PRD §8.5 & SIGNOZ_INTEGRATION_AUDIT)
+		for _, trace := range traces {
+			serviceName := "ai-agent-service"
+			agentID := trace.Model // distinguish agent instances by their underlying model
+			
+			// Calculate dynamic health score for the trace
+			score := 100.0
+			errorCount := 0.0
+			for _, dec := range trace.Decisions {
+				if dec.Status == "error" || dec.Status == "warning" {
+					score -= 20.0
+					if dec.Status == "error" {
+						errorCount += 1.0
+					}
+				}
+			}
+			if trace.HallucinationRisk == "High" {
+				score -= 30.0
+			}
+			if score < 0 {
+				score = 0
+			}
+
+			telemetry.AgentHealthScore.WithLabelValues(serviceName, agentID).Set(score)
+			telemetry.AgentTokenBurnRate.WithLabelValues(serviceName, agentID).Add(float64(trace.Tokens))
+			if errorCount > 0 {
+				telemetry.AgentTraceErrorCount.WithLabelValues(serviceName, agentID).Add(errorCount)
+			}
+		}
+
 		json.NewEncoder(w).Encode(traces)
 		return
 	}
@@ -726,8 +761,7 @@ func (s *Server) GetBehaviorGraph(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// Mock mode
 		s.logger.Info("ClickHouse unavailable, using mock trace data", zap.String("trace_id", traceID))
-		dummyRepo := clickhouse.NewHealthRepository(nil, s.logger)
-		spans, _ = dummyRepo.QuerySpansByTraceID(r.Context(), traceID)
+		spans = generateMockSpans(traceID)
 	}
 
 	if len(spans) == 0 {
@@ -765,8 +799,7 @@ func (s *Server) GetDecisionGraph(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		dummyRepo := clickhouse.NewHealthRepository(nil, s.logger)
-		spans, _ = dummyRepo.QuerySpansByTraceID(r.Context(), traceID)
+		spans = generateMockSpans(traceID)
 	}
 
 	if len(spans) == 0 {
@@ -812,8 +845,7 @@ func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else {
-		dummyRepo := clickhouse.NewHealthRepository(nil, s.logger)
-		spans, _ = dummyRepo.QuerySpansByTraceID(r.Context(), traceID)
+		spans = generateMockSpans(traceID)
 	}
 
 	if len(spans) == 0 {
@@ -847,4 +879,203 @@ func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(rc)
+}
+
+// generateMockSpans creates realistic traces for local development and demos.
+func generateMockSpans(traceID string) []models.SpanData {
+	now := time.Now()
+
+	// Pattern 1: Tool Timeout and Retry (trace-992 or similar)
+	if strings.Contains(traceID, "992") || strings.Contains(traceID, "fail") || strings.Contains(traceID, "timeout") {
+		return []models.SpanData{
+			{
+				TraceID:      traceID,
+				SpanID:       "span-root",
+				ParentSpanID: "",
+				ServiceName:  "ai-agent",
+				Name:         "agent.workflow",
+				DurationNano: int64(3000 * time.Millisecond),
+				Timestamp:    now,
+				Attributes: map[string]string{
+					"workflow.topic": "Observability best practices",
+				},
+				StatusCode: "ERROR",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-tool-fail",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.research",
+				DurationNano: int64(1000 * time.Millisecond),
+				Timestamp:    now.Add(100 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.tool_name":       "web_search",
+					"llm.tool_call.error": "TimeoutError: connection refused",
+				},
+				StatusCode: "ERROR",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-tool-retry",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.research",
+				DurationNano: int64(800 * time.Millisecond),
+				Timestamp:    now.Add(1200 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.tool_name": "web_search",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-llm-summarize",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.summarize",
+				DurationNano: int64(1200 * time.Millisecond),
+				Timestamp:    now.Add(2100 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.model":           "gpt-4o",
+					"llm.token_usage":     "1250",
+					"llm.prompt.raw_abcd": "Information about Observability best practices",
+				},
+				StatusCode: "OK",
+			},
+		}
+	}
+
+	// Pattern 2: Token Limit Exceeded
+	if strings.Contains(traceID, "token") || strings.Contains(traceID, "limit") {
+		return []models.SpanData{
+			{
+				TraceID:      traceID,
+				SpanID:       "span-root",
+				ParentSpanID: "",
+				ServiceName:  "ai-agent",
+				Name:         "agent.workflow",
+				DurationNano: int64(2200 * time.Millisecond),
+				Timestamp:    now,
+				Attributes: map[string]string{
+					"workflow.topic": "Vector databases",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-tool",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.research",
+				DurationNano: int64(900 * time.Millisecond),
+				Timestamp:    now.Add(100 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.tool_name": "web_search",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-llm-heavy",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.summarize",
+				DurationNano: int64(1200 * time.Millisecond),
+				Timestamp:    now.Add(1000 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.model":       "gpt-4o",
+					"llm.token_usage": "5200",
+				},
+				StatusCode: "OK",
+			},
+		}
+	}
+
+	// Pattern 3: Retrieval Collapse
+	if strings.Contains(traceID, "retrieve") || strings.Contains(traceID, "collapse") {
+		return []models.SpanData{
+			{
+				TraceID:      traceID,
+				SpanID:       "span-root",
+				ParentSpanID: "",
+				ServiceName:  "ai-agent",
+				Name:         "agent.workflow",
+				DurationNano: int64(1500 * time.Millisecond),
+				Timestamp:    now,
+				Attributes:   map[string]string{"workflow.topic": "nonexistent term"},
+				StatusCode:   "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-retriever",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.retrieve",
+				DurationNano: int64(300 * time.Millisecond),
+				Timestamp:    now.Add(100 * time.Millisecond),
+				Attributes: map[string]string{
+					"retriever.documents_count": "0",
+				},
+				StatusCode: "OK",
+			},
+			{
+				TraceID:      traceID,
+				SpanID:       "span-llm",
+				ParentSpanID: "span-root",
+				ServiceName:  "ai-agent",
+				Name:         "agent.summarize",
+				DurationNano: int64(1000 * time.Millisecond),
+				Timestamp:    now.Add(400 * time.Millisecond),
+				Attributes: map[string]string{
+					"llm.model": "gpt-4o",
+				},
+				StatusCode: "OK",
+			},
+		}
+	}
+
+	// Pattern 4: Normal Flow (trace-991 or default)
+	return []models.SpanData{
+		{
+			TraceID:      traceID,
+			SpanID:       "span-root",
+			ParentSpanID: "",
+			ServiceName:  "ai-agent",
+			Name:         "agent.workflow",
+			DurationNano: int64(2500 * time.Millisecond),
+			Timestamp:    now,
+			Attributes: map[string]string{
+				"workflow.topic": "LLM cost optimization",
+			},
+			StatusCode: "OK",
+		},
+		{
+			TraceID:      traceID,
+			SpanID:       "span-tool",
+			ParentSpanID: "span-root",
+			ServiceName:  "ai-agent",
+			Name:         "agent.research",
+			DurationNano: int64(1100 * time.Millisecond),
+			Timestamp:    now.Add(100 * time.Millisecond),
+			Attributes: map[string]string{
+				"llm.tool_name": "web_search",
+			},
+			StatusCode: "OK",
+		},
+		{
+			TraceID:      traceID,
+			SpanID:       "span-llm",
+			ParentSpanID: "span-root",
+			ServiceName:  "ai-agent",
+			Name:         "agent.summarize",
+			DurationNano: int64(1200 * time.Millisecond),
+			Timestamp:    now.Add(1250 * time.Millisecond),
+			Attributes: map[string]string{
+				"llm.model":       "gpt-4o",
+				"llm.token_usage": "980",
+			},
+			StatusCode: "OK",
+		},
+	}
 }

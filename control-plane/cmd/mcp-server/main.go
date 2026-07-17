@@ -16,6 +16,7 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/mcp"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -160,7 +161,7 @@ func main() {
 	defer logger.Sync()
 
 	// Initialize ClickHouse repository (fallback to mock if unavailable)
-	var healthRepo *ch.HealthRepository
+	var healthRepo storage.HealthRepository
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	client, err := ch.NewClient(
 		ctx,

@@ -130,7 +130,7 @@ func TestInjectTraceContext(t *testing.T) {
 }
 
 func TestServer_AgentTraceEndpoints(t *testing.T) {
-	s := NewServer(zap.NewNop(), nil)
+	s := NewServer(zap.NewNop(), nil, nil)
 
 	r := chi.NewRouter()
 	r.Get("/api/agents/{agent_id}/traces/{trace_id}/behavior", s.GetBehaviorGraph)

@@ -43,4 +43,22 @@ var (
 		Name: "telemetryhealth_pipeline_health_score",
 		Help: "Composite pipeline health score for a tenant",
 	}, []string{"tenant_id"})
+
+	// AgentHealthScore tracks the composite health score per agent.
+	AgentHealthScore = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "telemetryhealth_agent_health_score",
+		Help: "Health score of the AI agent",
+	}, []string{"service_name", "agent_id"})
+
+	// AgentTokenBurnRate tracks the LLM token consumption.
+	AgentTokenBurnRate = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "telemetryhealth_agent_token_burn_rate",
+		Help: "Total tokens consumed by the AI agent",
+	}, []string{"service_name", "agent_id"})
+
+	// AgentTraceErrorCount tracks the number of trace errors per agent.
+	AgentTraceErrorCount = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "telemetryhealth_agent_trace_error_count",
+		Help: "Total trace errors encountered by the AI agent",
+	}, []string{"service_name", "agent_id"})
 )

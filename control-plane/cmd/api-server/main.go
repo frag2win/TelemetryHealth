@@ -11,6 +11,8 @@ import (
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/authz"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/api/rest"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/engine"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"go.uber.org/zap"
@@ -42,7 +44,8 @@ func main() {
 	}
 
 	// Attempt ClickHouse connection (optional — graceful fallback to mock if unavailable)
-	var healthRepo *ch.HealthRepository
+	var healthRepo storage.HealthRepository
+	var replayRepo engine.ReplayRepository
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	client, err := ch.NewClient(
 		ctx,
@@ -56,10 +59,11 @@ func main() {
 	} else {
 		defer client.Close()
 		healthRepo = ch.NewHealthRepository(client.Conn(), logger)
+		replayRepo = ch.NewReplayRepository(client.Conn(), logger)
 		logger.Info("ClickHouse connected — using real data")
 	}
 
-	server := rest.NewServer(logger, healthRepo)
+	server := rest.NewServer(logger, healthRepo, replayRepo)
 
 	// Use channel to handle errors from API server start
 	errChan := make(chan error, 1)

@@ -57,6 +57,9 @@ func NewEngine(repo ReplayRepository) *Engine {
 // GenerateBehaviorGraph returns a live pipeline behavior graph
 // It builds a Behavior Graph based on recent replay events.
 func (e *Engine) GenerateBehaviorGraph(tenantID string) Graph {
+	if e.repo == nil {
+		return defaultTopology()
+	}
 	events, err := e.repo.GetRecentReplays(context.Background(), tenantID, 100)
 	if err != nil || len(events) == 0 {
 		return defaultTopology()
@@ -72,6 +75,9 @@ func (e *Engine) GenerateBehaviorGraph(tenantID string) Graph {
 
 // GenerateRootCause returns a causal decision graph explaining an issue.
 func (e *Engine) GenerateRootCause(tenantID, traceID string) Graph {
+	if e.repo == nil {
+		return defaultRootCause(traceID)
+	}
 	var events []ReplayEvent
 	var err error
 

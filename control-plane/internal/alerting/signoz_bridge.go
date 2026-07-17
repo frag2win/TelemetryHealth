@@ -1,7 +1,12 @@
 package alerting
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"os"
 	"sync"
 	"time"
 
@@ -50,23 +55,37 @@ type AlertBridge interface {
 	FireAlert(ctx context.Context, payload AlertPayload) error
 }
 
+type alertmanagerAlert struct {
+	Labels       map[string]string `json:"labels"`
+	Annotations  map[string]string `json:"annotations"`
+	GeneratorURL string            `json:"generatorURL,omitempty"`
+}
+
 // SigNozBridge fires alerts to SigNoz Alertmanager with deduplication and cooldown (PRD §8.6).
 type SigNozBridge struct {
-	mu        sync.Mutex
-	logger    *zap.Logger
-	cooldown  time.Duration
-	lastFired map[string]time.Time
+	mu          sync.Mutex
+	logger      *zap.Logger
+	cooldown    time.Duration
+	lastFired   map[string]time.Time
+	httpClient  *http.Client
+	endpointURL string
 }
 
 func NewSigNozBridge(logger *zap.Logger) *SigNozBridge {
+	url := os.Getenv("SIGNOZ_ALERTMANAGER_URL")
+	if url == "" {
+		url = "http://localhost:9093/api/v2/alerts"
+	}
 	return &SigNozBridge{
-		logger:    logger,
-		cooldown:  15 * time.Minute,
-		lastFired: make(map[string]time.Time),
+		logger:      logger,
+		cooldown:    15 * time.Minute,
+		lastFired:   make(map[string]time.Time),
+		httpClient:  &http.Client{Timeout: 10 * time.Second},
+		endpointURL: url,
 	}
 }
 
-// FireAlert sends an alert to SigNoz Alertmanager.
+// FireAlert sends an alert to SigNoz Alertmanager via HTTP POST (PRD §8.6).
 // Implements deduplication: identical alert_id will not re-fire within the cooldown window (PRD §8.6).
 func (b *SigNozBridge) FireAlert(ctx context.Context, payload AlertPayload) error {
 	b.mu.Lock()
@@ -79,6 +98,48 @@ func (b *SigNozBridge) FireAlert(ctx context.Context, payload AlertPayload) erro
 			zap.Duration("remaining", b.cooldown-now.Sub(last)),
 		)
 		return nil
+	}
+
+	// Construct Prometheus Alertmanager standard alerts array payload
+	alerts := []alertmanagerAlert{
+		{
+			Labels: map[string]string{
+				"alertname":        "TelemetryPipelineHealthDrop",
+				"severity":         string(payload.Severity),
+				"tenant_id":        payload.TenantID,
+				"service_name":     payload.AffectedService,
+				"attribute_key":    payload.AffectedAttribute,
+				"alert_id":         payload.AlertID,
+			},
+			Annotations: map[string]string{
+				"summary":        fmt.Sprintf("Telemetry health score dropped to %.1f for service %s", payload.Score, payload.AffectedService),
+				"description":    fmt.Sprintf("The composite health score of %s is %.1f. Affected attribute: %s.", payload.AffectedService, payload.Score, payload.AffectedAttribute),
+				"remediation":    payload.RemediationSnippet,
+				"dashboard_link": payload.DashboardLink,
+			},
+			GeneratorURL: payload.DashboardLink,
+		},
+	}
+
+	body, err := json.Marshal(alerts)
+	if err != nil {
+		return fmt.Errorf("signoz alertmanager: marshal alerts: %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, b.endpointURL, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("signoz alertmanager: create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := b.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("signoz alertmanager: send alert request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
+		return fmt.Errorf("signoz alertmanager: unexpected response status %d", resp.StatusCode)
 	}
 
 	b.lastFired[payload.AlertID] = now

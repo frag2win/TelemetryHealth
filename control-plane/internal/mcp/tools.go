@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/remediation"
-	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	"go.uber.org/zap"
 )
 
@@ -38,13 +38,13 @@ type HealthResponse struct {
 // startup (same repo/generator/validator instances the REST server uses) and
 // pass it into the tool functions.
 type Toolset struct {
-	HealthRepo *clickhouse.HealthRepository
+	HealthRepo storage.HealthRepository
 	Generator  *remediation.Generator
 	Validator  *remediation.Validator
 	Logger     *zap.Logger
 }
 
-func NewToolset(repo *clickhouse.HealthRepository, gen *remediation.Generator, val *remediation.Validator, logger *zap.Logger) *Toolset {
+func NewToolset(repo storage.HealthRepository, gen *remediation.Generator, val *remediation.Validator, logger *zap.Logger) *Toolset {
 	return &Toolset{HealthRepo: repo, Generator: gen, Validator: val, Logger: logger}
 }
 
