@@ -140,9 +140,31 @@ export function DigitalTwin({ tenantId, benchmarkTraceId }: DigitalTwinProps) {
 
   // Update state when data arrives
   useEffect(() => {
-    if (data) {
-      setNodes(data.nodes);
-      setEdges(data.edges);
+    if (data && Array.isArray(data.nodes)) {
+      const isRaw = data.nodes.length > 0 && !('position' in data.nodes[0]);
+      
+      if (isRaw) {
+        const flowNodes = data.nodes.map((n: any, i: number) => ({
+          id: n.behavior_id || n.id,
+          position: { x: i % 2 === 0 ? 100 : 400, y: Math.floor(i / 2) * 150 + 50 },
+          data: { ...n },
+          type: n.actor ? n.actor.toLowerCase() : 'service',
+        }));
+        
+        const flowEdges = (data.edges || []).map((e: any, i: number) => ({
+          id: `e-${e.source}-${e.destination || e.target}-${i}`,
+          source: e.source,
+          target: e.destination || e.target,
+          label: e.relationship || e.label,
+          type: 'smoothstep'
+        }));
+        
+        setNodes(flowNodes);
+        setEdges(flowEdges);
+      } else {
+        setNodes(data.nodes as Node[]);
+        setEdges(data.edges as Edge[]);
+      }
     }
   }, [data, setNodes, setEdges]);
 
@@ -157,12 +179,12 @@ export function DigitalTwin({ tenantId, benchmarkTraceId }: DigitalTwinProps) {
       
       <div className="content-grid" style={{ height: '600px', width: '100%' }}>
         <ReactFlow
-          nodes={data?.nodes || nodes}
-          edges={data?.edges || edges}
-          nodeTypes={nodeTypes}
+          nodes={nodes}
+          edges={edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          nodeTypes={nodeTypes}
           fitView
           colorMode="dark"
         >
