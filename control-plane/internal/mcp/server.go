@@ -32,8 +32,14 @@ type ToolResponse struct {
 
 // HandleToolCall routes generic MCP tool calls to the appropriate handler.
 func (s *Server) HandleToolCall(ctx context.Context, req ToolRequest) ToolResponse {
+	if s.toolset == nil {
+		return ToolResponse{Success: false, Error: "toolset is not initialized"}
+	}
 	switch req.ToolName {
 	case "get_telemetry_health":
+		if s.toolset.HealthRepo == nil {
+			return ToolResponse{Success: false, Error: "health repository not configured — ClickHouse unavailable"}
+		}
 		var args struct {
 			TenantID string `json:"tenant_id"`
 		}
@@ -51,6 +57,9 @@ func (s *Server) HandleToolCall(ctx context.Context, req ToolRequest) ToolRespon
 		return ToolResponse{Success: true, Data: string(respBytes)}
 
 	case "generate_remediation":
+		if s.toolset.Generator == nil {
+			return ToolResponse{Success: false, Error: "remediation generator not configured"}
+		}
 		var args struct {
 			IssueType string `json:"issue_type"`
 		}
