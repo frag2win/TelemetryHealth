@@ -96,11 +96,10 @@ The repository SHALL follow Clean Architecture.
 Dependencies MUST point inward.
 
 ```mermaid
-graph TD;
+graph TD
     Presentation --> Application
     Application --> Domain
-    Domain --> N1["↑"]
-    N1["↑"] --> Infrastructure
+    Infrastructure --> Domain
 ```
 
 Business rules MUST NOT depend on infrastructure.
