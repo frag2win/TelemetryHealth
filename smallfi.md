@@ -1,6 +1,15 @@
 
 ***
 
+## 🏛️ Architecture Clarification
+
+TelemetryHealth is designed as an **analytical overlay architecture**. It functions by analyzing telemetry data from a storage layer or via mock data injection, without disrupting the core data pipeline of the applications being monitored.
+
+**Note on Data Ingestion:**
+The repository includes implementations for an **OTLP Ingest Gateway** and **Kafka/Redpanda** stream processing. These are provided as **optional prototypes** to demonstrate how raw spans can be ingested into a storage backend. The core capabilities of the platform (dashboards, API endpoints, health scores, and agent tracing) can run effectively by falling back to mock data or direct storage queries when these ingest components are not active.
+
+***
+
 ## ✅ Bugs Fixed in This Commit
 
 ### 1. **Hardcoded Tenant Auth Bypass** — ✅ **FULLY FIXED**

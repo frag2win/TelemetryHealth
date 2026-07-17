@@ -2,6 +2,11 @@
 
 This guide walks you through setting up and running the complete TelemetryHealth stack on your local machine from scratch.
 
+> [!NOTE]
+> **Architecture Clarification**
+> TelemetryHealth operates as an **analytical overlay architecture**. The dashboard and REST API pull data from storage (or use mock data) to provide insights.
+> While the codebase includes implementations for **Kafka/Redpanda** stream processing and an **OTLP Ingest Gateway**, these are **optional prototypes**. You do not need to run Kafka or the OTLP Gateway for the core demo to function, as the system falls back to mock data repositories gracefully.
+
 ---
 
 ## 📦 Required Dependencies

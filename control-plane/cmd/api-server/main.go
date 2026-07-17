@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/authz"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/alerting"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/api/rest"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/engine"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/mock"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"go.uber.org/zap"
 )
@@ -56,6 +58,9 @@ func main() {
 	cancel()
 	if err != nil {
 		logger.Warn("ClickHouse unavailable, using mock data", zap.Error(err))
+		mockRepo := mock.NewRepository()
+		healthRepo = mockRepo
+		replayRepo = mockRepo
 	} else {
 		defer client.Close()
 		healthRepo = ch.NewHealthRepository(client.Conn(), logger)
@@ -64,6 +69,11 @@ func main() {
 	}
 
 	server := rest.NewServer(logger, healthRepo, replayRepo)
+
+	// Initialize and start Telemetry Poller (Alertmanager Bridge)
+	bridge := alerting.NewSigNozBridge(logger)
+	poller := alerting.NewTelemetryPoller(logger, healthRepo, bridge, 10*time.Second, 80.0, "00000000-0000-0000-0000-000000000001")
+	poller.Start(context.Background())
 
 	// Use channel to handle errors from API server start
 	errChan := make(chan error, 1)

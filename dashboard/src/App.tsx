@@ -102,6 +102,7 @@ function App() {
   const [selectedTenantId, setSelectedTenantId] = useState<string>('00000000-0000-0000-0000-000000000001');
   const [timeRange, setTimeRange] = useState<string>('6h');
   const [dataSource, setDataSource] = useState<'live' | 'mock'>('live');
+  const [benchmarkTraceId, setBenchmarkTraceId] = useState<string>('trace-991');
   const [theme, setTheme] = useState<string>(() => localStorage.getItem('theme') ?? 'dark');
   const [lastFetched, setLastFetched] = useState<Date | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -381,6 +382,22 @@ function App() {
             </select>
           </div>
 
+          {/* Benchmark Controls */}
+          {(activeView === 'agenttraces' || activeView === 'topology') && (
+            <div className="flex items-center gap-1" style={{ display: 'inline-flex', alignItems: 'center', marginLeft: '12px' }}>
+              <select
+                value={benchmarkTraceId}
+                onChange={(e) => setBenchmarkTraceId(e.target.value)}
+                className="select-dropdown"
+              >
+                <option value="trace-991">Normal Flow (trace-991)</option>
+                <option value="trace-992">Tool Timeout/Retry (trace-992)</option>
+                <option value="trace-token-limit">Token Limit Exceeded</option>
+                <option value="trace-retrieve-collapse">Retrieval Collapse</option>
+              </select>
+            </div>
+          )}
+
           {/* Client-side Time-Range dropdown */}
           <div className="flex items-center gap-1" style={{ display: 'inline-flex', alignItems: 'center' }}>
             <select
@@ -412,8 +429,8 @@ function App() {
               {activeView === 'tracechains' && <TraceChains data={data} tenantId={selectedTenantId} />}
               {activeView === 'coverage' && <Coverage data={data} tenantId={selectedTenantId} />}
               {activeView === 'remediation' && <Remediation apiRemediation={data.remediation} />}
-              {activeView === 'agenttraces' && <AgentTraces tenantId={selectedTenantId} />}
-              {activeView === 'topology' && <DigitalTwin tenantId={selectedTenantId} />}
+              {activeView === 'agenttraces' && <AgentTraces tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />}
+              {activeView === 'topology' && <DigitalTwin tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />}
             </>
           )}
         </div>

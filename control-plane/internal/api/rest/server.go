@@ -21,7 +21,6 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/behavior"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/decision"
@@ -32,9 +31,6 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/simulator"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
-	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	httpSwagger "github.com/swaggo/http-swagger/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
@@ -276,51 +272,7 @@ func oidcAuthMiddleware(next http.Handler) http.Handler {
 // ── Routing ───────────────────────────────────────────────────────────────────
 
 func (s *Server) Start(addr string) error {
-	r := chi.NewRouter()
-
-	// Core middleware stack
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(rateLimitMiddleware)
-	r.Use(corsMiddleware)
-	r.Use(metricsMiddleware)
-	r.Use(tracingMiddleware)
-
-	// Infrastructure endpoints (no auth required)
-	r.Handle("/metrics", promhttp.Handler())
-	r.Handle("/swagger/*", httpSwagger.WrapHandler)
-	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("ok"))
-	})
-	r.Get("/readyz", s.readyzHandler)
-
-	// Tenant-scoped API endpoints (auth required)
-	r.Route("/api/v1/tenant/{tenant_id}", func(r chi.Router) {
-		r.Use(oidcAuthMiddleware)
-		r.Get("/health", s.GetTenantHealth)
-		r.Post("/simulate", s.SimulateFailure)
-		r.Get("/issues", s.GetTenantIssues)
-		r.Get("/agents", s.GetAgentTraces)
-		r.Get("/coverage", s.GetCoverage)
-		r.Get("/traces/orphans", s.GetTracesOrphans)
-		r.Get("/config", s.HandleTenantConfigGet)
-		r.Put("/config", s.HandleTenantConfigPut)
-		r.Post("/config", s.HandleTenantConfigPut)
-		r.Get("/behavior", s.handleBehaviorGraph)
-		r.Get("/root-cause", s.GetTenantRootCause)
-	})
-
-	// Remediation apply endpoint
-	r.With(oidcAuthMiddleware).Post("/api/v1/remediation/apply", s.ApplyRemediation)
-
-	// Agent trace intelligence endpoints (milestone Person A)
-	r.Route("/api/agents/{agent_id}/traces/{trace_id}", func(r chi.Router) {
-		r.Use(oidcAuthMiddleware)
-		r.Get("/behavior", s.GetBehaviorGraph)
-		r.Get("/decisions", s.GetDecisionGraph)
-		r.Get("/root-cause", s.GetRootCause)
-	})
+	r := s.routes()
 
 	s.httpServer = &http.Server{
 		Addr:    addr,
@@ -751,19 +703,11 @@ func (s *Server) GetBehaviorGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var spans []models.SpanData
-	var err error
-	if s.healthRepo != nil {
-		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
-		if err != nil {
-			s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
-			writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		// Mock mode
-		s.logger.Info("ClickHouse unavailable, using mock trace data", zap.String("trace_id", traceID))
-		spans = generateMockSpans(traceID)
+	spans, err := s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+	if err != nil {
+		s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
+		return
 	}
 
 	if len(spans) == 0 {
@@ -791,17 +735,11 @@ func (s *Server) GetDecisionGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var spans []models.SpanData
-	var err error
-	if s.healthRepo != nil {
-		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
-		if err != nil {
-			s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
-			writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		spans = generateMockSpans(traceID)
+	spans, err := s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+	if err != nil {
+		s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
+		return
 	}
 
 	if len(spans) == 0 {
@@ -837,17 +775,11 @@ func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var spans []models.SpanData
-	var err error
-	if s.healthRepo != nil {
-		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
-		if err != nil {
-			s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
-			writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
-			return
-		}
-	} else {
-		spans = generateMockSpans(traceID)
+	spans, err := s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+	if err != nil {
+		s.logger.Error("Failed to query spans", zap.String("trace_id", traceID), zap.Error(err))
+		writeError(w, "DATA_SOURCE_ERROR", "Failed to query spans from storage", http.StatusInternalServerError)
+		return
 	}
 
 	if len(spans) == 0 {
@@ -883,201 +815,4 @@ func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(rc)
 }
 
-// generateMockSpans creates realistic traces for local development and demos.
-func generateMockSpans(traceID string) []models.SpanData {
-	now := time.Now()
 
-	// Pattern 1: Tool Timeout and Retry (trace-992 or similar)
-	if strings.Contains(traceID, "992") || strings.Contains(traceID, "fail") || strings.Contains(traceID, "timeout") {
-		return []models.SpanData{
-			{
-				TraceID:      traceID,
-				SpanID:       "span-root",
-				ParentSpanID: "",
-				ServiceName:  "ai-agent",
-				Name:         "agent.workflow",
-				DurationNano: int64(3000 * time.Millisecond),
-				Timestamp:    now,
-				Attributes: map[string]string{
-					"workflow.topic": "Observability best practices",
-				},
-				StatusCode: "ERROR",
-			},
-			{
-				TraceID:      traceID,
-				SpanID:       "span-tool-fail",
-				ParentSpanID: "span-root",
-				ServiceName:  "ai-agent",
-				Name:         "agent.research",
-				DurationNano: int64(1000 * time.Millisecond),
-				Timestamp:    now.Add(100 * time.Millisecond),
-				Attributes: map[string]string{
-					"llm.tool_name":       "web_search",
-					"llm.tool_call.error": "TimeoutError: connection refused",
-				},
-				StatusCode: "ERROR",
-			},
-			{
-				TraceID:      traceID,
-				SpanID:       "span-tool-retry",
-				ParentSpanID: "span-root",
-				ServiceName:  "ai-agent",
-				Name:         "agent.research",
-				DurationNano: int64(800 * time.Millisecond),
-				Timestamp:    now.Add(1200 * time.Millisecond),
-				Attributes: map[string]string{
-					"llm.tool_name": "web_search",
-				},
-				StatusCode: "OK",
-			},
-			{
-				TraceID:      traceID,
-				SpanID:       "span-llm-summarize",
-				ParentSpanID: "span-root",
-				ServiceName:  "ai-agent",
-				Name:         "agent.summarize",
-				DurationNano: int64(1200 * time.Millisecond),
-				Timestamp:    now.Add(2100 * time.Millisecond),
-				Attributes: map[string]string{
-					"llm.model":           "gpt-4o",
-					"llm.token_usage":     "1250",
-					"llm.prompt.raw_abcd": "Information about Observability best practices",
-				},
-				StatusCode: "OK",
-			},
-		}
-	}
-
-	// Pattern 2: Token Limit Exceeded
-	if strings.Contains(traceID, "token") || strings.Contains(traceID, "limit") {
-		return []models.SpanData{
-			{
-				TraceID:      traceID,
-				SpanID:       "span-root",
-				ParentSpanID: "",
-				ServiceName:  "ai-agent",
-				Name:         "agent.workflow",
-				DurationNano: int64(2200 * time.Millisecond),
-				Timestamp:    now,
-				Attributes: map[string]string{
-					"workflow.topic": "Vector databases",
-				},
-				StatusCode: "OK",
-			},
-			{
-				TraceID:      traceID,
-				SpanID:       "span-tool",
-				ParentSpanID: "span-root",
-				ServiceName:  "ai-agent",
-				Name:         "agent.research",
-				DurationNano: int64(900 * time.Millisecond),
-				Timestamp:    now.Add(100 * time.Millisecond),
-				Attributes: map[string]string{
-					"llm.tool_name": "web_search",
-				},
-				StatusCode: "OK",
-			},
-			{
-				TraceID:      traceID,
-				SpanID:       "span-llm-heavy",
-				ParentSpanID: "span-root",
-				ServiceName:  "ai-agent",
-				Name:         "agent.summarize",
-				DurationNano: int64(1200 * time.Millisecond),
-				Timestamp:    now.Add(1000 * time.Millisecond),
-				Attributes: map[string]string{
-					"llm.model":       "gpt-4o",
-					"llm.token_usage": "5200",
-				},
-				StatusCode: "OK",
-			},
-		}
-	}
-
-	// Pattern 3: Retrieval Collapse
-	if strings.Contains(traceID, "retrieve") || strings.Contains(traceID, "collapse") {
-		return []models.SpanData{
-			{
-				TraceID:      traceID,
-				SpanID:       "span-root",
-				ParentSpanID: "",
-				ServiceName:  "ai-agent",
-				Name:         "agent.workflow",
-				DurationNano: int64(1500 * time.Millisecond),
-				Timestamp:    now,
-				Attributes:   map[string]string{"workflow.topic": "nonexistent term"},
-				StatusCode:   "OK",
-			},
-			{
-				TraceID:      traceID,
-				SpanID:       "span-retriever",
-				ParentSpanID: "span-root",
-				ServiceName:  "ai-agent",
-				Name:         "agent.retrieve",
-				DurationNano: int64(300 * time.Millisecond),
-				Timestamp:    now.Add(100 * time.Millisecond),
-				Attributes: map[string]string{
-					"retriever.documents_count": "0",
-				},
-				StatusCode: "OK",
-			},
-			{
-				TraceID:      traceID,
-				SpanID:       "span-llm",
-				ParentSpanID: "span-root",
-				ServiceName:  "ai-agent",
-				Name:         "agent.summarize",
-				DurationNano: int64(1000 * time.Millisecond),
-				Timestamp:    now.Add(400 * time.Millisecond),
-				Attributes: map[string]string{
-					"llm.model": "gpt-4o",
-				},
-				StatusCode: "OK",
-			},
-		}
-	}
-
-	// Pattern 4: Normal Flow (trace-991 or default)
-	return []models.SpanData{
-		{
-			TraceID:      traceID,
-			SpanID:       "span-root",
-			ParentSpanID: "",
-			ServiceName:  "ai-agent",
-			Name:         "agent.workflow",
-			DurationNano: int64(2500 * time.Millisecond),
-			Timestamp:    now,
-			Attributes: map[string]string{
-				"workflow.topic": "LLM cost optimization",
-			},
-			StatusCode: "OK",
-		},
-		{
-			TraceID:      traceID,
-			SpanID:       "span-tool",
-			ParentSpanID: "span-root",
-			ServiceName:  "ai-agent",
-			Name:         "agent.research",
-			DurationNano: int64(1100 * time.Millisecond),
-			Timestamp:    now.Add(100 * time.Millisecond),
-			Attributes: map[string]string{
-				"llm.tool_name": "web_search",
-			},
-			StatusCode: "OK",
-		},
-		{
-			TraceID:      traceID,
-			SpanID:       "span-llm",
-			ParentSpanID: "span-root",
-			ServiceName:  "ai-agent",
-			Name:         "agent.summarize",
-			DurationNano: int64(1200 * time.Millisecond),
-			Timestamp:    now.Add(1250 * time.Millisecond),
-			Attributes: map[string]string{
-				"llm.model":       "gpt-4o",
-				"llm.token_usage": "980",
-			},
-			StatusCode: "OK",
-		},
-	}
-}

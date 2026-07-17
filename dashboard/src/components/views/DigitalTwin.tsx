@@ -112,12 +112,13 @@ interface GraphData {
 
 interface DigitalTwinProps {
   tenantId: string;
+  benchmarkTraceId?: string;
 }
 
-export function DigitalTwin({ tenantId }: DigitalTwinProps) {
+export function DigitalTwin({ tenantId, benchmarkTraceId }: DigitalTwinProps) {
   const { data, loading, error, errorMsg } = useTenantData<GraphData>(
     tenantId,
-    'behavior',
+    `/api/agents/ai-agent/traces/${benchmarkTraceId || 'trace-991'}/behavior`,
     { nodes: [], edges: [] }
   );
 

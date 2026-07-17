@@ -25,11 +25,19 @@ interface AgentTrace {
 
 interface AgentTracesProps {
   tenantId: string;
+  benchmarkTraceId?: string;
 }
 
-export function AgentTraces({ tenantId }: AgentTracesProps) {
-  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+export function AgentTraces({ tenantId, benchmarkTraceId }: AgentTracesProps) {
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(benchmarkTraceId || null);
   const [activeSpan, setActiveSpan] = useState<GanttSpan | null>(null);
+
+  useEffect(() => {
+    if (benchmarkTraceId) {
+      setSelectedTraceId(benchmarkTraceId);
+      setActiveSpan(null);
+    }
+  }, [benchmarkTraceId]);
 
   const fallbackAgents: AgentTrace[] = [
     {

@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/mock"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -130,7 +131,8 @@ func TestInjectTraceContext(t *testing.T) {
 }
 
 func TestServer_AgentTraceEndpoints(t *testing.T) {
-	s := NewServer(zap.NewNop(), nil, nil)
+	mockRepo := mock.NewRepository()
+	s := NewServer(zap.NewNop(), mockRepo, mockRepo)
 
 	r := chi.NewRouter()
 	r.Get("/api/agents/{agent_id}/traces/{trace_id}/behavior", s.GetBehaviorGraph)
