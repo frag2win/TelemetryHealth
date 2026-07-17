@@ -141,7 +141,7 @@ TelemetryHealth/
 
 | Tool | Version | Install |
 |---|---|---|
-| Go | ≥ 1.22 | [go.dev](https://go.dev/dl/) |
+| Go | ≥ 1.26.3 | [go.dev](https://go.dev/dl/) |
 | Node.js | ≥ 20 | [nodejs.org](https://nodejs.org) |
 | Git | any | [git-scm.com](https://git-scm.com) |
 
@@ -165,6 +165,19 @@ go run ./cmd/ingest-gateway
 ```
 
 > The REST API will start on **`http://localhost:8080`**
+
+---
+
+### 2.5 Start the MCP Server (SigNoz AI Agent Integration)
+
+Open a **new terminal**:
+
+```bash
+cd control-plane
+go run ./cmd/mcp-server
+```
+
+> The MCP server will start on port **`8081`** in SSE mode by default. You can also run it in stdio mode using `go run ./cmd/mcp-server --stdio`.
 
 ---
 
@@ -304,7 +317,8 @@ Built with ❤️ using Go, React, and OpenTelemetry
 
 ## 🤖 AI Assistant Usage
 
-This project was built with assistance from:
+This project was built and debugged with assistance from:
 - GitHub Copilot (code completion)
 - ChatGPT (architecture review)
 - Gemini (implementation assistance)
+- Antigravity (Google DeepMind's agentic AI coding assistant for automated testing, debugging, and MCP server integration)

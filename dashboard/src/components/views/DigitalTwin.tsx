@@ -149,7 +149,7 @@ export function DigitalTwin({ tenantId }: DigitalTwinProps) {
 
   return (
     <div className="view-panel active">
-      {error && <ErrorBanner message={errorMsg || 'Error loading data'} />}
+      {error && <ErrorBanner message={errorMsg ?? 'Error loading behavior graph'} />}
       <div className="panel-header">
         <h2 className="title">BEHAVIOR GRAPH</h2>
       </div>

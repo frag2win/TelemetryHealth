@@ -8,7 +8,7 @@ This guide walks you through setting up and running the complete TelemetryHealth
 
 Install all of the following before proceeding.
 
-### 1. Go (≥ 1.22)
+### 1. Go (≥ 1.26.3)
 Used for all backend services (Control Plane, Processor, Stream Workers).
 
 | OS | Download |
@@ -20,7 +20,7 @@ Used for all backend services (Control Plane, Processor, Stream Workers).
 Verify:
 ```bash
 go version
-# Expected: go version go1.22.x ...
+# Expected: go version go1.26.x ...
 ```
 
 ---
@@ -227,7 +227,7 @@ Seeding complete for tenant 00000000-0000-0000-0000-000000000001
 
 ## ▶️ Running the Project (Every Time)
 
-Open **4 terminal windows** and run one command in each.
+Open **5 terminal windows** and run one command in each.
 
 ### Terminal 1 — Go REST API Server (Port 8080)
 ```bash
@@ -271,7 +271,20 @@ Expected log:
 
 ---
 
-### Terminal 4 — React Dashboard (Port 5173)
+### Terminal 4 — Model Context Protocol (MCP) Server (Port 8081)
+```bash
+cd control-plane
+go run ./cmd/mcp-server
+```
+
+Expected log:
+```
+{"msg":"Starting MCP server in HTTP/SSE mode","port":8081}
+```
+
+---
+
+### Terminal 5 — React Dashboard (Port 5173)
 ```bash
 cd dashboard
 npm run dev
