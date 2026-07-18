@@ -1,6 +1,8 @@
 package cardinality
 
 import (
+	"os"
+	"strconv"
 	"sync"
 
 	"github.com/axiomhq/hyperloglog"
@@ -17,6 +19,8 @@ type Tracker struct {
 	maxMemoryBytes int64
 	currentMemory  int64
 	maxKeys        int
+	precision      int
+	sketchMem      int64
 
 	// map of service -> attribute_key -> HLL sketch
 	sketches         map[string]map[string]*hyperloglog.Sketch
@@ -33,9 +37,25 @@ func NewTracker(maxMemoryBytes int64, maxKeys int, logger *zap.Logger) *Tracker 
 	if logger == nil {
 		logger = zap.NewNop()
 	}
+
+	precisionVal := 14
+	if pStr := os.Getenv("HLL_PRECISION"); pStr != "" {
+		if p, err := strconv.Atoi(pStr); err == nil && p >= 10 && p <= 16 {
+			precisionVal = p
+		}
+	}
+	memVal := int64(1 << precisionVal)
+	if mStr := os.Getenv("HLL_SKETCH_MEM"); mStr != "" {
+		if m, err := strconv.ParseInt(mStr, 10, 64); err == nil && m > 0 {
+			memVal = m
+		}
+	}
+
 	return &Tracker{
 		maxMemoryBytes:   maxMemoryBytes,
 		maxKeys:          maxKeys,
+		precision:        precisionVal,
+		sketchMem:        memVal,
 		sketches:         make(map[string]map[string]*hyperloglog.Sketch),
 		previousSketches: make(map[string]map[string]*hyperloglog.Sketch),
 		logger:           logger,
@@ -65,16 +85,32 @@ func (t *Tracker) Observe(service, attrKey, attrValue string) bool {
 			return false
 		}
 
-		// A precision 14 HLL sketch takes around 12-16KB. Let's assume 16KB.
-		const sketchMem = 16384
-		if t.maxMemoryBytes > 0 && t.currentMemory+sketchMem > t.maxMemoryBytes {
+		if t.maxMemoryBytes > 0 && t.currentMemory+t.sketchMem > t.maxMemoryBytes {
 			t.logger.Warn("Memory limit reached for cardinality tracker", zap.Int64("limit", t.maxMemoryBytes))
 			return false
 		}
 
-		sketch = hyperloglog.New14()
+		switch t.precision {
+		case 10:
+			sketch = hyperloglog.New10()
+		case 11:
+			sketch = hyperloglog.New11()
+		case 12:
+			sketch = hyperloglog.New12()
+		case 13:
+			sketch = hyperloglog.New13()
+		case 14:
+			sketch = hyperloglog.New14()
+		case 15:
+			sketch = hyperloglog.New15()
+		case 16:
+			sketch = hyperloglog.New16()
+		default:
+			sketch = hyperloglog.New14()
+		}
+
 		svcMap[attrKey] = sketch
-		t.currentMemory += sketchMem
+		t.currentMemory += t.sketchMem
 	}
 
 	sketch.Insert([]byte(attrValue))

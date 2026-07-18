@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -36,7 +37,11 @@ func main() {
 		}()
 	}
 
-	brokers := []string{"127.0.0.1:9092"}
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "127.0.0.1:9092"
+	}
+	brokers := strings.Split(kafkaBrokers, ",")
 
 	// --- Ensure Kafka topics exist ---
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -46,10 +51,20 @@ func main() {
 	}
 
 	// --- Connect to ClickHouse ---
+	chHost := os.Getenv("CH_HOST")
+	if chHost == "" {
+		chHost = "127.0.0.1"
+	}
+	chPort := os.Getenv("CH_PORT")
+	if chPort == "" {
+		chPort = "9000"
+	}
+	chAddr := fmt.Sprintf("%s:%s", chHost, chPort)
+
 	chCtx, chCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	chClient, err := ch.NewClient(
 		chCtx,
-		[]string{"127.0.0.1:9000"},
+		[]string{chAddr},
 		"telemetry_health", "default", "",
 		logger,
 	)

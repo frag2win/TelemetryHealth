@@ -78,7 +78,13 @@ func main() {
 	// Use channel to handle errors from API server start
 	errChan := make(chan error, 1)
 	go func() {
-		if err := server.Start(":8080"); err != nil && err != http.ErrServerClosed {
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = ":8080"
+		} else if port[0] != ':' {
+			port = ":" + port
+		}
+		if err := server.Start(port); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
 	}()

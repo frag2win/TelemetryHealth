@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -39,7 +40,11 @@ func main() {
 		}()
 	}
 
-	brokers := []string{"127.0.0.1:9092"}
+	kafkaBrokers := os.Getenv("KAFKA_BROKERS")
+	if kafkaBrokers == "" {
+		kafkaBrokers = "127.0.0.1:9092"
+	}
+	brokers := strings.Split(kafkaBrokers, ",")
 
 	// Bootstrap Kafka topics
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)

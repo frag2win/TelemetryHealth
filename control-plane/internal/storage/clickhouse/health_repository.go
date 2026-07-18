@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -18,13 +19,28 @@ import (
 
 // HealthRepository handles all read queries for the health dashboard.
 type HealthRepository struct {
-	conn   driver.Conn
-	logger *zap.Logger
+	conn      driver.Conn
+	logger    *zap.Logger
+	dbName    string
+	tableName string
 }
 
 // NewHealthRepository creates a new repository.
 func NewHealthRepository(conn driver.Conn, logger *zap.Logger) *HealthRepository {
-	return &HealthRepository{conn: conn, logger: logger}
+	dbName := os.Getenv("CLICKHOUSE_DB")
+	if dbName == "" {
+		dbName = "signoz_traces"
+	}
+	tableName := os.Getenv("CLICKHOUSE_TABLE")
+	if tableName == "" {
+		tableName = "signoz_index_v2"
+	}
+	return &HealthRepository{
+		conn:      conn,
+		logger:    logger,
+		dbName:    dbName,
+		tableName: tableName,
+	}
 }
 
 // DB exposes the underlying driver.Conn for other components (like GraphEngine)
@@ -179,17 +195,17 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 
 	// 2. Query SigNoz traces index if local trace table is empty
 	if len(traces) == 0 && r.conn != nil {
-		signozQuery := `
+		signozQuery := fmt.Sprintf(`
 			SELECT 
 				trace_id,
 				attributes_map['gen_ai.request.model'] AS model,
 				attributes_map['gen_ai.usage.total_tokens'] AS tokens,
 				attributes_map['gen_ai.usage.cost'] AS cost,
 				duration_nano
-			FROM signoz_traces.signoz_index_v2
+			FROM %s.%s
 			WHERE attributes_map['gen_ai.system'] != ''
 			ORDER BY timestamp DESC
-			LIMIT 10`
+			LIMIT 10`, r.dbName, r.tableName)
 
 		rows, err := r.conn.Query(ctx, signozQuery)
 		if err == nil {
@@ -395,7 +411,7 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 
 	// 2. Query SigNoz traces index if local trace table is empty
 	if len(spans) == 0 && r.conn != nil {
-		signozQuery := `
+		signozQuery := fmt.Sprintf(`
 			SELECT 
 				trace_id,
 				span_id,
@@ -406,9 +422,9 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 				timestamp,
 				attributes_map,
 				status_code
-			FROM signoz_traces.signoz_index_v2
+			FROM %s.%s
 			WHERE trace_id = {trace_id:String}
-			ORDER BY timestamp ASC`
+			ORDER BY timestamp ASC`, r.dbName, r.tableName)
 
 		rows, err := r.conn.Query(ctx, signozQuery, ch.Named("trace_id", traceID))
 		if err == nil {

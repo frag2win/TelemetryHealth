@@ -104,12 +104,23 @@ func validateTenantID(w http.ResponseWriter, tenantID string) bool {
 // Wildcard '*' is explicitly rejected to prevent security misconfiguration (Improvement #1.3).
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		origin := os.Getenv("CORS_ORIGIN")
-		if origin == "" || origin == "*" {
-			origin = "http://localhost:5173"
+		allowedStr := os.Getenv("ALLOWED_ORIGINS")
+		if allowedStr == "" {
+			allowedStr = os.Getenv("CORS_ORIGIN")
 		}
-		if reqOrigin := r.Header.Get("Origin"); reqOrigin == "http://localhost:5174" || reqOrigin == "http://localhost:5173" {
-			origin = reqOrigin
+		if allowedStr == "" || allowedStr == "*" {
+			allowedStr = "http://localhost:5173,http://localhost:5174"
+		}
+		allowedOrigins := strings.Split(allowedStr, ",")
+
+		reqOrigin := r.Header.Get("Origin")
+		origin := allowedOrigins[0]
+		for _, o := range allowedOrigins {
+			o = strings.TrimSpace(o)
+			if o == reqOrigin {
+				origin = reqOrigin
+				break
+			}
 		}
 		w.Header().Set("Access-Control-Allow-Origin", origin)
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS")

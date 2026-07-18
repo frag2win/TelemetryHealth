@@ -2,6 +2,7 @@ package alerting
 
 import (
 	"context"
+	"os"
 	"time"
 
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
@@ -78,7 +79,12 @@ func (p *TelemetryPoller) poll(ctx context.Context) {
 				"active_services": float64(metrics.ActiveServices),
 			},
 			RemediationSnippet: "See dashboard for auto-generated remediation snippet",
-			DashboardLink:      "http://localhost:5173",
+			DashboardLink:      func() string {
+				if link := os.Getenv("DASHBOARD_URL"); link != "" {
+					return link
+				}
+				return "http://localhost:5173"
+			}(),
 			FiredAt:            time.Now(),
 		}
 
