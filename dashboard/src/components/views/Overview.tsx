@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { ArrowUpRight, ArrowDownRight, AlertTriangle } from 'lucide-react';
 import { Metric, useTenantData, ErrorBanner, SkeletonLoader } from '../Shared';
 import { RootCauseGraph } from './RootCauseGraph';
@@ -10,24 +10,33 @@ interface AnimatedHealthGaugeProps {
 
 const AnimatedHealthGauge = ({ score }: AnimatedHealthGaugeProps) => {
   const [displayScore, setDisplayScore] = useState<number>(score);
+  const displayScoreRef = useRef(displayScore);
   const color = score > 80 ? 'var(--phosphor)' : score > 50 ? 'var(--amber)' : 'var(--red)';
 
-  // Safe state-driven interval counter without displayScore dependency (prevents infinite loop)
+  // Sync displayScoreRef with current state
   useEffect(() => {
-    if (displayScore === score) return;
-    const stepCount = Math.abs(score - displayScore);
+    displayScoreRef.current = displayScore;
+  }, [displayScore]);
+
+  // Safe state-driven interval counter without displayScore dependency (prevents infinite loop)
+  // Utilizes displayScoreRef to avoid capturing stale closures (Bug 2 fix)
+  useEffect(() => {
+    const targetScore = score;
+    const currentScore = displayScoreRef.current;
+    if (currentScore === targetScore) return;
+    const stepCount = Math.abs(targetScore - currentScore);
     if (stepCount === 0) return;
 
     const totalDuration = 300; // 300ms transition
     const intervalTime = Math.max(15, totalDuration / stepCount);
-    const stepValue = score > displayScore ? 1 : -1;
+    const stepValue = targetScore > currentScore ? 1 : -1;
 
     const interval = setInterval(() => {
       setDisplayScore((prev) => {
         const next = prev + stepValue;
-        if ((stepValue > 0 && next >= score) || (stepValue < 0 && next <= score)) {
+        if ((stepValue > 0 && next >= targetScore) || (stepValue < 0 && next <= targetScore)) {
           clearInterval(interval);
-          return score;
+          return targetScore;
         }
         return next;
       });

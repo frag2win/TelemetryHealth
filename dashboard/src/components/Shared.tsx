@@ -1,10 +1,56 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Info, ArrowUpRight, ArrowDownRight, AlertCircle } from 'lucide-react';
+import { Info, ArrowUpRight, ArrowDownRight, AlertCircle, Check, AlertTriangle } from 'lucide-react';
 import type { DashboardData } from '../App';
+import type { Node, Edge } from '@xyflow/react';
 
 export interface ViewProps {
   data: DashboardData;
   tenantId: string;
+}
+
+// Shared graph data type used by RootCauseGraph and DigitalTwin (Dup 4 fix)
+export interface GraphData {
+  nodes: Node[];
+  edges: Edge[];
+}
+
+// Shared status color resolver (Dup 2 fix)
+export function getStatusColor(status: string): string {
+  if (status === 'error') return 'var(--red)';
+  if (status === 'warning') return 'var(--amber)';
+  return 'var(--phosphor)';
+}
+
+// Shared Toast notification component (Dup 1 fix)
+interface ToastProps {
+  message: string;
+  isError?: boolean;
+}
+
+export function Toast({ message, isError = false }: ToastProps) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        bottom: '1rem',
+        right: '1rem',
+        background: 'var(--toast-bg)',
+        border: `1px solid ${isError ? 'var(--red)' : 'var(--toast-border)'}`,
+        padding: '12px 24px',
+        borderRadius: '4px',
+        color: isError ? 'var(--red)' : 'var(--phosphor)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        boxShadow: 'var(--shadow-sm)',
+        fontSize: '13px'
+      }}
+    >
+      {isError ? <AlertTriangle size={16} /> : <Check size={16} />}
+      <span style={{ fontWeight: '500' }}>{message}</span>
+    </div>
+  );
 }
 
 // 1. useTenantData custom hook implementing AbortController and proxy compliance
@@ -25,6 +71,7 @@ export function useTenantData<T>(tenantId: string, endpoint: string, fallbackDat
   }, []);
 
   useEffect(() => {
+    setData(null);
     setLoading(true);
     setError(false);
     setErrorMsg(null);

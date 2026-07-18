@@ -11,12 +11,20 @@ import {
   Handle,
   Position
 } from '@xyflow/react';
-import type { Connection, Edge, Node } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+import type { Connection, Edge, Node, NodeProps } from '@xyflow/react';
 import { useTenantData, ErrorBanner, SkeletonLoader } from '../Shared';
+import type { GraphData } from '../Shared';
 
-// --- Custom Premium Behavior Node ---
-const BehaviorNode = ({ data }: any) => {
+// --- BehaviorNode data shape (Imp 9 fix: proper typing instead of `any`) ---
+interface BehaviorNodeData {
+  label: string;
+  type: string;
+  status?: string;
+  detail?: string;
+  [key: string]: unknown;
+}
+
+const BehaviorNode = ({ data }: NodeProps<Node<BehaviorNodeData>>) => {
   const isError = data.status === 'error';
   const isWarning = data.status === 'warning';
   
@@ -105,11 +113,6 @@ const BehaviorNode = ({ data }: any) => {
 };
 // -------------------------------------
 
-interface GraphData {
-  nodes: Node[];
-  edges: Edge[];
-}
-
 interface DigitalTwinProps {
   tenantId: string;
   benchmarkTraceId?: string;
@@ -134,7 +137,7 @@ export function DigitalTwin({ tenantId, benchmarkTraceId }: DigitalTwinProps) {
   }), []);
 
   const onConnect = useCallback(
-    (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
+    (params: Connection | Edge) => setEdges((eds: Edge[]) => addEdge(params, eds)),
     [setEdges],
   );
 

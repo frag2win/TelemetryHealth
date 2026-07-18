@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Copy, Check, ExternalLink, AlertTriangle, Play } from 'lucide-react';
 import type { RemediationPayload } from '../../App';
+import { Toast } from '../Shared';
 
 interface RemediationProps {
   apiRemediation?: RemediationPayload;
@@ -375,28 +376,7 @@ export function Remediation({ apiRemediation }: RemediationProps) {
   return (
     <section className="view active">
       {/* Toast Alert situated fixed overlay standards */}
-      {toast && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '1rem',
-            right: '1rem',
-            background: 'var(--toast-bg)',
-            border: `1px solid ${toast.isError ? 'var(--red)' : 'var(--toast-border)'}`,
-            padding: '12px 24px',
-            borderRadius: '4px',
-            color: toast.isError ? 'var(--red)' : 'var(--phosphor)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: 'var(--shadow-sm)'
-          }}
-        >
-          {toast.isError ? <AlertTriangle size={16} /> : <Check size={16} />}
-          <span style={{ fontSize: '13px', fontWeight: '500' }}>{toast.message}</span>
-        </div>
-      )}
+      {toast && <Toast message={toast.message} isError={toast.isError} />}
 
       <div className="eyebrow">05 • remediation generator • sandbox sandbox • v1.2</div>
 

@@ -2,11 +2,13 @@ import { Component } from 'react';
 import type { ErrorInfo, ReactNode } from 'react';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import '@xyflow/react/dist/style.css';
 import './index.css';
 import App from './App.tsx';
 
 interface Props {
   children: ReactNode;
+  local?: boolean;
 }
 
 interface State {
@@ -14,7 +16,7 @@ interface State {
   error: Error | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
+export class ErrorBoundary extends Component<Props, State> {
   public override state: State = {
     hasError: false,
     error: null
@@ -30,6 +32,29 @@ class ErrorBoundary extends Component<Props, State> {
 
   public override render() {
     if (this.state.hasError) {
+      if (this.props.local) {
+        return (
+          <div
+            style={{
+              padding: '24px',
+              background: 'rgba(239, 68, 68, 0.08)',
+              border: '1px solid var(--red)',
+              borderRadius: '6px',
+              color: 'var(--red)',
+              fontFamily: 'var(--sans)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '12px'
+            }}
+          >
+            <h3 style={{ margin: 0, fontSize: '16px' }}>Component Error</h3>
+            <p style={{ margin: 0, fontSize: '12px', fontFamily: 'var(--mono)' }}>
+              {this.state.error?.toString()}
+            </p>
+          </div>
+        );
+      }
+
       return (
         <div
           style={{

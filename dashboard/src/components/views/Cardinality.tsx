@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Check } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import type { DashboardData } from '../../App';
+import { Toast } from '../Shared';
 
 interface CardinalityRow {
   service: string;
@@ -18,6 +18,14 @@ interface CardinalityProps {
 export function Cardinality({ data: _data, tenantId }: CardinalityProps) {
   const [rows, setRows] = useState<CardinalityRow[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  // Cleanup timer on unmount (Bug 4 fix)
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     // Generate dynamic cardinality items based on tenant ID (Bug 11)
@@ -42,8 +50,9 @@ export function Cardinality({ data: _data, tenantId }: CardinalityProps) {
   }, [tenantId]);
 
   const handleRedactClick = (row: CardinalityRow) => {
+    if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
     setToast(`Remediation patch created for ${row.service} -> ${row.attributeKey}. View in Remediation panel.`);
-    setTimeout(() => setToast(null), 2500);
+    toastTimeoutRef.current = window.setTimeout(() => setToast(null), 2500);
   };
 
   const totalKeys = rows.length * 15 + 2;
@@ -52,29 +61,7 @@ export function Cardinality({ data: _data, tenantId }: CardinalityProps) {
 
   return (
     <section className="view active">
-      {toast && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '1rem',
-            right: '1rem',
-            background: 'var(--toast-bg)',
-            border: '1px solid var(--toast-border)',
-            padding: '12px 24px',
-            borderRadius: '4px',
-            color: 'var(--phosphor)',
-            zIndex: 9999,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            boxShadow: 'var(--shadow-sm)',
-            fontSize: '13px'
-          }}
-        >
-          <Check size={16} />
-          <span>{toast}</span>
-        </div>
-      )}
+      {toast && <Toast message={toast} />}
 
       <div className="eyebrow">02 • cardinality detector • §8.1</div>
 

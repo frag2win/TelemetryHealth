@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -7,14 +7,9 @@ import {
   useEdgesState,
   addEdge,
 } from '@xyflow/react';
-import type { Connection, Edge, Node } from '@xyflow/react';
-import '@xyflow/react/dist/style.css';
+import type { Connection, Edge } from '@xyflow/react';
 import { useTenantData, ErrorBanner, SkeletonLoader } from '../Shared';
-
-interface GraphData {
-  nodes: Node[];
-  edges: Edge[];
-}
+import type { GraphData } from '../Shared';
 
 interface RootCauseGraphProps {
   tenantId: string;
@@ -32,11 +27,12 @@ export function RootCauseGraph({ tenantId, issueId }: RootCauseGraphProps) {
   const [edges, setEdges, onEdgesChange] = useEdgesState(data?.edges || []);
 
   const onConnect = useCallback(
-    (params: Connection | Edge) => setEdges((eds) => addEdge(params, eds)),
+    (params: Connection | Edge) => setEdges((eds: Edge[]) => addEdge(params, eds)),
     [setEdges],
   );
 
-  useCallback(() => {
+  // Sync graph state when API data arrives (was a dead useCallback — Bug 1 fix)
+  useEffect(() => {
     if (data) {
       setNodes(data.nodes);
       setEdges(data.edges);

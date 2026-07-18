@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { AlertCircle, X, Cpu, Database, Play } from 'lucide-react';
 import { useTenantData, Metric, ErrorBanner, SkeletonLoader } from '../Shared';
 
@@ -28,14 +28,23 @@ interface AgentTracesProps {
   benchmarkTraceId?: string;
 }
 
+// Utility: resolve status to CSS custom property color (Dup 2 fix)
+function getStatusColor(status: string): string {
+  if (status === 'error') return 'var(--red)';
+  if (status === 'warning') return 'var(--amber)';
+  return 'var(--phosphor)';
+}
+
 export function AgentTraces({ tenantId, benchmarkTraceId }: AgentTracesProps) {
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(benchmarkTraceId || null);
   const [activeSpan, setActiveSpan] = useState<GanttSpan | null>(null);
+  const hasAutoSelected = useRef(false);
 
   useEffect(() => {
     if (benchmarkTraceId) {
       setSelectedTraceId(benchmarkTraceId);
       setActiveSpan(null);
+      hasAutoSelected.current = false;
     }
   }, [benchmarkTraceId]);
 
@@ -157,29 +166,31 @@ export function AgentTraces({ tenantId, benchmarkTraceId }: AgentTracesProps) {
     fallbackAgents
   );
 
-  const agentsData = (rawAgentsData ?? []).map(a => {
-    if (a.spans) return a as AgentTrace;
-    return {
-      ...a,
-      spans: (a.decisions || []).map((d: any, i: number) => ({
-        id: `s${i}`,
-        name: d.step || d.name || 'step',
-        tool: d.tool,
-        start: i * 30,
-        duration: 30,
-        latency: '0.8s',
-        status: (d.status === 'error' || d.status === 'warning') ? d.status : 'success',
-        attributes: {}
-      }))
-    } as AgentTrace;
-  });
+  // Memoize agents to prevent new array ref on every render (Bug 3 fix)
+  const agents = useMemo(() => {
+    return (rawAgentsData ?? []).map(a => {
+      if (a.spans) return a as AgentTrace;
+      return {
+        ...a,
+        spans: (a.decisions || []).map((d: any, i: number) => ({
+          id: `s${i}`,
+          name: d.step || d.name || 'step',
+          tool: d.tool,
+          start: i * 30,
+          duration: 30,
+          latency: '0.8s',
+          status: (d.status === 'error' || d.status === 'warning') ? d.status : 'success',
+          attributes: {}
+        }))
+      } as AgentTrace;
+    });
+  }, [rawAgentsData]);
 
-  const agents = agentsData ?? [];
-
-  // Auto-select first trace on mount/update
+  // Auto-select first trace only once on initial load (Bug 3 fix)
   useEffect(() => {
-    if (agents.length > 0) {
+    if (agents.length > 0 && !hasAutoSelected.current) {
       setSelectedTraceId(agents[0].id);
+      hasAutoSelected.current = true;
     }
   }, [agents]);
 
@@ -280,12 +291,7 @@ export function AgentTraces({ tenantId, benchmarkTraceId }: AgentTracesProps) {
                 {/* Mini Gantt trace waterfall chart preview */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', background: 'var(--bezel-soft)', padding: '6px', borderRadius: '4px' }}>
                   {trace.spans.map((span) => {
-                    const barColor =
-                      span.status === 'error'
-                        ? 'var(--red)'
-                        : span.status === 'warning'
-                        ? 'var(--amber)'
-                        : 'var(--phosphor)';
+                    const barColor = getStatusColor(span.status);
                     return (
                       <div key={span.id} style={{ display: 'flex', alignItems: 'center', height: '8px' }}>
                         <div style={{ width: `${span.start}%` }}></div>
@@ -324,12 +330,7 @@ export function AgentTraces({ tenantId, benchmarkTraceId }: AgentTracesProps) {
                 {/* Comprehensive Gantt Waterfall representation */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', background: 'var(--panel-2)', padding: '12px', borderRadius: '4px' }}>
                   {activeTrace.spans.map((span) => {
-                    const barColor =
-                      span.status === 'error'
-                        ? 'var(--red)'
-                        : span.status === 'warning'
-                        ? 'var(--amber)'
-                        : 'var(--phosphor)';
+                    const barColor = getStatusColor(span.status);
                     
                     const isSelected = activeSpan?.id === span.id;
                     const Icon = span.tool === 'query_clickhouse' ? Database : span.tool === 'python_eval' ? Cpu : Play;
@@ -383,13 +384,7 @@ export function AgentTraces({ tenantId, benchmarkTraceId }: AgentTracesProps) {
                       background: 'var(--panel-2)',
                       padding: '12px',
                       borderRadius: '4px',
-                      borderLeft: `3px solid ${
-                        activeSpan.status === 'error'
-                          ? 'var(--red)'
-                          : activeSpan.status === 'warning'
-                          ? 'var(--amber)'
-                          : 'var(--phosphor)'
-                      }`
+                      borderLeft: `3px solid ${getStatusColor(activeSpan.status)}`
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
