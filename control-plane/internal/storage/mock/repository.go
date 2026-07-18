@@ -41,7 +41,34 @@ func (m *MockRepository) QueryHealthMetrics(ctx context.Context, tenantID string
 }
 
 func (m *MockRepository) QueryAgentTraces(ctx context.Context) ([]storage.AgentTrace, error) {
-	return []storage.AgentTrace{}, nil
+	return []storage.AgentTrace{
+		{
+			ID:                "trace-991",
+			Model:             "gpt-4o",
+			Tokens:            4120,
+			Cost:              0.041,
+			Latency:           "3.2s",
+			HallucinationRisk: "Low",
+			Decisions: []storage.AgentDecision{
+				{Step: "Retrieved 15 similar spans from ClickHouse (gen_ai.system)", Tool: "query_clickhouse", Status: "success"},
+				{Step: "Analyzed cardinality distribution for user_id", Tool: "python_eval", Status: "success"},
+				{Step: "Generated remediation YAML via SigNoz MCP tool", Tool: "generate_yaml", Status: "success"},
+			},
+		},
+		{
+			ID:                "trace-992",
+			Model:             "claude-3-5-sonnet",
+			Tokens:            8450,
+			Cost:              0.025,
+			Latency:           "6.1s",
+			HallucinationRisk: "High",
+			Decisions: []storage.AgentDecision{
+				{Step: "Attempted to query missing index (gen_ai.request.model)", Tool: "query_clickhouse", Status: "error"},
+				{Step: "Retried with full table scan (token limit warning)", Tool: "query_clickhouse", Status: "warning"},
+				{Step: "Formulated remediation with unverified field names", Tool: "generate_yaml", Status: "warning"},
+			},
+		},
+	}, nil
 }
 
 func (m *MockRepository) GetTenantWeights(ctx context.Context, tenantID string) (telemetry.TenantWeights, error) {

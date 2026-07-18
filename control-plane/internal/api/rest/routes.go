@@ -44,6 +44,14 @@ func (s *Server) routes() *chi.Mux {
 		r.Post("/config", s.HandleTenantConfigPut)
 		r.Get("/behavior", s.handleBehaviorGraph)
 		r.Get("/root-cause", s.GetTenantRootCause)
+		r.Get("/replay", s.GetTenantReplay)
+	})
+
+	// SigNoz connectivity and config endpoints
+	r.Route("/api/v1/signoz", func(r chi.Router) {
+		r.Use(oidcAuthMiddleware)
+		r.Get("/health", s.handleSignozHealth)
+		r.Get("/config", s.handleSignozConfig)
 	})
 
 	// Remediation apply endpoint

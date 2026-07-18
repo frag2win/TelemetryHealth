@@ -61,4 +61,16 @@ var (
 		Name: "telemetryhealth_agent_trace_error_count",
 		Help: "Total trace errors encountered by the AI agent",
 	}, []string{"service_name", "agent_id"})
+
+	// AgentHallucinationRisk tracks hallucination risk of AI agents (0 for Low, 0.5 for Medium, 1 for High).
+	AgentHallucinationRisk = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "telemetryhealth_agent_hallucination_risk",
+		Help: "Hallucination risk of the AI agent (0=Low, 0.5=Medium, 1=High)",
+	}, []string{"service_name", "agent_id"})
+
+	// AgentTokenEfficiency tracks tokens consumed per successful decision step.
+	AgentTokenEfficiency = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "telemetryhealth_agent_token_efficiency",
+		Help: "Tokens consumed per successful decision step by the AI agent",
+	}, []string{"service_name", "agent_id"})
 )
