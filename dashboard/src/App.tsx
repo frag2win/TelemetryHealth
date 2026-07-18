@@ -8,6 +8,7 @@ import { AgentTraces } from './components/views/AgentTraces';
 import { DigitalTwin } from './components/views/DigitalTwin';
 import { RefreshCw, Download, Sun, Moon, Menu, X } from 'lucide-react';
 import { ErrorBanner } from './components/Shared';
+import { ErrorBoundary } from './main';
 
 export interface MetricValue {
   value: string;
@@ -127,6 +128,7 @@ function App() {
           case '4': setActiveView('coverage'); break;
           case '5': setActiveView('remediation'); break;
           case '6': setActiveView('agenttraces'); break;
+          case '7': setActiveView('topology'); break;
           default: matched = false; break;
         }
         if (matched) {
@@ -191,25 +193,35 @@ function App() {
 
   triggerFetch.current = fetchData;
 
+  const activeControllerRef = useRef<AbortController | null>(null);
+
+  const fetchWithAbort = useCallback(() => {
+    if (activeControllerRef.current) {
+      activeControllerRef.current.abort();
+    }
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
+    fetchData(controller.signal);
+  }, [fetchData]);
+
   // Handle data fetching interval and AbortController execution
   useEffect(() => {
-    const controller = new AbortController();
-    const { signal } = controller;
-
-    fetchData(signal);
+    fetchWithAbort();
 
     const interval = setInterval(() => {
-      fetchData(signal);
+      fetchWithAbort();
     }, 20000);
 
     return () => {
       clearInterval(interval);
-      controller.abort();
+      if (activeControllerRef.current) {
+        activeControllerRef.current.abort();
+      }
     };
-  }, [fetchData]);
+  }, [fetchWithAbort]);
 
-  // Client-side simulation of time-range metric slices
-  const simulateTimeRangeMetrics = (baseData: DashboardData, range: string): DashboardData => {
+  // Client-side simulation of time-range metric slices (Bug 5 fix: memoized to prevent stale closure)
+  const simulateTimeRangeMetrics = useCallback((baseData: DashboardData, range: string): DashboardData => {
     // Zero-tolerance deep cloning to prevent cache mutation
     const updated = structuredClone(baseData);
     const score = updated.healthScore ?? 78;
@@ -248,17 +260,41 @@ function App() {
       }
     }
     return updated;
-  };
+  }, []);
 
-  const handleExport = () => {
+  const handleExport = async () => {
     if (!data) return;
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `telemetry-health-${selectedTenantId}-${timeRange}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    setLoading(true);
+    try {
+      // Concurrently fetch the detailed sub-endpoint data (Imp 8 fix)
+      const [agentsRes, orphansRes, coverageRes] = await Promise.all([
+        fetch(`/api/v1/tenant/${selectedTenantId}/agents`).then(r => r.ok ? r.json() : null),
+        fetch(`/api/v1/tenant/${selectedTenantId}/traces/orphans`).then(r => r.ok ? r.json() : null),
+        fetch(`/api/v1/tenant/${selectedTenantId}/coverage`).then(r => r.ok ? r.json() : null)
+      ]).catch(() => [null, null, null]);
+
+      const fullExport = {
+        ...data,
+        exportedAt: new Date().toISOString(),
+        details: {
+          agents: agentsRes,
+          orphans: orphansRes,
+          coverage: coverageRes
+        }
+      };
+
+      const blob = new Blob([JSON.stringify(fullExport, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `telemetry-health-${selectedTenantId}-${timeRange}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to compile full export:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -424,13 +460,41 @@ function App() {
             </div>
           ) : (
             <>
-              {activeView === 'overview' && <Overview data={data} setView={setActiveView} tenantId={selectedTenantId} />}
-              {activeView === 'cardinality' && <Cardinality data={data} tenantId={selectedTenantId} />}
-              {activeView === 'tracechains' && <TraceChains data={data} tenantId={selectedTenantId} />}
-              {activeView === 'coverage' && <Coverage data={data} tenantId={selectedTenantId} />}
-              {activeView === 'remediation' && <Remediation apiRemediation={data.remediation} tenantId={selectedTenantId} />}
-              {activeView === 'agenttraces' && <AgentTraces tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />}
-              {activeView === 'topology' && <DigitalTwin tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />}
+              {activeView === 'overview' && (
+                <ErrorBoundary local>
+                  <Overview data={data} setView={setActiveView} tenantId={selectedTenantId} />
+                </ErrorBoundary>
+              )}
+              {activeView === 'cardinality' && (
+                <ErrorBoundary local>
+                  <Cardinality data={data} tenantId={selectedTenantId} />
+                </ErrorBoundary>
+              )}
+              {activeView === 'tracechains' && (
+                <ErrorBoundary local>
+                  <TraceChains data={data} tenantId={selectedTenantId} />
+                </ErrorBoundary>
+              )}
+              {activeView === 'coverage' && (
+                <ErrorBoundary local>
+                  <Coverage data={data} tenantId={selectedTenantId} />
+                </ErrorBoundary>
+              )}
+              {activeView === 'remediation' && (
+                <ErrorBoundary local>
+                  <Remediation apiRemediation={data.remediation} tenantId={selectedTenantId} />
+                </ErrorBoundary>
+              )}
+              {activeView === 'agenttraces' && (
+                <ErrorBoundary local>
+                  <AgentTraces tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />
+                </ErrorBoundary>
+              )}
+              {activeView === 'topology' && (
+                <ErrorBoundary local>
+                  <DigitalTwin tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />
+                </ErrorBoundary>
+              )}
             </>
           )}
         </div>
