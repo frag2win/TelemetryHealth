@@ -90,22 +90,9 @@ func (t *Tracker) Observe(service, attrKey, attrValue string) bool {
 			return false
 		}
 
-		switch t.precision {
-		case 10:
-			sketch = hyperloglog.New10()
-		case 11:
-			sketch = hyperloglog.New11()
-		case 12:
-			sketch = hyperloglog.New12()
-		case 13:
-			sketch = hyperloglog.New13()
-		case 14:
-			sketch = hyperloglog.New14()
-		case 15:
-			sketch = hyperloglog.New15()
-		case 16:
-			sketch = hyperloglog.New16()
-		default:
+		var err error
+		sketch, err = hyperloglog.NewSketch(uint8(t.precision), true)
+		if err != nil {
 			sketch = hyperloglog.New14()
 		}
 
