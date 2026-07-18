@@ -157,7 +157,8 @@ export function AgentTraces({ tenantId, benchmarkTraceId }: AgentTracesProps) {
     fallbackAgents
   );
 
-  const agentsData = (rawAgentsData ?? []).map(a => {
+  const rawList = rawAgentsData && rawAgentsData.length > 0 ? rawAgentsData : fallbackAgents;
+  const agentsData = rawList.map(a => {
     if (a.spans) return a as AgentTrace;
     return {
       ...a,
