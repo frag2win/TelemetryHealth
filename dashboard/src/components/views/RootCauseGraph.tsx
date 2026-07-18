@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -36,7 +36,7 @@ export function RootCauseGraph({ tenantId, issueId }: RootCauseGraphProps) {
     [setEdges],
   );
 
-  useCallback(() => {
+  useEffect(() => {
     if (data) {
       setNodes(data.nodes);
       setEdges(data.edges);
