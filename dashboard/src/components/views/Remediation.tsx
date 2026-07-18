@@ -4,6 +4,7 @@ import type { RemediationPayload } from '../../App';
 
 interface RemediationProps {
   apiRemediation?: RemediationPayload;
+  tenantId: string;
 }
 
 interface RemediationCardProps {
@@ -236,7 +237,7 @@ function RemediationCard({
   );
 }
 
-export function Remediation({ apiRemediation }: RemediationProps) {
+export function Remediation({ apiRemediation, tenantId }: RemediationProps) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
   const [isApplying, setIsApplying] = useState<boolean>(false);
@@ -348,7 +349,7 @@ export function Remediation({ apiRemediation }: RemediationProps) {
       const response = await fetch('/api/v1/remediation/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ issueType, yaml })
+        body: JSON.stringify({ issueType, yaml, tenantId })
       });
       if (!response.ok) throw new Error('Collector apply mutation failed');
       

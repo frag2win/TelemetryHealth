@@ -428,7 +428,7 @@ function App() {
               {activeView === 'cardinality' && <Cardinality data={data} tenantId={selectedTenantId} />}
               {activeView === 'tracechains' && <TraceChains data={data} tenantId={selectedTenantId} />}
               {activeView === 'coverage' && <Coverage data={data} tenantId={selectedTenantId} />}
-              {activeView === 'remediation' && <Remediation apiRemediation={data.remediation} />}
+              {activeView === 'remediation' && <Remediation apiRemediation={data.remediation} tenantId={selectedTenantId} />}
               {activeView === 'agenttraces' && <AgentTraces tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />}
               {activeView === 'topology' && <DigitalTwin tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />}
             </>
