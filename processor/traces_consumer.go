@@ -2,6 +2,8 @@ package processor
 
 import (
 	"context"
+	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
@@ -9,8 +11,12 @@ import (
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/ptrace"
+	"go.opentelemetry.io/collector/pdata/ptrace/ptraceotlp"
 	"go.opentelemetry.io/collector/processor"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/metadata"
 )
 
 type tracesConsumer struct {
@@ -18,6 +24,12 @@ type tracesConsumer struct {
 	next    consumer.Traces
 	logger  *zap.Logger
 	metrics *metricsHelper
+
+	controlPlaneEndpoint string
+	tenantID             string
+	conn                 *grpc.ClientConn
+	client               ptraceotlp.GRPCClient
+	stopChan             chan struct{}
 }
 
 func newTracesConsumer(set processor.Settings, cfg component.Config, next consumer.Traces) (processor.Traces, error) {
@@ -29,11 +41,18 @@ func newTracesConsumer(set processor.Settings, cfg component.Config, next consum
 	if err != nil {
 		return nil, err
 	}
+	procCfg, ok := cfg.(*Config)
+	if !ok {
+		return nil, fmt.Errorf("invalid config type: expected *Config, got %T", cfg)
+	}
 	return &tracesConsumer{
-		baseConsumer: bc,
-		next:         next,
-		logger:       set.Logger,
-		metrics:      mh,
+		baseConsumer:         bc,
+		next:                 next,
+		logger:               set.Logger,
+		metrics:              mh,
+		controlPlaneEndpoint: procCfg.ControlPlaneEndpoint,
+		tenantID:             procCfg.TenantID,
+		stopChan:             make(chan struct{}),
 	}, nil
 }
 
@@ -246,10 +265,122 @@ func (c *tracesConsumer) processTracesDefensively(ctx context.Context, td ptrace
 
 func (c *tracesConsumer) Start(ctx context.Context, host component.Host) error {
 	c.logger.Info("TracesConsumer started", zap.Time("at", time.Now()))
+	if c.controlPlaneEndpoint != "" {
+		c.logger.Info("Connecting to control plane", zap.String("endpoint", c.controlPlaneEndpoint))
+		conn, err := grpc.Dial(c.controlPlaneEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+		if err != nil {
+			c.logger.Error("Failed to connect to control plane endpoint", zap.Error(err))
+			return err
+		}
+		c.conn = conn
+		c.client = ptraceotlp.NewGRPCClient(conn)
+		go c.exportLoop()
+	} else {
+		c.logger.Warn("control_plane_endpoint not configured; health signals will not be exported")
+	}
 	return nil
 }
 
 func (c *tracesConsumer) Shutdown(ctx context.Context) error {
 	c.logger.Info("TracesConsumer shutting down")
+	close(c.stopChan)
+	if c.conn != nil {
+		c.conn.Close()
+	}
 	return nil
+}
+
+func (c *tracesConsumer) exportLoop() {
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			c.exportPendingSignals()
+		case <-c.stopChan:
+			return
+		}
+	}
+}
+
+func (c *tracesConsumer) exportPendingSignals() {
+	signals := c.DrainHealthSignals()
+	if len(signals) == 0 {
+		return
+	}
+
+	td := ptrace.NewTraces()
+
+	type groupKey struct {
+		tenantID    string
+		serviceName string
+	}
+
+	grouped := make(map[groupKey][]HealthSignal)
+	for _, sig := range signals {
+		tenant := sig.TenantID
+		if tenant == "" {
+			tenant = c.tenantID
+		}
+		if tenant == "" {
+			tenant = "unknown"
+		}
+
+		svc := sig.ServiceName
+		if svc == "" {
+			svc = "unknown"
+		}
+
+		k := groupKey{tenantID: tenant, serviceName: svc}
+		grouped[k] = append(grouped[k], sig)
+	}
+
+	for key, sigs := range grouped {
+		rs := td.ResourceSpans().AppendEmpty()
+		rs.Resource().Attributes().PutStr("tenant_id", key.tenantID)
+		rs.Resource().Attributes().PutStr("service.name", key.serviceName)
+
+		scopeSpans := rs.ScopeSpans().AppendEmpty()
+		scopeSpans.Scope().SetName("telemetryhealth-exporter")
+
+		for _, sig := range sigs {
+			span := scopeSpans.Spans().AppendEmpty()
+
+			var tid pcommon.TraceID
+			if b, err := hex.DecodeString(sig.TraceID); err == nil && len(b) == 16 {
+				copy(tid[:], b)
+			}
+			span.SetTraceID(tid)
+
+			var sid pcommon.SpanID
+			if b, err := hex.DecodeString(sig.SpanID); err == nil && len(b) == 8 {
+				copy(sid[:], b)
+			}
+			span.SetSpanID(sid)
+
+			var psid pcommon.SpanID
+			if b, err := hex.DecodeString(sig.ParentSpanID); err == nil && len(b) == 8 {
+				copy(psid[:], b)
+			}
+			span.SetParentSpanID(psid)
+
+			span.SetName("health-signal")
+			span.SetStartTimestamp(pcommon.NewTimestampFromTime(time.Now()))
+			span.SetEndTimestamp(pcommon.NewTimestampFromTime(time.Now()))
+		}
+	}
+
+	tenantToSend := c.tenantID
+	if tenantToSend == "" {
+		tenantToSend = "unknown"
+	}
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("x-tenant-id", tenantToSend))
+
+	req := ptraceotlp.NewExportRequestFromTraces(td)
+	_, err := c.client.Export(ctx, req)
+	if err != nil {
+		c.logger.Error("Failed to export health signals to control plane", zap.Error(err))
+	} else {
+		c.logger.Debug("Successfully exported health signals", zap.Int("count", len(signals)))
+	}
 }
