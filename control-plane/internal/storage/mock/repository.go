@@ -23,9 +23,15 @@ var _ engine.ReplayRepository = (*MockRepository)(nil)
 
 // HealthRepository Implementation
 func (m *MockRepository) QueryHealthMetrics(ctx context.Context, tenantID string) (*storage.HealthMetrics, error) {
+	// Make the score deterministic but distinct per tenant for UI testing
+	baseScore := 85.0
+	if len(tenantID) > 0 {
+		baseScore = 70.0 + float64(int(tenantID[0])%20)
+	}
+
 	return &storage.HealthMetrics{
 		TenantID: tenantID,
-		CompositeScore: 85.0,
+		CompositeScore: baseScore,
 		CardinalityMax: 50,
 		OrphanCount: 0,
 		PreviousOrphanCount: 0,
