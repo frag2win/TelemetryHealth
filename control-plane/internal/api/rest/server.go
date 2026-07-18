@@ -611,6 +611,16 @@ func (s *Server) GetTenantRootCause(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	issueID := r.URL.Query().Get("issue_id")
+
+	// Map dashboard issues to benchmark traces for the demo
+	if issueID == "iss-1" {
+		issueID = "benchmark-span-drop"
+	} else if issueID == "iss-2" {
+		issueID = "benchmark-prompt-explosion"
+	} else if issueID == "iss-3" {
+		issueID = "benchmark-vector-timeout"
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	graph := s.graphEngine.GenerateRootCause(tenantID, issueID)
 	s.encodeResponse(w, graph)
