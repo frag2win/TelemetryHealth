@@ -52,7 +52,7 @@ var (
 
 	// AgentTokenBurnRate tracks the LLM token consumption.
 	AgentTokenBurnRate = promauto.NewCounterVec(prometheus.CounterOpts{
-		Name: "telemetryhealth_agent_token_burn_rate",
+		Name: "telemetryhealth_agent_token_burn_total",
 		Help: "Total tokens consumed by the AI agent",
 	}, []string{"service_name", "agent_id"})
 

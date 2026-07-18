@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -35,9 +36,32 @@ func InitOTelSDK(ctx context.Context, serviceName string) (func(context.Context)
 			return nil, err
 		}
 
+		serviceVersion := os.Getenv("SERVICE_VERSION")
+		if serviceVersion == "" {
+			serviceVersion = "1.0.0"
+		}
+		deployEnv := os.Getenv("DEPLOYMENT_ENVIRONMENT")
+		if deployEnv == "" {
+			deployEnv = os.Getenv("APP_ENV")
+			if deployEnv == "" {
+				deployEnv = "production"
+			}
+		}
+		instanceID := os.Getenv("SERVICE_INSTANCE_ID")
+		if instanceID == "" {
+			if hn, err := os.Hostname(); err == nil && hn != "" {
+				instanceID = hn
+			} else {
+				instanceID = "default-instance"
+			}
+		}
+
 		res, err := resource.New(ctx,
 			resource.WithAttributes(
 				semconv.ServiceNameKey.String(serviceName),
+				attribute.String("service.version", serviceVersion),
+				attribute.String("deployment.environment", deployEnv),
+				attribute.String("service.instance.id", instanceID),
 			),
 		)
 		if err != nil {

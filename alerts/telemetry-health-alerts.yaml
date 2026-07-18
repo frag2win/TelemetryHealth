@@ -28,7 +28,7 @@ alerts:
       team: "ai-operations"
       category: "agent-health"
   - name: "AI Agent Token Burn Rate Spike"
-    condition: "rate(telemetryhealth_agent_token_burn_rate[5m]) > 10000"
+    condition: "rate(telemetryhealth_agent_token_burn_total[5m]) > 10000"
     severity: "warning"
     description: "AI Agent token consumption rate has spiked above 10,000 tokens/sec in the last 5 minutes"
     labels:

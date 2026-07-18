@@ -170,21 +170,41 @@ func metricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// rateLimitMiddleware adds per-IP rate limiting (10 requests/second, burst 20)
+// rateLimitMiddleware adds per-IP rate limiting (10 requests/second, burst 20) with active TTL eviction (Finding 6.1)
 func rateLimitMiddleware(next http.Handler) http.Handler {
-	visitors := make(map[string]*rate.Limiter)
+	type visitor struct {
+		limiter  *rate.Limiter
+		lastSeen time.Time
+	}
+	visitors := make(map[string]*visitor)
 	var mu sync.Mutex
+
+	// Evict inactive visitors every 1 minute to avoid memory leaks (Finding 6.1)
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		for range ticker.C {
+			mu.Lock()
+			for ip, v := range visitors {
+				if time.Since(v.lastSeen) > 3*time.Minute {
+					delete(visitors, ip)
+				}
+			}
+			mu.Unlock()
+		}
+	}()
 
 	getLimiter := func(ip string) *rate.Limiter {
 		mu.Lock()
 		defer mu.Unlock()
 
-		if limiter, exists := visitors[ip]; exists {
-			return limiter
+		v, exists := visitors[ip]
+		if exists {
+			v.lastSeen = time.Now()
+			return v.limiter
 		}
 
 		limiter := rate.NewLimiter(rate.Every(100*time.Millisecond), 20) // 10 req/s, burst 20
-		visitors[ip] = limiter
+		visitors[ip] = &visitor{limiter: limiter, lastSeen: time.Now()}
 		return limiter
 	}
 

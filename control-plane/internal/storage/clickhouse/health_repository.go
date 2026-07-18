@@ -15,6 +15,7 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // PricingConfig holds per-model token cost rates (USD per token).
@@ -174,66 +175,92 @@ func (r *HealthRepository) DB() driver.Conn {
 	return r.conn
 }
 
-// QueryHealthMetrics fetches aggregated telemetry signals for a tenant.
+// QueryHealthMetrics fetches aggregated telemetry signals for a tenant using errgroup for concurrent execution (Finding 7.2).
 func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID string) (*storage.HealthMetrics, error) {
+	if r.conn == nil {
+		return nil, fmt.Errorf("database connection unavailable")
+	}
+
 	metrics := &storage.HealthMetrics{TenantID: tenantID}
+	g, ctx := errgroup.WithContext(ctx)
 
-	// --- 1. Cardinality: peak unique estimate in last 30 min ---
-	cardQuery := `
-		SELECT max(unique_estimate) AS max_cardinality
-		FROM telemetry_health.cardinality_signal
-		WHERE tenant_id = {tenant_id:UUID}
-		  AND window_start >= now() - INTERVAL 30 MINUTE`
+	// 1. Cardinality query
+	g.Go(func() error {
+		cardQuery := `
+			SELECT max(unique_estimate) AS max_cardinality
+			FROM telemetry_health.cardinality_signal
+			WHERE tenant_id = {tenant_id:UUID}
+			  AND window_start >= now() - INTERVAL 30 MINUTE`
+		row := r.conn.QueryRow(ctx, cardQuery, ch.Named("tenant_id", tenantID))
+		if err := row.Scan(&metrics.CardinalityMax); err != nil {
+			r.logger.Warn("cardinality query failed, defaulting to 0", zap.Error(err))
+			metrics.CardinalityMax = 0
+		}
+		return nil
+	})
 
-	row := r.conn.QueryRow(ctx, cardQuery, ch.Named("tenant_id", tenantID))
-	if err := row.Scan(&metrics.CardinalityMax); err != nil {
-		r.logger.Warn("cardinality query failed, defaulting to 0", zap.Error(err))
-		metrics.CardinalityMax = 0
+	// 2. Orphaned Traces query
+	g.Go(func() error {
+		orphanQuery := `
+			SELECT count() AS orphan_count
+			FROM telemetry_health.orphan_signal
+			WHERE tenant_id = {tenant_id:UUID}
+			  AND detected_at >= now() - INTERVAL 30 MINUTE`
+		row := r.conn.QueryRow(ctx, orphanQuery, ch.Named("tenant_id", tenantID))
+		if err := row.Scan(&metrics.OrphanCount); err != nil {
+			r.logger.Warn("orphan query failed, defaulting to 0", zap.Error(err))
+			metrics.OrphanCount = 0
+		}
+		return nil
+	})
+
+	// 3. Previous Orphaned Traces query
+	g.Go(func() error {
+		orphanPrevQuery := `
+			SELECT count() AS orphan_count
+			FROM telemetry_health.orphan_signal
+			WHERE tenant_id = {tenant_id:UUID}
+			  AND detected_at >= now() - INTERVAL 60 MINUTE
+			  AND detected_at < now() - INTERVAL 30 MINUTE`
+		row := r.conn.QueryRow(ctx, orphanPrevQuery, ch.Named("tenant_id", tenantID))
+		if err := row.Scan(&metrics.PreviousOrphanCount); err != nil {
+			metrics.PreviousOrphanCount = 0
+		}
+		return nil
+	})
+
+	// 4. Active Services query
+	g.Go(func() error {
+		coverageQuery := `
+			SELECT count() AS active_services
+			FROM telemetry_health.coverage_signal
+			WHERE tenant_id = {tenant_id:UUID}
+			  AND last_seen_at >= now() - INTERVAL 10 MINUTE`
+		row := r.conn.QueryRow(ctx, coverageQuery, ch.Named("tenant_id", tenantID))
+		if err := row.Scan(&metrics.ActiveServices); err != nil {
+			r.logger.Warn("coverage query failed, defaulting to 0", zap.Error(err))
+			metrics.ActiveServices = 0
+		}
+		return nil
+	})
+
+	// 5. Tenant Weights query
+	var weights telemetry.TenantWeights
+	g.Go(func() error {
+		w, err := r.GetTenantWeights(ctx, tenantID)
+		if err != nil {
+			r.logger.Warn("Failed to fetch tenant weights, using defaults", zap.String("tenant_id", tenantID), zap.Error(err))
+			weights = telemetry.DefaultWeights()
+		} else {
+			weights = w
+		}
+		return nil
+	})
+
+	if err := g.Wait(); err != nil {
+		return nil, fmt.Errorf("concurrent health metrics queries failed: %w", err)
 	}
 
-	// --- 2. Orphaned Traces: count in last 30 min ---
-	orphanQuery := `
-		SELECT count() AS orphan_count
-		FROM telemetry_health.orphan_signal
-		WHERE tenant_id = {tenant_id:UUID}
-		  AND detected_at >= now() - INTERVAL 30 MINUTE`
-
-	row2 := r.conn.QueryRow(ctx, orphanQuery, ch.Named("tenant_id", tenantID))
-	if err := row2.Scan(&metrics.OrphanCount); err != nil {
-		r.logger.Warn("orphan query failed, defaulting to 0", zap.Error(err))
-		metrics.OrphanCount = 0
-	}
-
-	orphanPrevQuery := `
-		SELECT count() AS orphan_count
-		FROM telemetry_health.orphan_signal
-		WHERE tenant_id = {tenant_id:UUID}
-		  AND detected_at >= now() - INTERVAL 60 MINUTE
-		  AND detected_at < now() - INTERVAL 30 MINUTE`
-	rowPrev := r.conn.QueryRow(ctx, orphanPrevQuery, ch.Named("tenant_id", tenantID))
-	if err := rowPrev.Scan(&metrics.PreviousOrphanCount); err != nil {
-		metrics.PreviousOrphanCount = 0
-	}
-
-	// --- 3. Active Services: distinct services seen in last 10 min ---
-	coverageQuery := `
-		SELECT count() AS active_services
-		FROM telemetry_health.coverage_signal
-		WHERE tenant_id = {tenant_id:UUID}
-		  AND last_seen_at >= now() - INTERVAL 10 MINUTE`
-
-	row3 := r.conn.QueryRow(ctx, coverageQuery, ch.Named("tenant_id", tenantID))
-	if err := row3.Scan(&metrics.ActiveServices); err != nil {
-		r.logger.Warn("coverage query failed, defaulting to 0", zap.Error(err))
-		metrics.ActiveServices = 0
-	}
-
-	// --- 4. Composite Health Score ---
-	weights, err := r.GetTenantWeights(ctx, tenantID)
-	if err != nil {
-		r.logger.Warn("Failed to fetch tenant weights, using defaults", zap.String("tenant_id", tenantID), zap.Error(err))
-		weights = telemetry.DefaultWeights()
-	}
 	metrics.CompositeScore = telemetry.CalculateHealthScore(metrics.CardinalityMax, metrics.OrphanCount, metrics.ActiveServices, weights)
 
 	if metrics.CardinalityMax > 1_000_000 {
@@ -270,7 +297,6 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 	if r.conn != nil {
 		rows, err := r.conn.Query(ctx, localQuery)
 		if err == nil {
-			defer rows.Close()
 			for rows.Next() {
 				var traceID, serviceName, attrsStr string
 				var durationNano int64
@@ -313,6 +339,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 					})
 				}
 			}
+			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
 		}
 	}
 
@@ -333,7 +360,6 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 
 		rows, err := r.conn.Query(ctx, signozQuery)
 		if err == nil {
-			defer rows.Close()
 			for rows.Next() {
 				var traceID, model, tokensStr, costStr, riskStr string
 				var durationNano int64
@@ -374,6 +400,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 					})
 				}
 			}
+			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
 		}
 	}
 
@@ -413,11 +440,12 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 }
 
 // GetTenantWeights fetches the configurable health score weights for a tenant, falling back to defaults if not configured (PRD §8.4).
+// Uses FINAL modifier to bypass eventual consistency and get latest configured weights (Finding 7.4).
 func (r *HealthRepository) GetTenantWeights(ctx context.Context, tenantID string) (telemetry.TenantWeights, error) {
 	weights := telemetry.DefaultWeights()
 	query := `
 		SELECT cardinality_weight, orphan_weight, coverage_weight
-		FROM telemetry_health.tenant_config
+		FROM telemetry_health.tenant_config FINAL
 		WHERE tenant_id = {tenant_id:UUID}
 		LIMIT 1`
 	row := r.conn.QueryRow(ctx, query, ch.Named("tenant_id", tenantID))
@@ -513,7 +541,6 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 	if r.conn != nil {
 		rows, err := r.conn.Query(ctx, localQuery, ch.Named("trace_id", traceID))
 		if err == nil {
-			defer rows.Close()
 			for rows.Next() {
 				var span models.SpanData
 				var durationNano int64
@@ -548,6 +575,7 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 					spans = append(spans, span)
 				}
 			}
+			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
 		}
 	}
 
@@ -570,7 +598,6 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 
 		rows, err := r.conn.Query(ctx, signozQuery, ch.Named("trace_id", traceID))
 		if err == nil {
-			defer rows.Close()
 			for rows.Next() {
 				var span models.SpanData
 				var statusVal uint8
@@ -593,6 +620,7 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 					spans = append(spans, span)
 				}
 			}
+			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
 		}
 	}
 

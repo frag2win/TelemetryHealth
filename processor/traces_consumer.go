@@ -184,8 +184,20 @@ func (c *tracesConsumer) processTracesDefensively(ctx context.Context, td ptrace
 				var tokensBurned int64
 
 				span.Attributes().Range(func(key string, val pcommon.Value) bool {
-					// Track token burn attributes if present
-					if strings.Contains(key, "tokens") || strings.Contains(key, "token") {
+					// Track token burn attributes if present using exact OTel GenAI semantic convention keys (Finding 9.1)
+					isTokenKey := false
+					for _, tk := range []string{
+						"gen_ai.usage.input_tokens",
+						"gen_ai.usage.output_tokens",
+						"gen_ai.usage.total_tokens",
+						"llm.usage.total_tokens",
+					} {
+						if key == tk {
+							isTokenKey = true
+							break
+						}
+					}
+					if isTokenKey {
 						if val.Type() == pcommon.ValueTypeInt {
 							tokensBurned += val.Int()
 						}
@@ -264,7 +276,7 @@ func (c *tracesConsumer) processTracesDefensively(ctx context.Context, td ptrace
 }
 
 func (c *tracesConsumer) Start(ctx context.Context, host component.Host) error {
-	c.logger.Info("TracesConsumer started", zap.Time("at", time.Now()))
+	c.logger.Info("TracesConsumer started")
 	if c.controlPlaneEndpoint != "" {
 		c.logger.Info("Connecting to control plane", zap.String("endpoint", c.controlPlaneEndpoint))
 		conn, err := grpc.Dial(c.controlPlaneEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))

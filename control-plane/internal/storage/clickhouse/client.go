@@ -25,9 +25,10 @@ func NewClient(ctx context.Context, hosts []string, database, user, password str
 			Username: user,
 			Password: password,
 		},
-		DialTimeout:  5 * time.Second,
-		MaxOpenConns: 10,
-		MaxIdleConns: 5,
+		DialTimeout:     5 * time.Second,
+		MaxOpenConns:    25,
+		MaxIdleConns:    10,
+		ConnMaxLifetime: 10 * time.Minute,
 		Settings: clickhouse.Settings{
 			"max_execution_time": 60,
 		},

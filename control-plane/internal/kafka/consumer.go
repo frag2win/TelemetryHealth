@@ -20,12 +20,19 @@ type Handler[T any] func(ctx context.Context, events []T) error
 
 // Consumer reads from a Kafka topic and dispatches batches to a typed handler.
 type Consumer[T any] struct {
-	reader  *kafkago.Reader
-	handler Handler[T]
-	logger  *zap.Logger
+	reader    *kafkago.Reader
+	dlqWriter *kafkago.Writer
+	handler   Handler[T]
+	logger    *zap.Logger
 }
 
 func NewConsumer[T any](brokers []string, topic, groupID string, handler Handler[T], logger *zap.Logger) *Consumer[T] {
+	// Validate groupID is non-empty (Finding 8.2)
+	if groupID == "" {
+		groupID = topic + "-group-default"
+		logger.Warn("NewConsumer called with empty groupID, falling back to default", zap.String("groupID", groupID))
+	}
+
 	return &Consumer[T]{
 		reader: kafkago.NewReader(kafkago.ReaderConfig{
 			Brokers:        brokers,
@@ -35,6 +42,11 @@ func NewConsumer[T any](brokers []string, topic, groupID string, handler Handler
 			MaxBytes:       1e6, // 1 MB
 			CommitInterval: 0,   // explicit commit after processing
 		}),
+		dlqWriter: &kafkago.Writer{
+			Addr:     kafkago.TCP(brokers...),
+			Topic:    topic + ".dlq",
+			Balancer: &kafkago.LeastBytes{},
+		},
 		handler: handler,
 		logger:  logger,
 	}
@@ -112,10 +124,11 @@ func (c *Consumer[T]) flush(ctx context.Context, batch []T, msgs []kafkago.Messa
 		if err := c.handler(ctx, batch); err != nil {
 			retries++
 			if retries > maxRetries {
-				c.logger.Error("handler failed persistently, dropping batch to fail open",
+				c.logger.Error("handler failed persistently, writing batch to DLQ and dropping to fail open",
 					zap.Int("size", len(batch)),
 					zap.Error(err),
 				)
+				c.writeToDLQ(ctx, msgs)
 				return
 			}
 
@@ -150,6 +163,29 @@ func (c *Consumer[T]) flush(ctx context.Context, batch []T, msgs []kafkago.Messa
 	}
 }
 
+func (c *Consumer[T]) writeToDLQ(ctx context.Context, msgs []kafkago.Message) {
+	dlqMsgs := make([]kafkago.Message, len(msgs))
+	for i, m := range msgs {
+		dlqMsgs[i] = kafkago.Message{
+			Key:   m.Key,
+			Value: m.Value,
+			Time:  time.Now(),
+		}
+	}
+	writeCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+
+	if err := c.dlqWriter.WriteMessages(writeCtx, dlqMsgs...); err != nil {
+		c.logger.Error("failed to write messages to DLQ", zap.Error(err))
+	} else {
+		c.logger.Info("successfully wrote failed batch to DLQ", zap.Int("count", len(msgs)), zap.String("dlqTopic", c.dlqWriter.Topic))
+		if err := c.reader.CommitMessages(ctx, msgs...); err != nil {
+			c.logger.Error("failed to commit messages after sending to DLQ", zap.Error(err))
+		}
+	}
+}
+
 func (c *Consumer[T]) Close() {
-	c.reader.Close()
+	_ = c.reader.Close()
+	_ = c.dlqWriter.Close()
 }

@@ -31,8 +31,8 @@ func newMetricsHelper(mp metric.MeterProvider, logger *zap.Logger) (*metricsHelp
 	}
 
 	tokenBurn, err := meter.Int64Counter(
-		"telemetryhealth_agent_token_burn_rate",
-		metric.WithDescription("Tracking AI Agent token consumption speeds"),
+		"telemetryhealth_agent_token_burn_total",
+		metric.WithDescription("Tracking AI Agent token consumption total"),
 	)
 	if err != nil {
 		return nil, err
