@@ -1094,7 +1094,15 @@ func (s *Server) GetTenantReplay(w http.ResponseWriter, r *http.Request) {
 	var events []engine.ReplayEvent
 	var err error
 
-	if s.graphEngine != nil {
+	if s.signozClient != nil && traceID != "" && mode != "latest" {
+		// Attempt to fetch from real SigNoz API first!
+		events, err = s.signozClient.GetReplay(r.Context(), tenantID, traceID)
+		if err != nil {
+			s.logger.Warn("Failed to fetch trace from SigNoz, falling back to local store", zap.Error(err))
+		}
+	}
+
+	if (len(events) == 0 || err != nil) && s.graphEngine != nil {
 		if mode == "latest" {
 			events, err = s.graphEngine.GetRecentReplays(r.Context(), tenantID, 1)
 			if len(events) > 0 {
