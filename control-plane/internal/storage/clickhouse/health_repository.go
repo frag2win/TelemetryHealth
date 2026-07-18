@@ -297,6 +297,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 	if r.conn != nil {
 		rows, err := r.conn.Query(ctx, localQuery)
 		if err == nil {
+			defer rows.Close()
 			for rows.Next() {
 				var traceID, serviceName, attrsStr string
 				var durationNano int64
@@ -339,7 +340,6 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 					})
 				}
 			}
-			rows.Close() // Explicit manual connection reuse return, resolving structural query pool leaks
 		}
 	}
 
@@ -360,6 +360,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 
 		rows, err := r.conn.Query(ctx, signozQuery)
 		if err == nil {
+			defer rows.Close()
 			for rows.Next() {
 				var traceID, model, tokensStr, costStr, riskStr string
 				var durationNano int64
@@ -400,7 +401,6 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 					})
 				}
 			}
-			rows.Close() // Explicit manual connection reuse return, resolving structural query pool leaks
 		}
 	}
 
@@ -541,6 +541,7 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 	if r.conn != nil {
 		rows, err := r.conn.Query(ctx, localQuery, ch.Named("trace_id", traceID))
 		if err == nil {
+			defer rows.Close()
 			for rows.Next() {
 				var span models.SpanData
 				var durationNano int64
@@ -575,7 +576,6 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 					spans = append(spans, span)
 				}
 			}
-			rows.Close() // Explicit manual connection reuse return, resolving structural query pool leaks
 		}
 	}
 

@@ -276,11 +276,17 @@ func (c *tracesConsumer) processTracesDefensively(ctx context.Context, td ptrace
 }
 
 func (c *tracesConsumer) Start(ctx context.Context, host component.Host) error {
-	c.logger.Info("TracesConsumer started gracefully")
-	// Retrieve control plane endpoint configuration from the processor config context
-	_ = c.baseConsumer.tracker // assumed placement hook
-	// Launch background signal loop worker
-	go c.baseConsumer.drainLoop(ctx, "http://localhost:8080") 
+	c.logger.Info("TracesConsumer started gracefully", zap.String("endpoint", c.controlPlaneEndpoint))
+	
+	conn, err := grpc.Dial(c.controlPlaneEndpoint, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		c.logger.Error("Failed to dial control plane", zap.Error(err))
+		return err
+	}
+	c.conn = conn
+	c.client = ptraceotlp.NewGRPCClient(conn)
+	
+	go c.exportLoop()
 	return nil
 }
 

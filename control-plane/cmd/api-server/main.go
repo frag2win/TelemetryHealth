@@ -49,9 +49,19 @@ func main() {
 	var healthRepo storage.HealthRepository
 	var replayRepo engine.ReplayRepository
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	chHost := os.Getenv("CH_HOST")
+	if chHost == "" {
+		chHost = "127.0.0.1"
+	}
+	chPort := os.Getenv("CH_PORT")
+	if chPort == "" {
+		chPort = "9000"
+	}
+	chAddr := chHost + ":" + chPort
+
 	client, err := ch.NewClient(
 		ctx,
-		[]string{"127.0.0.1:9000"},
+		[]string{chAddr},
 		"telemetry_health", "default", "",
 		logger,
 	)

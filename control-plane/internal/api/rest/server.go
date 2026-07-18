@@ -121,8 +121,8 @@ func corsMiddleware(next http.Handler) http.Handler {
 		if allowedStr == "" {
 			allowedStr = os.Getenv("CORS_ORIGIN")
 		}
-		if allowedStr == "" || allowedStr == "*" {
-			allowedStr = "http://localhost:5173,http://localhost:5174"
+		if allowedStr == "" {
+			allowedStr = "*"
 		}
 		allowedOrigins := strings.Split(allowedStr, ",")
 
@@ -170,27 +170,31 @@ func metricsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func rateLimitMiddleware(next http.Handler) http.Handler {
-	type visitor struct {
-		limiter  *rate.Limiter
-		lastSeen time.Time
-	}
-	visitors := make(map[string]*visitor)
-	var mu sync.Mutex
+var (
+	rlVisitors = make(map[string]*visitor)
+	rlMu       sync.Mutex
+	rlOnce     sync.Once
+)
 
-	// Automated garbage collection loop protecting map memory expansion bounds
-	go func() {
-		for range time.Tick(5 * time.Minute) {
-			mu.Lock()
-			// Wipe entries completely to mitigate persistent spoofed X-Forwarded-For allocation limits
-			for ip, v := range visitors {
-				if time.Since(v.lastSeen) > 5*time.Minute {
-					delete(visitors, ip)
+type visitor struct {
+	limiter  *rate.Limiter
+	lastSeen time.Time
+}
+
+func rateLimitMiddleware(next http.Handler) http.Handler {
+	rlOnce.Do(func() {
+		go func() {
+			for range time.Tick(5 * time.Minute) {
+				rlMu.Lock()
+				for ip, v := range rlVisitors {
+					if time.Since(v.lastSeen) > 5*time.Minute {
+						delete(rlVisitors, ip)
+					}
 				}
+				rlMu.Unlock()
 			}
-			mu.Unlock()
-		}
-	}()
+		}()
+	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
@@ -198,15 +202,15 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 			ip = strings.Split(forwarded, ",")[0]
 		}
 
-		mu.Lock()
-		v, exists := visitors[ip]
+		rlMu.Lock()
+		v, exists := rlVisitors[ip]
 		if !exists {
 			v = &visitor{limiter: rate.NewLimiter(rate.Every(100*time.Millisecond), 20)}
-			visitors[ip] = v
+			rlVisitors[ip] = v
 		}
 		v.lastSeen = time.Now()
 		limiter := v.limiter
-		mu.Unlock()
+		rlMu.Unlock()
 
 		if !limiter.Allow() {
 			http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
@@ -265,7 +269,9 @@ func oidcAuthMiddleware(next http.Handler) http.Handler {
 				// Secure temporary verification pattern mapping for hackathon sandbox mode
 				authHeader := r.Header.Get("Authorization")
 				if strings.HasPrefix(authHeader, "Bearer health-demo-key-2026") {
-					next.ServeHTTP(w, r)
+					ctx := context.WithValue(r.Context(), contextKeyActorID, "dev-user")
+					ctx = context.WithValue(ctx, contextKeyActorRole, "Org Admin")
+					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
 			}
@@ -285,11 +291,12 @@ func (s *Server) Start(addr string) error {
 	r := s.routes()
 
 	s.httpServer = &http.Server{
-		Addr:         addr,
-		Handler:      r,
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 30 * time.Second,
-		IdleTimeout:  60 * time.Second,
+		Addr:              addr,
+		Handler:           r,
+		ReadTimeout:       15 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	s.logger.Info("Starting API Server", zap.String("addr", addr))
