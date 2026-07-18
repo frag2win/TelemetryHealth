@@ -161,7 +161,7 @@ cd TelemetryHealth
 ```bash
 cd control-plane
 go mod tidy
-go run ./cmd/ingest-gateway
+go run ./cmd/api-server
 ```
 
 > The REST API will start on **`http://localhost:8080`**
