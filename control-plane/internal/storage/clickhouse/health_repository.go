@@ -339,7 +339,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 					})
 				}
 			}
-			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
+			rows.Close() // Explicit manual connection reuse return, resolving structural query pool leaks
 		}
 	}
 
@@ -400,7 +400,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 					})
 				}
 			}
-			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
+			rows.Close() // Explicit manual connection reuse return, resolving structural query pool leaks
 		}
 	}
 
@@ -575,7 +575,7 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 					spans = append(spans, span)
 				}
 			}
-			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
+			rows.Close() // Explicit manual connection reuse return, resolving structural query pool leaks
 		}
 	}
 
@@ -620,7 +620,7 @@ func (r *HealthRepository) QuerySpansByTraceID(ctx context.Context, traceID stri
 					spans = append(spans, span)
 				}
 			}
-			rows.Close() // Explicitly close rows to avoid connection leaks (Finding 7.3)
+			rows.Close() // Explicit manual connection reuse return, resolving structural query pool leaks
 		}
 	}
 

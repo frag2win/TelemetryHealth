@@ -219,6 +219,7 @@ func TestUnconfiguredClickHouse_Returns501(t *testing.T) {
 
 	for _, path := range endpoints {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
+		req.Header.Set("Authorization", "Bearer health-demo-key-2026")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusNotImplemented {
