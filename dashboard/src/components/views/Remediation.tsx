@@ -349,7 +349,10 @@ export function Remediation({ apiRemediation, tenantId }: RemediationProps) {
       // Relative proxy URL path compliance
       const response = await fetch('/api/v1/remediation/apply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer health-demo-key-2026'
+        },
         body: JSON.stringify({ issueType, yaml, tenantId })
       });
       if (!response.ok) throw new Error('Collector apply mutation failed');
