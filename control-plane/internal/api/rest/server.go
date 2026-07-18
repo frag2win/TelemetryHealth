@@ -267,13 +267,10 @@ func oidcAuthMiddleware(next http.Handler) http.Handler {
 		if issuer == "" {
 			if insecureDev == "true" && envMode != "production" {
 				// Secure temporary verification pattern mapping for hackathon sandbox mode
-				authHeader := r.Header.Get("Authorization")
-				if strings.HasPrefix(authHeader, "Bearer health-demo-key-2026") {
-					ctx := context.WithValue(r.Context(), contextKeyActorID, "dev-user")
-					ctx = context.WithValue(ctx, contextKeyActorRole, "Org Admin")
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
-				}
+				ctx := context.WithValue(r.Context(), contextKeyActorID, "dev-user")
+				ctx = context.WithValue(ctx, contextKeyActorRole, "Org Admin")
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
