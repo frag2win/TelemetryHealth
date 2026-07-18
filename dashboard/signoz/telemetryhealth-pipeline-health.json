@@ -1,0 +1,64 @@
+{
+  "title": "TelemetryHealth Pipeline Health",
+  "version": "v1.1.0",
+  "description": "SigNoz native dashboard for real-time pipeline health, cardinality anomalies, orphaned spans, and AI agent token metrics",
+  "tags": ["telemetryhealth", "pipeline-health", "ai-agents", "signoz"],
+  "widgets": [
+    {
+      "id": "health-score-gauge",
+      "title": "Overall Pipeline Health Score",
+      "panelTypes": "GRAPH",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "A",
+            "legend": "Health Score",
+            "query": "SELECT window_start AS time, 100 - (count() * 5) AS health_score FROM telemetry_health.cardinality_signal WHERE window_start >= NOW() - INTERVAL 24 HOUR GROUP BY time ORDER BY time"
+          }
+        ]
+      }
+    },
+    {
+      "id": "cardinality-trend",
+      "title": "Cardinality Estimates by Service",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "B",
+            "legend": "{{service}} - {{attribute_key}}",
+            "query": "SELECT window_start AS time, service, attribute_key, max(unique_estimate) AS cardinality FROM telemetry_health.cardinality_signal WHERE window_start >= NOW() - INTERVAL 24 HOUR GROUP BY time, service, attribute_key ORDER BY time"
+          }
+        ]
+      }
+    },
+    {
+      "id": "orphan-rate",
+      "title": "Orphaned Traces Detected Over Time",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "C",
+            "legend": "Orphan Spans",
+            "query": "SELECT toStartOfMinute(detected_at) AS time, count() AS orphan_count FROM telemetry_health.orphan_signal WHERE detected_at >= NOW() - INTERVAL 24 HOUR GROUP BY time ORDER BY time"
+          }
+        ]
+      }
+    },
+    {
+      "id": "ai-agent-health",
+      "title": "AI Agent Health & Token Efficiency",
+      "panelTypes": "TIME_SERIES",
+      "query": {
+        "clickhouse_sql": [
+          {
+            "name": "D",
+            "legend": "Agent Health Score",
+            "query": "SELECT toStartOfMinute(timestamp) AS time, service_name, avg(value) AS health_score FROM telemetry_health.metrics WHERE name = 'telemetryhealth_agent_health_score' AND timestamp >= NOW() - INTERVAL 24 HOUR GROUP BY time, service_name ORDER BY time"
+          }
+        ]
+      }
+    }
+  ]
+}

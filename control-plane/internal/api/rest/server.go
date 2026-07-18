@@ -30,6 +30,8 @@ import (
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/engine"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/simulator"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/mock"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage/signoz"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"github.com/frag2win/TelemetryHealth/control-plane/pkg/models"
 	"go.opentelemetry.io/otel"
@@ -54,21 +56,23 @@ type APIError struct {
 
 // Server is the REST API server for the control plane dashboard.
 type Server struct {
-	logger      *zap.Logger
-	healthRepo  storage.HealthRepository
-	validator   *remediation.Validator
-	generator   *remediation.Generator
-	graphEngine *engine.Engine
-	httpServer  *http.Server
+	logger       *zap.Logger
+	healthRepo   storage.HealthRepository
+	validator    *remediation.Validator
+	generator    *remediation.Generator
+	graphEngine  *engine.Engine
+	httpServer   *http.Server
+	signozClient *signoz.QueryClient
 }
 
 func NewServer(logger *zap.Logger, healthRepo storage.HealthRepository, replayRepo engine.ReplayRepository) *Server {
 	return &Server{
-		logger:      logger,
-		healthRepo:  healthRepo,
-		validator:   remediation.NewValidator(logger),
-		generator:   remediation.NewGenerator(logger),
-		graphEngine: engine.NewEngine(replayRepo),
+		logger:       logger,
+		healthRepo:   healthRepo,
+		validator:    remediation.NewValidator(logger),
+		generator:    remediation.NewGenerator(logger),
+		graphEngine:  engine.NewEngine(replayRepo),
+		signozClient: signoz.NewQueryClient(logger),
 	}
 }
 
@@ -574,6 +578,20 @@ func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
 			if errorCount > 0 {
 				telemetry.AgentTraceErrorCount.WithLabelValues(serviceName, agentID).Add(errorCount)
 			}
+
+			// Custom AI metrics (IMPL-6)
+			riskVal := 0.0
+			if trace.HallucinationRisk == "High" {
+				riskVal = 1.0
+			} else if trace.HallucinationRisk == "Medium" {
+				riskVal = 0.5
+			}
+			telemetry.AgentHallucinationRisk.WithLabelValues(serviceName, agentID).Set(riskVal)
+
+			if len(trace.Decisions) > 0 {
+				efficiency := float64(trace.Tokens) / float64(len(trace.Decisions))
+				telemetry.AgentTokenEfficiency.WithLabelValues(serviceName, agentID).Set(efficiency)
+			}
 		}
 
 		s.encodeResponse(w, traces)
@@ -729,15 +747,22 @@ func (s *Server) SimulateFailure(w http.ResponseWriter, r *http.Request) {
 		err = sim.InjectDroppedSpans(ctx, tenantID)
 	case "agentic_workflow":
 		err = sim.InjectAgenticWorkflow(ctx, tenantID)
+	case "agentic_failure":
+		err = sim.InjectAgenticFailure(ctx, tenantID)
 	default:
 		writeError(w, "UNKNOWN_SCENARIO", "unknown scenario: "+req.Scenario, http.StatusBadRequest)
 		return
 	}
 
 	if err != nil {
-		s.logger.Error("Simulation failed", zap.Error(err))
-		writeError(w, "SIMULATION_FAILED", "failed to inject simulation data", http.StatusInternalServerError)
-		return
+		mockMode := (s.healthRepo == nil) || (os.Getenv("ENV") != "production" && os.Getenv("CLICKHOUSE_HOSTS") == "")
+		if mockMode {
+			s.logger.Warn("Simulation injection failed, but proceeding in mock/dev mode", zap.Error(err))
+		} else {
+			s.logger.Error("Simulation failed", zap.Error(err))
+			writeError(w, "SIMULATION_FAILED", "failed to inject simulation data: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -992,6 +1017,109 @@ func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	s.encodeResponse(w, rc)
+}
+
+func (s *Server) handleSignozHealth(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	defer cancel()
+
+	mockMode := (s.healthRepo == nil) || (os.Getenv("ENV") != "production" && os.Getenv("CLICKHOUSE_HOSTS") == "")
+
+	status := "healthy"
+	signozAlertmanager := "connected"
+	otlpExporter := "configured"
+
+	if !mockMode {
+		if err := s.signozClient.Ping(ctx); err != nil {
+			s.logger.Warn("Failed to connect to SigNoz Alertmanager", zap.Error(err))
+			signozAlertmanager = "disconnected"
+			status = "unhealthy"
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	s.encodeResponse(w, map[string]interface{}{
+		"status":              status,
+		"signoz_alertmanager": signozAlertmanager,
+		"otlp_exporter":       otlpExporter,
+		"mock_mode":           mockMode,
+	})
+}
+
+func (s *Server) handleSignozConfig(w http.ResponseWriter, r *http.Request) {
+	mockMode := (s.healthRepo == nil) || (os.Getenv("ENV") != "production" && os.Getenv("CLICKHOUSE_HOSTS") == "")
+
+	signozBaseURL := os.Getenv("SIGNOZ_BASE_URL")
+	if signozBaseURL == "" {
+		signozBaseURL = "http://localhost:3301"
+	}
+	signozAlertmanagerURL := os.Getenv("SIGNOZ_ALERTMANAGER_URL")
+	if signozAlertmanagerURL == "" {
+		signozAlertmanagerURL = "http://localhost:9093/api/v2/alerts"
+	}
+	mcpServerAddr := os.Getenv("MCP_SERVER_ADDR")
+	if mcpServerAddr == "" {
+		mcpServerAddr = ":8081"
+	}
+	otlpEndpoint := os.Getenv("TELEMETRYHEALTH_META_OTLP_ENDPOINT")
+	if otlpEndpoint == "" {
+		otlpEndpoint = os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+		if otlpEndpoint == "" {
+			otlpEndpoint = "http://localhost:4317"
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	s.encodeResponse(w, map[string]interface{}{
+		"signoz_base_url":         signozBaseURL,
+		"signoz_alertmanager_url": signozAlertmanagerURL,
+		"mcp_server_addr":         mcpServerAddr,
+		"otlp_endpoint":           otlpEndpoint,
+		"mock_mode":               mockMode,
+	})
+}
+
+func (s *Server) GetTenantReplay(w http.ResponseWriter, r *http.Request) {
+	tenantID := chi.URLParam(r, "tenant_id")
+	if !validateTenantID(w, tenantID) {
+		return
+	}
+
+	traceID := r.URL.Query().Get("trace_id")
+	mode := "filtered"
+	if traceID == "" {
+		mode = "latest"
+	}
+
+	var events []engine.ReplayEvent
+	var err error
+
+	if s.graphEngine != nil {
+		if mode == "latest" {
+			events, err = s.graphEngine.GetRecentReplays(r.Context(), tenantID, 1)
+			if len(events) > 0 {
+				traceID = events[0].TraceID
+			}
+		} else {
+			events, err = s.graphEngine.GetReplay(r.Context(), tenantID, traceID)
+		}
+	}
+
+	if len(events) == 0 || err != nil {
+		if mode == "latest" {
+			traceID = "trace-992"
+		}
+		mockRepo := mock.NewRepository()
+		events, _ = mockRepo.GetReplay(r.Context(), tenantID, traceID)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	s.encodeResponse(w, map[string]interface{}{
+		"tenant_id": tenantID,
+		"trace_id":  traceID,
+		"mode":      mode,
+		"events":    events,
+	})
 }
 
 

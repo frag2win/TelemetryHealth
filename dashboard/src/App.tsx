@@ -6,6 +6,8 @@ import { Coverage } from './components/views/Coverage';
 import { Remediation } from './components/views/Remediation';
 import { AgentTraces } from './components/views/AgentTraces';
 import { DigitalTwin } from './components/views/DigitalTwin';
+import { SigNozIntegration } from './components/views/SigNozIntegration';
+import { SigNozStatusBadge, AlertFiredBanner } from './components/SigNozComponents';
 import { RefreshCw, Download, Sun, Moon, Menu, X } from 'lucide-react';
 import { ErrorBanner } from './components/Shared';
 import { ErrorBoundary } from './main';
@@ -45,7 +47,8 @@ const titles: Record<string, string> = {
   coverage: '04 / COVERAGE',
   remediation: '05 / REMEDIATION',
   agenttraces: '06 / AI AGENTS',
-  topology: '07 / TOPOLOGY TWIN'
+  topology: '07 / TOPOLOGY TWIN',
+  signoz: '08 / SIGNOZ INTEGRATION'
 };
 
 const tenants = [
@@ -71,7 +74,8 @@ const navItems = [
   { id: 'coverage', chan: '04', label: 'Coverage', ledClass: 'on-a' },
   { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p' },
   { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p' },
-  { id: 'topology', chan: '07', label: 'Topology Twin', ledClass: 'on-a' }
+  { id: 'topology', chan: '07', label: 'Topology Twin', ledClass: 'on-a' },
+  { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a' }
 ];
 
 interface NavItemProps {
@@ -387,6 +391,9 @@ function App() {
           <div className={`pill ${dataSource === 'live' ? 'live' : 'mock'}`} style={{ border: '1px solid var(--bezel)' }}>
             {dataSource === 'live' ? '🟢 Live' : '🔶 Simulator'}
           </div>
+
+          {/* IMPL-1: SigNoz live connection status badge */}
+          <SigNozStatusBadge />
           
           <div className="spacer"></div>
           
@@ -396,6 +403,17 @@ function App() {
           
           <button className="btn" style={{ padding: '6px' }} onClick={() => triggerFetch.current()} title="Refresh data">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          </button>
+
+          {/* IMPL-1 (Dashboard Import): Import to SigNoz button */}
+          <button
+            id="import-signoz-btn"
+            className="btn"
+            style={{ padding: '6px 10px', background: 'var(--phosphor-dim)', border: '1px solid var(--phosphor)', color: 'var(--phosphor)' }}
+            onClick={() => setActiveView('signoz')}
+            title="Open SigNoz Integration panel"
+          >
+            <span style={{ fontSize: '11px' }}>📊 SigNoz</span>
           </button>
           
           <button className="btn" style={{ padding: '6px 10px' }} onClick={handleExport} title="Export JSON configuration report">
@@ -468,6 +486,8 @@ function App() {
             <>
               {activeView === 'overview' && (
                 <ErrorBoundary local>
+                  {/* IMPL-2: Show AlertFiredBanner when health score < 50 */}
+                  <AlertFiredBanner healthScore={data.healthScore} tenantId={selectedTenantId} />
                   <Overview data={data} setView={setActiveView} tenantId={selectedTenantId} />
                 </ErrorBoundary>
               )}
@@ -499,6 +519,12 @@ function App() {
               {activeView === 'topology' && (
                 <ErrorBoundary local>
                   <DigitalTwin tenantId={selectedTenantId} benchmarkTraceId={benchmarkTraceId} />
+                </ErrorBoundary>
+              )}
+              {/* IMPL-3/4/5/6: SigNoz Integration view — replay timeline, MCP tools, query builder, config */}
+              {activeView === 'signoz' && (
+                <ErrorBoundary local>
+                  <SigNozIntegration tenantId={selectedTenantId} />
                 </ErrorBoundary>
               )}
             </>

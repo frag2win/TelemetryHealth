@@ -54,6 +54,20 @@ func NewEngine(repo ReplayRepository) *Engine {
 	}
 }
 
+func (e *Engine) GetReplay(ctx context.Context, tenantID, traceID string) ([]ReplayEvent, error) {
+	if e.repo == nil {
+		return []ReplayEvent{}, nil
+	}
+	return e.repo.GetReplay(ctx, tenantID, traceID)
+}
+
+func (e *Engine) GetRecentReplays(ctx context.Context, tenantID string, limit int) ([]ReplayEvent, error) {
+	if e.repo == nil {
+		return []ReplayEvent{}, nil
+	}
+	return e.repo.GetRecentReplays(ctx, tenantID, limit)
+}
+
 // GenerateBehaviorGraph returns a live pipeline behavior graph
 // It builds a Behavior Graph based on recent replay events.
 func (e *Engine) GenerateBehaviorGraph(tenantID string) Graph {
