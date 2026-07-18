@@ -82,7 +82,12 @@ export function useTenantData<T>(tenantId: string, endpoint: string, fallbackDat
     // Strict proxy relative path enforcement
     const url = endpoint.startsWith('/') ? endpoint : `/api/v1/tenant/${tenantId}/${endpoint}`;
 
-    fetch(url, { signal })
+    fetch(url, { 
+      signal,
+      headers: {
+        'Authorization': 'Bearer health-demo-key-2026'
+      }
+    })
       .then((r) => {
         if (!r.ok) throw new Error(`API error: ${r.status} ${r.statusText}`);
         return r.json();

@@ -166,7 +166,12 @@ function App() {
 
     try {
       // Relative proxy URL path compliance
-      const response = await fetch(`/api/v1/tenant/${selectedTenantId}/health`, { signal });
+      const response = await fetch(`/api/v1/tenant/${selectedTenantId}/health`, { 
+        signal,
+        headers: {
+          'Authorization': 'Bearer health-demo-key-2026'
+        }
+      });
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
       }
@@ -267,10 +272,11 @@ function App() {
     setLoading(true);
     try {
       // Concurrently fetch the detailed sub-endpoint data (Imp 8 fix)
+      const headers = { 'Authorization': 'Bearer health-demo-key-2026' };
       const [agentsRes, orphansRes, coverageRes] = await Promise.all([
-        fetch(`/api/v1/tenant/${selectedTenantId}/agents`).then(r => r.ok ? r.json() : null),
-        fetch(`/api/v1/tenant/${selectedTenantId}/traces/orphans`).then(r => r.ok ? r.json() : null),
-        fetch(`/api/v1/tenant/${selectedTenantId}/coverage`).then(r => r.ok ? r.json() : null)
+        fetch(`/api/v1/tenant/${selectedTenantId}/agents`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`/api/v1/tenant/${selectedTenantId}/traces/orphans`, { headers }).then(r => r.ok ? r.json() : null),
+        fetch(`/api/v1/tenant/${selectedTenantId}/coverage`, { headers }).then(r => r.ok ? r.json() : null)
       ]).catch(() => [null, null, null]);
 
       const fullExport = {
