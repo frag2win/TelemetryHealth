@@ -231,3 +231,14 @@ func TestGenerator_Cardinality_OutputPassesValidator(t *testing.T) {
 		t.Errorf("generated cardinality YAML failed validation: ok=%v err=%v\nYAML:\n%s", ok, err, yaml)
 	}
 }
+
+func TestGenerator_ContextCancelled_ReturnsError(t *testing.T) {
+	g := NewGenerator(testLogger)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // cancel immediately before call
+
+	_, err := g.Generate(ctx, "High Cardinality (session_id)")
+	if err == nil {
+		t.Error("expected error when generating with cancelled context, got nil")
+	}
+}

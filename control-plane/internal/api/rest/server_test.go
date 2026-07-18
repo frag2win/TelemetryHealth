@@ -1,10 +1,13 @@
 package rest
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -161,5 +164,65 @@ func TestServer_AgentTraceEndpoints(t *testing.T) {
 	r.ServeHTTP(w, req)
 	if w.Code != http.StatusOK {
 		t.Errorf("expected 200 OK, got %d", w.Code)
+	}
+}
+
+func TestApplyRemediation_SizeAndValidation(t *testing.T) {
+	mockRepo := mock.NewRepository()
+	s := NewServer(zap.NewNop(), mockRepo, mockRepo)
+
+	// 1. Test payload exceeding 64KB
+	largeYaml := strings.Repeat("a", 65*1024)
+	body := `{"tenantId":"123e4567-e89b-12d3-a456-426614174000","issueType":"cardinality","yaml":"` + largeYaml + `"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/remediation/apply", bytes.NewBufferString(body))
+	w := httptest.NewRecorder()
+	s.ApplyRemediation(w, req)
+	if w.Code != http.StatusRequestEntityTooLarge {
+		t.Errorf("expected 413 Request Entity Too Large for oversized YAML, got %d", w.Code)
+	}
+
+	// 2. Test invalid OTel component (blocked by allowlist, e.g. filelog receiver)
+	blockedYaml := `receivers:\n  filelog:\n    include: [/var/log/*.log]`
+	body = `{"tenantId":"123e4567-e89b-12d3-a456-426614174000","issueType":"cardinality","yaml":"` + blockedYaml + `"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/remediation/apply", bytes.NewBufferString(body))
+	w = httptest.NewRecorder()
+	s.ApplyRemediation(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected 400 Bad Request for blocked OTel component YAML, got %d", w.Code)
+	}
+
+	// 3. Test valid allowed OTel component (e.g. attributes processor)
+	validYaml := `processors:\n  attributes/remediation:\n    actions:\n      - key: user_id\n        action: delete`
+	body = `{"tenantId":"123e4567-e89b-12d3-a456-426614174000","issueType":"cardinality","yaml":"` + validYaml + `"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/remediation/apply", bytes.NewBufferString(body))
+	w = httptest.NewRecorder()
+	s.ApplyRemediation(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for valid OTel component YAML, got %d", w.Code)
+	}
+}
+
+func TestUnconfiguredClickHouse_Returns501(t *testing.T) {
+	oldDevMode := os.Getenv("INSECURE_DEV_MODE")
+	os.Setenv("INSECURE_DEV_MODE", "true")
+	defer os.Setenv("INSECURE_DEV_MODE", oldDevMode)
+
+	// Server with nil healthRepo (unconfigured ClickHouse)
+	s := NewServer(zap.NewNop(), nil, nil)
+	r := s.routes()
+
+	endpoints := []string{
+		"/api/v1/tenant/123e4567-e89b-12d3-a456-426614174000/health",
+		"/api/v1/tenant/123e4567-e89b-12d3-a456-426614174000/agents",
+		"/api/v1/tenant/123e4567-e89b-12d3-a456-426614174000/config",
+	}
+
+	for _, path := range endpoints {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusNotImplemented {
+			t.Errorf("expected 501 Not Implemented for %s when ClickHouse unconfigured, got %d", path, w.Code)
+		}
 	}
 }

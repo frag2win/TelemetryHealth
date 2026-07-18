@@ -17,12 +17,137 @@ import (
 	"go.uber.org/zap"
 )
 
+// PricingConfig holds per-model token cost rates (USD per token).
+type PricingConfig struct {
+	Rates       map[string]float64
+	DefaultRate float64
+}
+
+// DefaultPricingConfig returns standard per-token pricing for common LLM models.
+func DefaultPricingConfig() PricingConfig {
+	return PricingConfig{
+		Rates: map[string]float64{
+			"gpt-4o":            0.000005,
+			"gpt-4-turbo":       0.000010,
+			"gpt-3.5-turbo":     0.0000015,
+			"claude-3-5-sonnet": 0.000003,
+			"claude-3-opus":     0.000015,
+			"claude-3-haiku":    0.00000025,
+			"gemini-1.5-pro":    0.0000035,
+			"gemini-1.5-flash":  0.00000035,
+		},
+		DefaultRate: 0.000005,
+	}
+}
+
+// LoadPricingConfig loads PricingConfig, allowing environment overrides via JSON or env.
+func LoadPricingConfig() PricingConfig {
+	cfg := DefaultPricingConfig()
+	if envRates := os.Getenv("LLM_PRICING_JSON"); envRates != "" {
+		var customRates map[string]float64
+		if err := json.Unmarshal([]byte(envRates), &customRates); err == nil {
+			for k, v := range customRates {
+				cfg.Rates[k] = v
+			}
+		}
+	}
+	if defRateStr := os.Getenv("LLM_DEFAULT_TOKEN_RATE"); defRateStr != "" {
+		if val, err := strconv.ParseFloat(defRateStr, 64); err == nil && val >= 0 {
+			cfg.DefaultRate = val
+		}
+	}
+	return cfg
+}
+
+// CalculateCost computes the token cost given a model name and token count.
+func (p PricingConfig) CalculateCost(model string, tokens int) float64 {
+	rate, ok := p.Rates[model]
+	if !ok {
+		rate = p.DefaultRate
+	}
+	return float64(tokens) * rate
+}
+
+// CalculateHallucinationRisk determines hallucination risk from span attributes and observable signals (Finding 10.2).
+func CalculateHallucinationRisk(attrs map[string]interface{}) string {
+	if r, ok := attrs["llm.hallucination_risk"].(string); ok && r != "" {
+		return r
+	}
+	if r, ok := attrs["gen_ai.evaluation.hallucination_risk"].(string); ok && r != "" {
+		return r
+	}
+
+	// Fallback calculation from observable signals: confidence, tool failure rate, temperature, errors
+	riskLevel := 0 // 0=Low, 1=Medium, 2=High
+
+	if confVal, ok := attrs["llm.confidence"]; ok {
+		switch v := confVal.(type) {
+		case float64:
+			if v < 0.70 {
+				riskLevel = 2
+			} else if v < 0.85 && riskLevel < 1 {
+				riskLevel = 1
+			}
+		}
+	} else if confVal, ok := attrs["confidence"]; ok {
+		switch v := confVal.(type) {
+		case float64:
+			if v < 0.70 {
+				riskLevel = 2
+			} else if v < 0.85 && riskLevel < 1 {
+				riskLevel = 1
+			}
+		}
+	}
+
+	var toolFailures float64
+	if tf, ok := attrs["llm.tool_call_failures"].(float64); ok {
+		toolFailures = tf
+	} else if tf, ok := attrs["tool_call_failures"].(float64); ok {
+		toolFailures = tf
+	}
+	if toolFailures >= 2 {
+		riskLevel = 2
+	} else if toolFailures == 1 && riskLevel < 1 {
+		riskLevel = 1
+	}
+
+	if errAttr, ok := attrs["error"].(bool); ok && errAttr {
+		if riskLevel < 2 {
+			riskLevel = 2
+		}
+	}
+
+	var temp float64
+	hasTemp := false
+	if t, ok := attrs["llm.temperature"].(float64); ok {
+		temp = t
+		hasTemp = true
+	} else if t, ok := attrs["gen_ai.request.temperature"].(float64); ok {
+		temp = t
+		hasTemp = true
+	}
+	if hasTemp && temp > 0.85 && riskLevel < 2 {
+		riskLevel++
+	}
+
+	switch riskLevel {
+	case 2:
+		return "High"
+	case 1:
+		return "Medium"
+	default:
+		return "Low"
+	}
+}
+
 // HealthRepository handles all read queries for the health dashboard.
 type HealthRepository struct {
 	conn      driver.Conn
 	logger    *zap.Logger
 	dbName    string
 	tableName string
+	pricing   PricingConfig
 }
 
 // NewHealthRepository creates a new repository.
@@ -40,6 +165,7 @@ func NewHealthRepository(conn driver.Conn, logger *zap.Logger) *HealthRepository
 		logger:    logger,
 		dbName:    dbName,
 		tableName: tableName,
+		pricing:   LoadPricingConfig(),
 	}
 }
 
@@ -166,10 +292,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 						}
 					}
 					
-					risk := "Low"
-					if r, ok := attrs["llm.hallucination_risk"].(string); ok {
-						risk = r
-					}
+					risk := CalculateHallucinationRisk(attrs)
 					
 					traceSuffix := traceID
 					if len(traceID) >= 6 {
@@ -180,7 +303,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 						ID:                "trace-" + traceSuffix,
 						Model:             model,
 						Tokens:            tokens,
-						Cost:              float64(tokens) * 0.000005,
+						Cost:              r.pricing.CalculateCost(model, tokens),
 						Latency:           fmt.Sprintf("%.1fs", float64(durationNano)/1e9),
 						HallucinationRisk: risk,
 						Decisions: []storage.AgentDecision{
@@ -201,6 +324,7 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 				attributes_map['gen_ai.request.model'] AS model,
 				attributes_map['gen_ai.usage.total_tokens'] AS tokens,
 				attributes_map['gen_ai.usage.cost'] AS cost,
+				attributes_map['llm.hallucination_risk'] AS risk,
 				duration_nano
 			FROM %s.%s
 			WHERE attributes_map['gen_ai.system'] != ''
@@ -211,20 +335,38 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 		if err == nil {
 			defer rows.Close()
 			for rows.Next() {
-				var traceID, model, tokensStr, costStr string
+				var traceID, model, tokensStr, costStr, riskStr string
 				var durationNano int64
-				if err := rows.Scan(&traceID, &model, &tokensStr, &costStr, &durationNano); err == nil {
+				if err := rows.Scan(&traceID, &model, &tokensStr, &costStr, &riskStr, &durationNano); err == nil {
 					traceSuffix := traceID
 					if len(traceID) >= 6 {
 						traceSuffix = traceID[:6]
 					}
+					tokens := 4120
+					if tokensStr != "" {
+						if val, err := strconv.Atoi(tokensStr); err == nil {
+							tokens = val
+						}
+					}
+					cost := r.pricing.CalculateCost(model, tokens)
+					if costStr != "" {
+						if val, err := strconv.ParseFloat(costStr, 64); err == nil {
+							cost = val
+						}
+					}
+					risk := "Low"
+					if riskStr != "" {
+						risk = riskStr
+					} else {
+						risk = CalculateHallucinationRisk(map[string]interface{}{"llm.model": model})
+					}
 					traces = append(traces, storage.AgentTrace{
 						ID:                "trace-" + traceSuffix,
 						Model:             model,
-						Tokens:            4120, // default placeholder
-						Cost:              0.035,
+						Tokens:            tokens,
+						Cost:              cost,
 						Latency:           fmt.Sprintf("%.1fs", float64(durationNano)/1e9),
-						HallucinationRisk: "Low",
+						HallucinationRisk: risk,
 						Decisions: []storage.AgentDecision{
 							{Step: "Retrieved OTel spans from ClickHouse index", Tool: "query_clickhouse", Status: "success"},
 							{Step: "Inferred prompt template and resolved trace context", Tool: "resolve_spans", Status: "success"},

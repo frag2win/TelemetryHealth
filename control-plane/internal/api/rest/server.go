@@ -76,7 +76,20 @@ func NewServer(logger *zap.Logger, healthRepo storage.HealthRepository, replayRe
 func writeError(w http.ResponseWriter, code string, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(APIError{Code: code, Message: message})
+	if err := json.NewEncoder(w).Encode(APIError{Code: code, Message: message}); err != nil {
+		zap.L().Warn("failed to encode json error response", zap.Error(err))
+	}
+}
+
+// encodeResponse writes a JSON response with status OK (or existing status) and logs encode errors (Finding 12.5).
+func (s *Server) encodeResponse(w http.ResponseWriter, payload interface{}) {
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		if s != nil && s.logger != nil {
+			s.logger.Warn("failed to encode json response", zap.Error(err))
+		} else {
+			zap.L().Warn("failed to encode json response", zap.Error(err))
+		}
+	}
 }
 
 // validateTenantID checks that tenant_id is a valid UUID (PRD §13.1 — input sanitization).
@@ -286,8 +299,12 @@ func (s *Server) Start(addr string) error {
 	r := s.routes()
 
 	s.httpServer = &http.Server{
-		Addr:    addr,
-		Handler: r,
+		Addr:              addr,
+		Handler:           r,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		ReadHeaderTimeout: 5 * time.Second,
 	}
 
 	s.logger.Info("Starting API Server", zap.String("addr", addr))
@@ -380,13 +397,13 @@ func (s *Server) GetTenantHealth(w http.ResponseWriter, r *http.Request) {
 			Version:  "v1.1.0",
 		}
 		telemetry.PipelineHealthScore.WithLabelValues(tenantID).Set(metrics.CompositeScore)
-		json.NewEncoder(w).Encode(resp)
+		s.encodeResponse(w, resp)
 		return
 	}
 
-	// ClickHouse unavailable in this deployment — return 503 instead of mock data.
-	writeError(w, "DATA_SOURCE_UNAVAILABLE",
-		"ClickHouse repository not configured. Start ClickHouse or set CLICKHOUSE_HOSTS.", http.StatusServiceUnavailable)
+	// ClickHouse unavailable in this deployment — return 501 instead of mock data (Finding 12.4).
+	writeError(w, "DATA_SOURCE_UNCONFIGURED",
+		"ClickHouse repository not configured. Start ClickHouse or set CLICKHOUSE_HOSTS.", http.StatusNotImplemented)
 }
 
 // GetTenantIssues returns the list of active health issues for a tenant.
@@ -396,7 +413,7 @@ func (s *Server) GetTenantIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode([]map[string]interface{}{
+	s.encodeResponse(w, []map[string]interface{}{
 		{
 			"id":          "iss-1",
 			"service":     "payments-api",
@@ -465,6 +482,26 @@ func (s *Server) ApplyRemediation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Size check (Finding 12.2)
+	const maxYAMLSize = 64 * 1024 // 64 KB limit
+	if len(req.Yaml) > maxYAMLSize {
+		writeError(w, "PAYLOAD_TOO_LARGE", "YAML content exceeds maximum allowed size of 64KB", http.StatusRequestEntityTooLarge)
+		return
+	}
+
+	// Run validator before writing (Finding 12.2)
+	if s.validator != nil && req.Yaml != "" {
+		valid, err := s.validator.Validate(r.Context(), req.Yaml)
+		if !valid || err != nil {
+			msg := "Invalid YAML or forbidden OTel components in remediation configuration"
+			if err != nil {
+				msg = fmt.Sprintf("Validation failed: %v", err)
+			}
+			writeError(w, "INVALID_YAML_CONFIG", msg, http.StatusBadRequest)
+			return
+		}
+	}
+
 	actorID, _ := r.Context().Value(contextKeyActorID).(string)
 	actorRole, _ := r.Context().Value(contextKeyActorRole).(string)
 	if actorID == "" {
@@ -499,7 +536,7 @@ func (s *Server) ApplyRemediation(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	s.encodeResponse(w, map[string]string{"status": "success"})
 }
 
 // GetAgentTraces returns LLM agent trace data.
@@ -547,10 +584,10 @@ func (s *Server) GetAgentTraces(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 
-		json.NewEncoder(w).Encode(traces)
+		s.encodeResponse(w, traces)
 		return
 	}
-	writeError(w, "DATA_SOURCE_UNAVAILABLE", "ClickHouse repository not configured", http.StatusServiceUnavailable)
+	writeError(w, "DATA_SOURCE_UNCONFIGURED", "ClickHouse repository not configured", http.StatusNotImplemented)
 }
 
 // GetCoverage returns service coverage status.
@@ -561,7 +598,7 @@ func (s *Server) handleBehaviorGraph(w http.ResponseWriter, r *http.Request) {
 	}
 	graph := s.graphEngine.GenerateBehaviorGraph(tenantID)
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(graph)
+	s.encodeResponse(w, graph)
 }
 
 func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
@@ -570,7 +607,7 @@ func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode([]map[string]interface{}{
+	s.encodeResponse(w, []map[string]interface{}{
 		{"service": "inventory-worker", "status": "silent", "lastSeen": "14m ago"},
 		{"service": "auth-service", "status": "active", "lastSeen": "1s ago"},
 	})
@@ -587,7 +624,7 @@ func (s *Server) GetTenantRootCause(w http.ResponseWriter, r *http.Request) {
 	issueID := r.URL.Query().Get("issue_id")
 	w.Header().Set("Content-Type", "application/json")
 	graph := s.graphEngine.GenerateRootCause(tenantID, issueID)
-	json.NewEncoder(w).Encode(graph)
+	s.encodeResponse(w, graph)
 }
 
 // GetTracesOrphans returns orphaned trace statistics.
@@ -597,7 +634,7 @@ func (s *Server) GetTracesOrphans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	s.encodeResponse(w, map[string]interface{}{
 		"orphanRate":         "6.2%",
 		"topOrphanedService": "payments-api",
 		"missingParents":     142,
@@ -611,7 +648,7 @@ func (s *Server) HandleTenantConfigGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.healthRepo == nil {
-		writeError(w, "DATA_SOURCE_UNAVAILABLE", "ClickHouse repository not configured", http.StatusServiceUnavailable)
+		writeError(w, "DATA_SOURCE_UNCONFIGURED", "ClickHouse repository not configured", http.StatusNotImplemented)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -621,7 +658,7 @@ func (s *Server) HandleTenantConfigGet(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "DATA_SOURCE_ERROR", "Failed to retrieve tenant config", http.StatusServiceUnavailable)
 		return
 	}
-	json.NewEncoder(w).Encode(weights)
+	s.encodeResponse(w, weights)
 }
 
 // HandleTenantConfigPut serves PUT/POST /api/v1/tenant/{tenant_id}/config.
@@ -631,7 +668,7 @@ func (s *Server) HandleTenantConfigPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.healthRepo == nil {
-		writeError(w, "DATA_SOURCE_UNAVAILABLE", "ClickHouse repository not configured", http.StatusServiceUnavailable)
+		writeError(w, "DATA_SOURCE_UNCONFIGURED", "ClickHouse repository not configured", http.StatusNotImplemented)
 		return
 	}
 	var weights telemetry.TenantWeights
@@ -645,7 +682,7 @@ func (s *Server) HandleTenantConfigPut(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{"status": "success"})
+	s.encodeResponse(w, map[string]string{"status": "success"})
 }
 
 // @Summary Simulate telemetry failure
@@ -703,7 +740,7 @@ func (s *Server) SimulateFailure(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
-	json.NewEncoder(w).Encode(map[string]string{"status": "simulation_injected"})
+	s.encodeResponse(w, map[string]string{"status": "simulation_injected"})
 }
 
 // fallbackBehaviorGraph returns realistic ReactFlow behavior graph for fallback trace IDs.
@@ -799,10 +836,14 @@ func (s *Server) GetBehaviorGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spans, err := s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
-	if err != nil || len(spans) == 0 {
+	var spans []models.SpanData
+	var err error
+	if s.healthRepo != nil {
+		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+	}
+	if s.healthRepo == nil || err != nil || len(spans) == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(fallbackBehaviorGraph(traceID))
+		s.encodeResponse(w, fallbackBehaviorGraph(traceID))
 		return
 	}
 
@@ -862,7 +903,7 @@ func (s *Server) GetBehaviorGraph(w http.ResponseWriter, r *http.Request) {
 	rfGraph := engine.Graph{Nodes: rfNodes, Edges: rfEdges}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rfGraph)
+	s.encodeResponse(w, rfGraph)
 }
 
 // GetDecisionGraph returns the reconstructed DecisionGraph for a given traceID.
@@ -873,10 +914,14 @@ func (s *Server) GetDecisionGraph(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spans, err := s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
-	if err != nil || len(spans) == 0 {
+	var spans []models.SpanData
+	var err error
+	if s.healthRepo != nil {
+		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+	}
+	if s.healthRepo == nil || err != nil || len(spans) == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(fallbackDecisionGraph(traceID))
+		s.encodeResponse(w, fallbackDecisionGraph(traceID))
 		return
 	}
 
@@ -897,7 +942,7 @@ func (s *Server) GetDecisionGraph(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(decGraph)
+	s.encodeResponse(w, decGraph)
 }
 
 // GetRootCause returns the reconstructed RootCause analysis for a given traceID.
@@ -908,10 +953,14 @@ func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	spans, err := s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
-	if err != nil || len(spans) == 0 {
+	var spans []models.SpanData
+	var err error
+	if s.healthRepo != nil {
+		spans, err = s.healthRepo.QuerySpansByTraceID(r.Context(), traceID)
+	}
+	if s.healthRepo == nil || err != nil || len(spans) == 0 {
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(fallbackRootCause(traceID))
+		s.encodeResponse(w, fallbackRootCause(traceID))
 		return
 	}
 
@@ -940,7 +989,7 @@ func (s *Server) GetRootCause(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(rc)
+	s.encodeResponse(w, rc)
 }
 
 

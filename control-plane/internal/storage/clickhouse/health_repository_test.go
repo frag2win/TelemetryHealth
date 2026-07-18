@@ -80,3 +80,40 @@ func TestHealthRepository_SafeSQLParameters(t *testing.T) {
 		t.Fatal("expected non-nil named parameter")
 	}
 }
+
+func TestPricingConfig(t *testing.T) {
+	cfg := ch.DefaultPricingConfig()
+	if cost := cfg.CalculateCost("gpt-4o", 1000); cost != 0.005 {
+		t.Errorf("expected 0.005 for 1000 gpt-4o tokens, got %f", cost)
+	}
+	if cost := cfg.CalculateCost("claude-3-5-sonnet", 2000); cost != 0.006 {
+		t.Errorf("expected 0.006 for 2000 claude-3-5-sonnet tokens, got %f", cost)
+	}
+	if cost := cfg.CalculateCost("unknown-model", 1000); cost != 0.005 {
+		t.Errorf("expected default rate 0.005 for unknown model, got %f", cost)
+	}
+}
+
+func TestCalculateHallucinationRisk(t *testing.T) {
+	tests := []struct {
+		name  string
+		attrs map[string]interface{}
+		want  string
+	}{
+		{"explicit high risk", map[string]interface{}{"llm.hallucination_risk": "High"}, "High"},
+		{"low confidence", map[string]interface{}{"llm.confidence": 0.65}, "High"},
+		{"medium confidence", map[string]interface{}{"llm.confidence": 0.78}, "Medium"},
+		{"multiple tool failures", map[string]interface{}{"llm.tool_call_failures": 2.0}, "High"},
+		{"single tool failure plus high temp", map[string]interface{}{"llm.tool_call_failures": 1.0, "llm.temperature": 0.9}, "High"},
+		{"normal low risk", map[string]interface{}{"llm.confidence": 0.95, "llm.tool_call_failures": 0.0, "llm.temperature": 0.5}, "Low"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ch.CalculateHallucinationRisk(tt.attrs)
+			if got != tt.want {
+				t.Errorf("CalculateHallucinationRisk(%v) = %s, want %s", tt.attrs, got, tt.want)
+			}
+		})
+	}
+}

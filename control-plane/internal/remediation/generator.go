@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 	"text/template"
+	"time"
 
 	"go.uber.org/zap"
 )
@@ -25,6 +26,15 @@ func NewGenerator(logger *zap.Logger) *Generator {
 // Generate proposes an OTel config snippet to fix the issue.
 // Uses embedded templates and text/template for dynamic variable substitution (PRD §8.5, Improvement #12).
 func (g *Generator) Generate(ctx context.Context, issueType string) (string, error) {
+	if _, ok := ctx.Deadline(); !ok {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+	}
+	if err := ctx.Err(); err != nil {
+		return "", fmt.Errorf("remediation generator context cancelled or timed out: %w", err)
+	}
+
 	data := map[string]interface{}{
 		"AttributeKey":       "user_id",
 		"SamplingPercentage": 100,
