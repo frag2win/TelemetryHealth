@@ -120,6 +120,18 @@ func (b *DefaultRootCauseBuilder) Build(dg *DecisionGraph) *RootCauseGraph {
 		}
 	}
 
+	if len(nodes) == 0 {
+		nodes = append(nodes, RootCauseNode{
+			ID:            "rc-info",
+			Category:      "System Info",
+			Label:         "No critical failures detected in causal chain",
+			Severity:      "info",
+			Confidence:    1.0,
+			EvidenceCount: 1,
+			Status:        "active",
+		})
+	}
+
 	return &RootCauseGraph{
 		Nodes: nodes,
 		Edges: edges,
