@@ -388,7 +388,7 @@ function App() {
             ))}
           </div>
           
-          <div className={`pill ${dataSource === 'live' ? 'live' : 'mock'}`} style={{ border: '1px solid var(--bezel)' }}>
+          <div className={`pill ${dataSource === 'live' ? 'live' : 'mock'}`}>
             {dataSource === 'live' ? '🟢 Live' : '🔶 Simulator'}
           </div>
 
@@ -401,27 +401,26 @@ function App() {
             <span>Updated: {lastFetched?.toLocaleTimeString() ?? '...'}</span>
           </div>
           
-          <button className="btn" style={{ padding: '6px' }} onClick={() => triggerFetch.current()} title="Refresh data">
+          <button className="btn btn-icon" onClick={() => triggerFetch.current()} title="Refresh data">
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           </button>
 
           {/* IMPL-1 (Dashboard Import): Import to SigNoz button */}
           <button
             id="import-signoz-btn"
-            className="btn"
-            style={{ padding: '6px 10px', background: 'var(--phosphor-dim)', border: '1px solid var(--phosphor)', color: 'var(--phosphor)' }}
+            className="btn btn-signoz"
             onClick={() => setActiveView('signoz')}
             title="Open SigNoz Integration panel"
           >
             <span style={{ fontSize: '11px' }}>📊 SigNoz</span>
           </button>
           
-          <button className="btn" style={{ padding: '6px 10px' }} onClick={handleExport} title="Export JSON configuration report">
+          <button className="btn" onClick={handleExport} title="Export JSON configuration report">
             <Download size={12} />
             <span>Export</span>
           </button>
           
-          <button className="btn" style={{ padding: '6px' }} onClick={() => {
+          <button className="btn btn-icon" onClick={() => {
             const newTheme = theme === 'dark' ? 'light' : 'dark';
             setTheme(newTheme);
           }} title="Toggle Visual Style">
@@ -434,7 +433,6 @@ function App() {
               value={selectedTenantId}
               onChange={(e) => setSelectedTenantId(e.target.value)}
               className="select-dropdown"
-              style={{ display: 'inline-flex' }}
             >
               {tenants.map(t => (
                 <option key={t.id} value={t.id}>{t.name}</option>

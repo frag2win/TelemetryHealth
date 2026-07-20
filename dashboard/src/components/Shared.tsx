@@ -123,22 +123,9 @@ interface ErrorBannerProps {
 
 export function ErrorBanner({ message }: ErrorBannerProps) {
   return (
-    <div
-      style={{
-        background: 'rgba(239, 68, 68, 0.08)',
-        padding: '10px 16px',
-        borderRadius: '4px',
-        border: '1px solid var(--red)',
-        color: 'var(--red)',
-        marginBottom: '14px',
-        fontSize: '13px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}
-    >
-      <AlertCircle size={14} />
-      <span>{message}</span>
+    <div className="error-banner">
+      <AlertCircle size={14} className="error-banner-icon" />
+      <span className="error-banner-text">{message}</span>
     </div>
   );
 }

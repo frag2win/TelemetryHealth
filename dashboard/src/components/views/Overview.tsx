@@ -11,7 +11,7 @@ interface AnimatedHealthGaugeProps {
 const AnimatedHealthGauge = ({ score }: AnimatedHealthGaugeProps) => {
   const [displayScore, setDisplayScore] = useState<number>(score);
   const displayScoreRef = useRef(displayScore);
-  const color = score > 80 ? 'var(--phosphor)' : score > 50 ? 'var(--amber)' : 'var(--red)';
+  const color = score >= 70 ? 'var(--phosphor)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
 
   // Sync displayScoreRef with current state
   useEffect(() => {
