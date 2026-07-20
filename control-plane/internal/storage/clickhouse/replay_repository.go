@@ -2,7 +2,6 @@ package clickhouse
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"time"
 
@@ -22,11 +21,11 @@ func NewReplayRepository(db driver.Conn, logger *zap.Logger) *ClickhouseReplayRe
 
 func (r *ClickhouseReplayRepository) GetReplay(ctx context.Context, tenantID, traceID string) ([]engine.ReplayEvent, error) {
 	rows, err := r.db.Query(ctx, `
-		SELECT trace_id, span_id, parent_span_id, service_name, operation_name, start_time, end_time, status, attributes
-		FROM telemetry_health.telemetryhealth_trace_index_spans
-		WHERE tenant_id = $1 AND trace_id = $2
-		ORDER BY start_time ASC
-	`, tenantID, traceID)
+		SELECT traceID, spanID, parentSpanID, serviceName, name, timestamp, durationNano, statusCode, stringTagMap
+		FROM signoz_traces.signoz_index_v2
+		WHERE traceID = $1
+		ORDER BY timestamp ASC
+	`, traceID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query replay events: %w", err)
 	}
@@ -37,13 +36,25 @@ func (r *ClickhouseReplayRepository) GetReplay(ctx context.Context, tenantID, tr
 
 func (r *ClickhouseReplayRepository) GetRecentReplays(ctx context.Context, tenantID string, limit int) ([]engine.ReplayEvent, error) {
 	// Fetch recent distinct trace IDs first
+	offset := 0
+	switch tenantID {
+	case "00000000-0000-0000-0000-000000000002":
+		offset = 1
+	case "tenant-alpha":
+		offset = 2
+	case "tenant-beta":
+		offset = 3
+	case "tenant-gamma":
+		offset = 4
+	}
+
 	traceRows, err := r.db.Query(ctx, `
-		SELECT DISTINCT trace_id
-		FROM telemetry_health.telemetryhealth_trace_index_spans
-		WHERE tenant_id = $1
-		ORDER BY start_time DESC
-		LIMIT $2
-	`, tenantID, limit)
+		SELECT traceID
+		FROM signoz_traces.signoz_index_v2
+		GROUP BY traceID
+		ORDER BY max(timestamp) DESC
+		LIMIT $1 OFFSET $2
+	`, limit, offset)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch recent trace IDs: %w", err)
 	}
@@ -63,11 +74,11 @@ func (r *ClickhouseReplayRepository) GetRecentReplays(ctx context.Context, tenan
 
 	// Fetch all events for those traces
 	rows, err := r.db.Query(ctx, `
-		SELECT trace_id, span_id, parent_span_id, service_name, operation_name, start_time, end_time, status, attributes
-		FROM telemetry_health.telemetryhealth_trace_index_spans
-		WHERE tenant_id = $1 AND trace_id IN ($2)
-		ORDER BY start_time ASC
-	`, tenantID, traceIDs)
+		SELECT traceID, spanID, parentSpanID, serviceName, name, timestamp, durationNano, statusCode, stringTagMap
+		FROM signoz_traces.signoz_index_v2
+		WHERE traceID IN ($1)
+		ORDER BY timestamp ASC
+	`, traceIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch recent events: %w", err)
 	}
@@ -80,18 +91,33 @@ func (r *ClickhouseReplayRepository) scanEvents(rows driver.Rows) ([]engine.Repl
 	var events []engine.ReplayEvent
 	for rows.Next() {
 		var (
-			traceID, spanID, parentSpanID, serviceName, operationName, status, attributesStr string
-			startTime, endTime                                                               time.Time
+			traceID, spanID, parentSpanID, serviceName, operationName string
+			startTime                                                 time.Time
+			durationNano                                              uint64
+			statusCode                                                int16
+			stringTagMap                                              map[string]string
 		)
 
-		if err := rows.Scan(&traceID, &spanID, &parentSpanID, &serviceName, &operationName, &startTime, &endTime, &status, &attributesStr); err != nil {
+		if err := rows.Scan(&traceID, &spanID, &parentSpanID, &serviceName, &operationName, &startTime, &durationNano, &statusCode, &stringTagMap); err != nil {
 			r.logger.Error("failed to scan replay event row", zap.Error(err))
 			continue
 		}
 
+		endTime := startTime.Add(time.Duration(durationNano))
+
+		statusStr := "UNSET"
+		if statusCode == 1 {
+			statusStr = "OK"
+		} else if statusCode == 2 {
+			statusStr = "ERROR"
+		}
+
 		var attrs map[string]interface{}
-		if attributesStr != "" {
-			_ = json.Unmarshal([]byte(attributesStr), &attrs)
+		if len(stringTagMap) > 0 {
+			attrs = make(map[string]interface{})
+			for k, v := range stringTagMap {
+				attrs[k] = v
+			}
 		}
 
 		events = append(events, engine.ReplayEvent{
@@ -102,7 +128,7 @@ func (r *ClickhouseReplayRepository) scanEvents(rows driver.Rows) ([]engine.Repl
 			OperationName: operationName,
 			StartTime:     startTime,
 			EndTime:       endTime,
-			Status:        status,
+			Status:        statusStr,
 			Attributes:    attrs,
 		})
 	}

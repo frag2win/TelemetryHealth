@@ -36,6 +36,7 @@ function ReplayTimeline({ tenantId }: { tenantId: string }) {
 
   const fetchReplay = async (traceId?: string) => {
     setLoading(true);
+    setReplay(null); // Visually clear the timeline so the user knows it's loading
     setError(null);
     try {
       const url = traceId
@@ -43,7 +44,8 @@ function ReplayTimeline({ tenantId }: { tenantId: string }) {
         : `/api/v1/tenant/${tenantId}/replay`;
       const res = await fetch(url, { headers: { 'Authorization': 'Bearer health-demo-key-2026' } });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ReplayPayload = await res.json();
+      const data: ReplayPayload & { loadedAt?: string } = await res.json();
+      data.loadedAt = new Date().toLocaleTimeString();
       setReplay(data);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'Failed to load replay');
@@ -52,7 +54,10 @@ function ReplayTimeline({ tenantId }: { tenantId: string }) {
     }
   };
 
-  useEffect(() => { fetchReplay(); }, [tenantId]);
+  // Automatically fetch new data when the tenant (enterprise) changes
+  useEffect(() => {
+    fetchReplay(undefined);
+  }, [tenantId]);
 
   const getStatusColor = (status: string) => {
     if (status === 'ERROR') return 'var(--red)';
@@ -127,6 +132,8 @@ function ReplayTimeline({ tenantId }: { tenantId: string }) {
             <span>Trace: <code style={{ color: 'var(--amber)' }}>{replay.trace_id}</code></span>
             <span>Mode: <code style={{ color: 'var(--phosphor)' }}>{replay.mode}</code></span>
             <span>Spans: <code style={{ color: 'var(--paper)' }}>{replay.events?.length ?? 0}</code></span>
+            {/* @ts-ignore - added loadedAt ad-hoc */}
+            {replay.loadedAt && <span>Updated: <code style={{ color: 'var(--paper)' }}>{replay.loadedAt}</code></span>}
           </div>
 
           {/* Gantt-style timeline */}
