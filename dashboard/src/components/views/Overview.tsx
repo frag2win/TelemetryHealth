@@ -47,20 +47,36 @@ const AnimatedHealthGauge = ({ score }: AnimatedHealthGaugeProps) => {
 
   return (
     <div className="health-gauge" style={{ display: 'flex', justifyContent: 'center' }}>
-      <svg width="140" height="140" viewBox="0 0 200 200">
-        <circle cx="100" cy="100" r="80" stroke="var(--panel-2)" strokeWidth="15" fill="none" />
+      <svg width="150" height="150" viewBox="0 0 200 200">
+        {/* Background Dial Track */}
         <circle
-          cx="100" cy="100" r="80"
-          stroke={color} strokeWidth="15" fill="none"
-          strokeDasharray="502"
-          strokeDashoffset={502 - (502 * displayScore) / 100}
+          cx="100" cy="100" r="75"
+          stroke="var(--bezel)" strokeWidth="10" fill="none"
+          strokeDasharray="353.43 471.24"
           strokeLinecap="round"
-          transform="rotate(-90 100 100)"
-          className="transition-colors"
-          style={{ transition: 'stroke-dashoffset 0.3s ease-in-out, stroke 0.3s ease-in-out' }}
+          transform="rotate(135 100 100)"
         />
-        <text x="100" y="115" textAnchor="middle" fontSize="48" fontWeight="600" fill={color} className="transition-colors">
+        {/* Active Progress Value */}
+        <circle
+          cx="100" cy="100" r="75"
+          stroke={color} strokeWidth="12" fill="none"
+          strokeDasharray="353.43 471.24"
+          strokeDashoffset={353.43 - (353.43 * displayScore) / 100}
+          strokeLinecap="round"
+          transform="rotate(135 100 100)"
+          className="transition-colors"
+          style={{
+            transition: 'stroke-dashoffset 0.3s ease-in-out, stroke 0.3s ease-in-out',
+            filter: 'drop-shadow(0 0 6px ' + color + ')'
+          }}
+        />
+        {/* Score Text */}
+        <text x="100" y="110" textAnchor="middle" fill="var(--paper)" className="gauge-value" style={{ fontSize: '52px', fontWeight: 'bold', fontFamily: 'var(--mono)' }}>
           {typeof displayScore === 'number' && !isNaN(displayScore) ? Math.round(displayScore) : 0}
+        </text>
+        {/* Label inside gauge */}
+        <text x="100" y="132" textAnchor="middle" fill="var(--muted)" style={{ fontSize: '10px', fontWeight: '500', fontFamily: 'var(--mono)', letterSpacing: '2px', textTransform: 'uppercase' }}>
+          score
         </text>
       </svg>
     </div>
@@ -98,8 +114,9 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
   );
 
   const score = data.healthScore ?? 78;
-  const bandClass = score > 90 ? 'band-healthy' : score > 50 ? 'band-degraded' : 'band-critical';
-  const bandText = score > 90 ? 'healthy' : score > 50 ? 'degraded' : 'critical';
+  const bandClass = score >= 70 ? 'band-healthy' : score >= 40 ? 'band-degraded' : 'band-critical';
+  const bandText = score >= 70 ? 'healthy' : score >= 40 ? 'degraded' : 'critical';
+  const statusColor = score >= 70 ? 'var(--phosphor)' : score >= 40 ? 'var(--amber)' : 'var(--red)';
 
   // Math.max protection to prevent vertical SVG rendering overflows
   const calcY = (p: number) => Math.max(0, Math.round(150 - (p / 100) * 140));
@@ -109,6 +126,14 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
     if (points.length <= 1) return '';
     const step = 640 / (points.length - 1);
     return points.map((p, i) => `${i === 0 ? 'M' : 'L'}${Math.round(i * step)},${calcY(p)}`).join(' ');
+  };
+
+  const createAreaPath = (points: number[]) => {
+    if (points.length <= 1) return '';
+    const pathStr = createPath(points);
+    const step = 640 / (points.length - 1);
+    const lastX = Math.round((points.length - 1) * step);
+    return `${pathStr} L${lastX},150 L0,150 Z`;
   };
   
   const history = data.history ?? [
@@ -153,16 +178,23 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
         <div className="hero-chart" style={{ flex: 2 }}>
           <div className="scanline"></div>
           <svg viewBox="0 0 640 190" style={{ width: '100%', height: '190px', display: 'block' }}>
-            <line x1="0" y1={calcY(80)} x2="640" y2={calcY(80)} stroke="#5CE1A5" strokeWidth="1" strokeDasharray="4 4" opacity="0.45" />
-            <text x="6" y={calcY(80) - 6} className="trace-text dim">
+            <defs>
+              <linearGradient id="chart-glow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor={statusColor} stopOpacity="0.15" />
+                <stop offset="100%" stopColor={statusColor} stopOpacity="0.0" />
+              </linearGradient>
+            </defs>
+            <line x1="0" y1={calcY(80)} x2="640" y2={calcY(80)} stroke="var(--phosphor)" strokeWidth="1" strokeDasharray="4 4" opacity="0.25" />
+            <text x="6" y={calcY(80) - 6} className="trace-text dim" style={{ fill: 'var(--phosphor)', opacity: 0.8 }}>
               80 • healthy
             </text>
-            <line x1="0" y1={calcY(50)} x2="640" y2={calcY(50)} stroke="#E5484D" strokeWidth="1" strokeDasharray="4 4" opacity="0.45" />
-            <text x="6" y={calcY(50) - 6} className="trace-text dim">
+            <line x1="0" y1={calcY(50)} x2="640" y2={calcY(50)} stroke="var(--red)" strokeWidth="1" strokeDasharray="4 4" opacity="0.25" />
+            <text x="6" y={calcY(50) - 6} className="trace-text dim" style={{ fill: 'var(--red)', opacity: 0.8 }}>
               50 • critical
             </text>
-            <path d={createPath(history)} fill="none" stroke="#5CE1A5" strokeWidth="2" />
-            <circle cx="640" cy={calcY(history[history.length - 1])} r="4" fill="#F5A623" />
+            <path d={createAreaPath(history)} fill="url(#chart-glow)" />
+            <path d={createPath(history)} fill="none" stroke={statusColor} strokeWidth="2.5" />
+            <circle cx="640" cy={calcY(history[history.length - 1])} r="5" fill={statusColor} style={{ filter: 'drop-shadow(0 0 4px ' + statusColor + ')' }} />
             <text x="0" y="182" className="trace-text dim">
               7d ago
             </text>

@@ -985,7 +985,7 @@ tbody tr:hover {
   50% { border-color: rgba(255, 77, 77, 0.3); box-shadow: 0 0 0 4px rgba(255, 77, 77, 0); }
 }
 
-.health-gauge text {
+.health-gauge text.gauge-value {
   font-family: var(--mono) !important;
   font-weight: 600 !important;
   font-size: 52px !important;
