@@ -8,7 +8,8 @@ import { AgentTraces } from './components/views/AgentTraces';
 import { DigitalTwin } from './components/views/DigitalTwin';
 import { SigNozIntegration } from './components/views/SigNozIntegration';
 import { SigNozStatusBadge, AlertFiredBanner } from './components/SigNozComponents';
-import { RefreshCw, Download, Sun, Moon, Menu, X } from 'lucide-react';
+import { Gauge, Columns2, Link2, ShieldCheck, Wrench, Server, GitBranch, Activity, RotateCw, LayoutDashboard, Download, Moon, Sun, Menu, X } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { ErrorBanner } from './components/Shared';
 import { ErrorBoundary } from './main';
 
@@ -68,14 +69,14 @@ const timeRanges = [
 
 // Immutable static configuration mapping for navigation items
 const navItems = [
-  { id: 'overview', chan: '01', label: 'Overview', ledClass: 'on-a' },
-  { id: 'cardinality', chan: '02', label: 'Cardinality', ledClass: 'on-r' },
-  { id: 'tracechains', chan: '03', label: 'Trace chains', ledClass: 'on-r' },
-  { id: 'coverage', chan: '04', label: 'Coverage', ledClass: 'on-a' },
-  { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p' },
-  { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p' },
-  { id: 'topology', chan: '07', label: 'Topology Twin', ledClass: 'on-a' },
-  { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a' }
+  { id: 'overview', chan: '01', label: 'Overview', ledClass: 'on-a', icon: Gauge },
+  { id: 'cardinality', chan: '02', label: 'Cardinality', ledClass: 'on-r', icon: Columns2 },
+  { id: 'tracechains', chan: '03', label: 'Trace chains', ledClass: 'on-r', icon: Link2 },
+  { id: 'coverage', chan: '04', label: 'Coverage', ledClass: 'on-a', icon: ShieldCheck },
+  { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p', icon: Wrench },
+  { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p', icon: Server },
+  { id: 'topology', chan: '07', label: 'Topology Twin', ledClass: 'on-a', icon: GitBranch },
+  { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a', icon: Activity }
 ];
 
 interface NavItemProps {
@@ -84,18 +85,20 @@ interface NavItemProps {
   label: string;
   ledClass: string;
   activeView: string;
+  icon: LucideIcon;
   onClick: (id: string) => void;
 }
 
-// Converted navItem into a formal React functional component
-function NavItem({ id, chan, label, ledClass, activeView, onClick }: NavItemProps) {
+// Converted navItem into a formal React functional component with Nav icon
+function NavItem({ id, chan, label, ledClass, activeView, icon: Icon, onClick }: NavItemProps) {
   return (
     <button
       className={`nav-item ${activeView === id ? 'active' : ''}`}
       onClick={() => onClick(id)}
     >
-      <span className="chan">{chan}</span>
+      <Icon size={16} className="icon" aria-hidden="true" />
       <span className="lbl">{label}</span>
+      <span className="chan">{chan}</span>
       <span className={`led ${ledClass}`}></span>
     </button>
   );
@@ -330,6 +333,7 @@ function App() {
               label={item.label}
               ledClass={item.ledClass}
               activeView={activeView}
+              icon={item.icon}
               onClick={(id) => {
                 setActiveView(id);
                 setIsMobileMenuOpen(false);
@@ -356,6 +360,7 @@ function App() {
               label={item.label}
               ledClass={item.ledClass}
               activeView={activeView}
+              icon={item.icon}
               onClick={setActiveView}
             />
           ))}
@@ -401,8 +406,8 @@ function App() {
             <span>Updated: {lastFetched?.toLocaleTimeString() ?? '...'}</span>
           </div>
           
-          <button className="btn btn-icon" onClick={() => triggerFetch.current()} title="Refresh data">
-            <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
+          <button className="btn btn-icon" onClick={() => triggerFetch.current()} title="Refresh data" aria-label="Refresh">
+            <RotateCw size={16} className={loading ? 'spinning' : ''} />
           </button>
 
           {/* IMPL-1 (Dashboard Import): Import to SigNoz button */}
@@ -412,19 +417,20 @@ function App() {
             onClick={() => setActiveView('signoz')}
             title="Open SigNoz Integration panel"
           >
-            <span style={{ fontSize: '11px' }}>📊 SigNoz</span>
+            <LayoutDashboard size={16} />
+            <span>SigNoz</span>
           </button>
           
           <button className="btn" onClick={handleExport} title="Export JSON configuration report">
-            <Download size={12} />
+            <Download size={16} />
             <span>Export</span>
           </button>
           
           <button className="btn btn-icon" onClick={() => {
             const newTheme = theme === 'dark' ? 'light' : 'dark';
             setTheme(newTheme);
-          }} title="Toggle Visual Style">
-            {theme === 'dark' ? <Sun size={12} /> : <Moon size={12} />}
+          }} title="Toggle Visual Style" aria-label="Toggle theme">
+            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
           </button>
 
           {/* Interactive Tenant Switcher */}
@@ -474,7 +480,7 @@ function App() {
         <div className="content">
           {loading && !data ? (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh', color: 'var(--muted)' }}>
-              <RefreshCw size={36} className="animate-spin" />
+              <RotateCw size={36} className="spinning" />
             </div>
           ) : !data ? (
             <div style={{ padding: '40px', textAlign: 'center', border: '1px dashed var(--bezel)', borderRadius: '6px', color: 'var(--muted)' }}>

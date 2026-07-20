@@ -445,6 +445,9 @@ body { display: flex; min-height: 100vh; width: 100%; }
   color: var(--muted);
   text-transform: uppercase;
   margin-bottom: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
 .metric-val {
@@ -987,4 +990,56 @@ tbody tr:hover {
   font-weight: 600 !important;
   font-size: 52px !important;
 }
+
+/* ICON BASE STYLES */
+.icon {
+  flex-shrink: 0;
+  color: var(--muted);
+  transition: color 0.15s ease;
+}
+
+/* NAV ICON STATES */
+.nav-item .icon {
+  color: var(--muted);
+}
+
+.nav-item:hover .icon {
+  color: var(--paper);
+}
+
+.nav-item.active .icon {
+  color: var(--phosphor);
+}
+
+/* TOPBAR ICON STATES */
+.btn-icon .icon {
+  color: var(--muted);
+}
+
+.btn-icon:hover .icon {
+  color: var(--paper);
+}
+
+.btn-signoz .icon {
+  color: var(--phosphor);
+}
+
+/* STATUS ICON COLORS */
+.status-icon.healthy {
+  color: var(--phosphor);
+}
+
+.status-icon.degraded {
+  color: var(--amber);
+}
+
+.status-icon.critical {
+  color: var(--red);
+}
+
+/* SPINNING ANIMATION FOR REFRESH */
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
 

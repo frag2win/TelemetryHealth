@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { ArrowUpRight, ArrowDownRight, AlertTriangle } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, AlertTriangle, Database, Activity, Clock, CheckCircle } from 'lucide-react';
 import { Metric, useTenantData, ErrorBanner, SkeletonLoader } from '../Shared';
 import { RootCauseGraph } from './RootCauseGraph';
 import type { DashboardData } from '../../App';
@@ -183,6 +183,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           color="red"
           tooltip="Max cardinality across all service/attribute pairs in a rolling 15m window"
           change={data.metrics?.cardinality?.change ?? 14.5}
+          icon={Database}
           isInteractive
           isActive={activeDrilldown === 'cardinality'}
           onClick={() => toggleDrilldown('cardinality')}
@@ -195,6 +196,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           color="amber"
           tooltip="Percentage of spans missing a parent trace context within a 30s arrival window"
           change={data.metrics?.orphans?.change ?? 1.2}
+          icon={Activity}
           isInteractive
           isActive={activeDrilldown === 'orphans'}
           onClick={() => toggleDrilldown('orphans')}
@@ -207,6 +209,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           color="amber"
           tooltip="Active services reporting telemetry compared to baseline expectations"
           change={data.metrics?.coverage?.change ?? 0.0}
+          icon={CheckCircle}
           isInteractive
           isActive={activeDrilldown === 'coverage'}
           onClick={() => toggleDrilldown('coverage')}
@@ -219,6 +222,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           color="phosphor"
           tooltip="Estimated wasted infra spend due to bloated metric dimensions or duplicate traces"
           change={-5.4}
+          icon={Database}
           isInteractive
           isActive={activeDrilldown === 'cost'}
           onClick={() => toggleDrilldown('cost')}
@@ -231,6 +235,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           color="phosphor"
           tooltip="Average LLM token burn rate across all AI agents"
           change={data.metrics?.tokenBurnRate?.change ?? 12.5}
+          icon={Clock}
         />
         <Metric
           label="Tool Call Success"
@@ -240,6 +245,7 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
           color="phosphor"
           tooltip="Success rate of agent tool executions (no errors)"
           change={data.metrics?.toolCallSuccess?.change ?? 0.2}
+          icon={CheckCircle}
         />
       </div>
 

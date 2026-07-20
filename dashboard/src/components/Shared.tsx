@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Info, ArrowUpRight, ArrowDownRight, AlertCircle, Check, AlertTriangle } from 'lucide-react';
+import { Info, ArrowUpRight, ArrowDownRight, Check, AlertTriangle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../App';
 import type { Node, Edge } from '@xyflow/react';
 
@@ -124,7 +125,7 @@ interface ErrorBannerProps {
 export function ErrorBanner({ message }: ErrorBannerProps) {
   return (
     <div className="error-banner">
-      <AlertCircle size={14} className="error-banner-icon" />
+      <AlertTriangle size={16} className="error-banner-icon" />
       <span className="error-banner-text">{message}</span>
     </div>
   );
@@ -162,12 +163,13 @@ export interface MetricProps {
   color: string;
   tooltip: string;
   change: number;
+  icon?: LucideIcon;
   isInteractive?: boolean;
   isActive?: boolean;
   onClick?: () => void;
 }
 
-export function Metric({ label, value, sub, percent, color, tooltip, change, isInteractive, isActive, onClick }: MetricProps) {
+export function Metric({ label, value, sub, percent, color, tooltip, change, icon: Icon, isInteractive, isActive, onClick }: MetricProps) {
   // Inverted color coding rule: coverage gap increases are bad (red)
   const isCoverageGap = label.toLowerCase().includes('coverage gaps');
   const isGood = isCoverageGap ? change <= 0 : (label.toLowerCase().includes('coverage') ? change >= 0 : change <= 0);
@@ -184,7 +186,10 @@ export function Metric({ label, value, sub, percent, color, tooltip, change, isI
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <div className="metric-label">{label}</div>
+        <div className="metric-label">
+          {Icon && <Icon size={16} aria-hidden="true" />}
+          <span>{label}</span>
+        </div>
         <div title={tooltip} style={{ cursor: 'help', color: 'var(--muted)' }}>
           <Info size={12} />
         </div>
