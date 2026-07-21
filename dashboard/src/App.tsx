@@ -365,6 +365,26 @@ function App() {
             />
           ))}
         </nav>
+        <div style={{ padding: '16px', fontSize: '11px', color: 'var(--muted)', borderTop: '1px solid var(--border)', marginTop: 'auto', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--foreground)', marginBottom: '8px' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+              <polyline points="2 17 12 22 22 17"></polyline>
+              <polyline points="2 12 12 17 22 12"></polyline>
+            </svg>
+            <strong>SigNoz Implementation</strong>
+          </div>
+          <ul style={{ paddingLeft: '0', margin: '0', listStyleType: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {['MCP Server', 'Alertmanager Bridge', 'Custom OTLP Metrics', 'Remediation Engine', 'ClickHouse Storage', 'REST API', 'Foundry Deployment'].map(feature => (
+              <li key={feature} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+                {feature}
+              </li>
+            ))}
+          </ul>
+        </div>
         <div className="sidebar-foot">
           tenant: {selectedTenantId}
           <br />
