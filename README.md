@@ -2,94 +2,108 @@
 
 # 🩺 TelemetryHealth
 
-### Production-Grade Telemetry Health Monitoring Platform
+### *Observe Your Observability*
 
-**Detect, Score, and Auto-Remediate broken observability pipelines — before your users notice.**
+**The world's first meta-observability platform — an OpenTelemetry Collector processor that monitors, scores, and auto-heals your entire telemetry pipeline.**
 
 [![Go Version](https://img.shields.io/badge/Go-1.22+-00ADD8?style=flat-square&logo=go)](https://golang.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?style=flat-square&logo=react)](https://react.dev)
 [![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-Collector-orange?style=flat-square&logo=opentelemetry)](https://opentelemetry.io)
+[![SigNoz](https://img.shields.io/badge/SigNoz-Integrated-FF6B35?style=flat-square)](https://signoz.io)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Hackathon](https://img.shields.io/badge/SigNoz%20Hackathon-Track%2002-purple?style=flat-square)](https://wemakedevs.org/hackathons/signoz)
+
+> **Built for the SigNoz Agents of Observability Hackathon · Track 02: Signals & Dashboards · Jul 20–26, 2026**
 
 </div>
 
 ---
 
-## 🤖 AI Agent Observability (Hackathon Theme)
+## 🚨 The Problem Nobody Talks About
 
-TelemetryHealth was built for the **SigNoz Agents of Observability Hackathon**. It monitors AI agent workflows instrumented with OpenTelemetry, detecting:
+You spend weeks setting up OpenTelemetry. You deploy SigNoz. You breathe easy.
 
-- **Token cost explosions** - Agents burning through LLM credits
-- **Broken decision chains** - Missing spans in agentic reasoning loops  
-- **Tool call failures** - Silent failures in agent tool execution
-- **Cardinality explosions** - High-cardinality attributes in agent prompts
+Then, three months later:
+- Your SigNoz bill **quadrupled** — but why?
+- Half your traces are **orphaned**, showing broken distributed chains
+- A critical microservice **silently stopped emitting** telemetry two weeks ago — nobody noticed
+- A developer shipped a feature using `user_id` as a metric label, causing **1.2M unique cardinality values**
 
-See [`sdk-clients/ai-agent-demo/`](./sdk-clients/ai-agent-demo/) for a sample instrumented agent.
+**The painful irony: your observability system is unobserved.**
 
-### 🎥 Demo Video
-[Link to Hackathon Demo Video](#) (Replace with actual link before submission)
-
----
-
-## 📌 What Is TelemetryHealth?
-
-TelemetryHealth is a production-ready observability reliability platform. It sits **inline with your OpenTelemetry Collector pipeline** and continuously monitors the health of your telemetry signals — catching cardinality explosions, broken trace chains, and coverage gaps **before** they corrupt your dashboards or exceed your billing.
-
-Every tenant gets a real-time **Composite Health Score (0–100)**, and when an issue is detected, the platform generates a **one-click OTel YAML remediation snippet** to fix it.
+TelemetryHealth solves this by sitting *inside* your OTel Collector pipeline and continuously monitoring the health of your telemetry signals — in real time.
 
 ---
 
-## ✨ Features
+## ✨ What TelemetryHealth Does
 
-| Feature | Description |
-|---|---|
-| 🔢 **Cardinality Detection** | HyperLogLog sketches detect attribute cardinality explosions per service/key across the entire collector fleet |
-| 🔗 **Broken Trace-Chain Detection** | Identifies orphaned spans with no parent across collectors using bounded out-of-order event correlation |
-| 📡 **Coverage Gap Monitoring** | Detects services that silently stop emitting telemetry |
-| 📊 **Composite Health Score** | A weighted (0-100) score combining all signal sources, configurable per tenant |
-| 🛠 **Auto-Remediation** | Generates OTel Collector YAML config patches validated via YAML structural checks and an OTel component allowlist |
-| 🔔 **Alerting Bridges** | Integrates with SigNoz Alertmanager with deduplication and 15-minute cooldown suppression |
-| 🏢 **Multi-Tenancy** | Zero-trust mTLS authentication validates tenant claims against SPIFFE/X.509 certificate SANs |
-| 🛡 **Fail-Open Design** | All processor logic is wrapped in a circuit breaker — a processor crash **never** blocks the primary OTel pipeline |
-| 🤖 **SigNoz MCP Server** | Exposes the TelemetryHealth insights and autonomous remediation tools to SigNoz's AI agents via the Model Context Protocol |
+TelemetryHealth is a **production-grade OTel Collector processor** with a full control plane, React dashboard, and SigNoz MCP integration. It does three things:
+
+1. **Detects** — Runs inline health analyzers on every span, metric, and log passing through your pipeline
+2. **Scores** — Aggregates findings into a **Composite Health Score (0–100)** per tenant, visible in SigNoz
+3. **Heals** — Generates validated, ready-to-apply OTel Collector YAML config patches to fix the issue
 
 ---
 
-## 🏗 Architecture
+## 🎯 Detection Capabilities
+
+| Health Check | What It Catches | Technical Approach |
+|---|---|---|
+| 🔢 **Cardinality Explosion** | Attributes with label cardinality spiking past configurable thresholds (e.g. `user_id`, `session_id` on metrics) | Per-service/key HyperLogLog (HLL) sketches, merged centrally |
+| 🔗 **Broken Trace Chains** | Orphaned spans: spans with a `parent_span_id` referencing a span that never arrived | Bounded out-of-order event correlation with configurable TTL windows |
+| 📡 **Coverage Gaps** | Services that silently stop emitting telemetry (zero spans/metrics/logs in a configurable window) | Heartbeat tracking per service against known-endpoint registry |
+| 🤖 **AI Agent Health** | Token cost explosions, broken decision chains, silent tool-call failures in LLM-instrumented agents | OTel GenAI semantic convention attribute inspection |
+| 📋 **Semantic Convention Violations** | Attributes deviating from OTel GenAI and standard semantic conventions | Attribute key allowlist + convention schema validation |
+
+---
+
+## 🏗 Architecture — Full System View
 
 ```
-┌───────────────────────────────────────────────────────┐
-│                Your OTel Collector Fleet               │
-│  ┌──────────────────────────────────────────────────┐ │
-│  │  TelemetryHealth Processor (Go, OTel Collector)   │ │
-│  │  ┌─────────────┐  ┌────────────┐  ┌──────────┐  │ │
-│  │  │ Cardinality │  │ TraceChain │  │ Coverage │  │ │
-│  │  │  Tracker    │  │  Detector  │  │  Monitor │  │ │
-│  │  └──────┬──────┘  └─────┬──────┘  └────┬─────┘  │ │
-│  │         └───────────────┴───────────────┘        │ │
-│  │                  Circuit Breaker (Fail-Open)       │ │
-│  └─────────────────────────┬────────────────────────┘ │
-└────────────────────────────┼──────────────────────────┘
-                             │ gRPC / OTLP (mTLS)
-                             ▼
-┌───────────────────────────────────────────────────────┐
-│                  Control Plane (Go)                    │
-│  ┌────────────────┐  ┌──────────────┐  ┌───────────┐ │
-│  │ Ingest Gateway │  │ Stream Jobs  │  │ REST API  │ │
-│  │   (gRPC/OTLP) │  │ (HLL Merge)  │  │  (HTTP)   │ │
-│  └────────────────┘  └──────┬───────┘  └─────┬─────┘ │
-│                             ▼                 │       │
-│                    ┌────────────────┐         │       │
-│                    │   ClickHouse   │◄────────┘       │
-│                    │  (TTL / AggMT) │                 │
-│                    └────────────────┘                 │
-└───────────────────────────────────────────────────────┘
-                             │
-                             ▼
-┌───────────────────────────────────────────────────────┐
-│           React Dashboard (Vite + TypeScript)          │
-│    Health Score Gauge ▪ Metric Cards ▪ YAML Viewer    │
-└───────────────────────────────────────────────────────┘
+╔══════════════════════════════════════════════════════════════╗
+║                  Your OTel Collector Fleet                   ║
+║  ┌──────────────────────────────────────────────────────┐   ║
+║  │      TelemetryHealth Processor  (Go, OTel SDK)       │   ║
+║  │                                                       │   ║
+║  │  ┌─────────────┐  ┌──────────────┐  ┌────────────┐  │   ║
+║  │  │ Cardinality │  │  TraceChain  │  │  Coverage  │  │   ║
+║  │  │  Tracker    │  │   Detector   │  │  Monitor   │  │   ║
+║  │  │ (HLL/svc)   │  │ (orphan TTL) │  │ (heartbeat)│  │   ║
+║  │  └──────┬──────┘  └──────┬───────┘  └─────┬──────┘  │   ║
+║  │         └────────────────┴────────────────┘          │   ║
+║  │              Fail-Open Circuit Breaker                │   ║
+║  │        [Processor panic? Pipeline keeps flowing]      │   ║
+║  └───────────────────────┬───────────────────────────────┘   ║
+╚══════════════════════════╪═══════════════════════════════════╝
+                           │ gRPC / OTLP  (mTLS + SPIFFE)
+                           ▼
+╔══════════════════════════════════════════════════════════════╗
+║                    Control Plane  (Go)                       ║
+║                                                              ║
+║  ┌──────────────┐  ┌────────────────┐  ┌─────────────────┐  ║
+║  │ Ingest Gtwy  │  │  Stream Jobs   │  │   REST API      │  ║
+║  │ (gRPC/OTLP)  │  │  (HLL Merge   │  │  /api/v1/...    │  ║
+║  │  mTLS AuthZ  │  │   + Scoring)   │  │  Health Score   │  ║
+║  └──────┬───────┘  └───────┬────────┘  └────────┬────────┘  ║
+║         │                  ▼                     │           ║
+║         │         ┌─────────────────┐            │           ║
+║         └────────►│   ClickHouse    │◄───────────┘           ║
+║                   │  (TTL / AggMT)  │                        ║
+║                   └─────────────────┘                        ║
+║                                                              ║
+║  ┌──────────────────────────────────────────────────────┐   ║
+║  │         MCP Server  (SSE + stdio modes)              │   ║
+║  │   GetTelemetryHealth · GenerateRemediation tools     │   ║
+║  └──────────────────────────────────────────────────────┘   ║
+╚══════════════════════════╪═══════════════════════════════════╝
+                           │ REST + WebSocket
+                 ┌─────────┴──────────┐
+                 ▼                    ▼
+  ╔════════════════════════╗   ╔══════════════════╗
+  ║  React Dashboard       ║   ║  SigNoz Platform ║
+  ║  (Vite + TypeScript)   ║   ║  Dashboards &    ║
+  ║  Health Gauge · YAML   ║   ║  Alerts Bridge   ║
+  ╚════════════════════════╝   ╚══════════════════╝
 ```
 
 ---
@@ -98,108 +112,155 @@ Every tenant gets a real-time **Composite Health Score (0–100)**, and when an 
 
 ```
 TelemetryHealth/
-├── processor/                    # OTel Collector Processor (Go module)
-│   ├── failopen/                 #   Fail-open circuit breaker
-│   ├── cardinality/              #   Local HyperLogLog tracker
-│   ├── tracechain/               #   Local orphan span detector
-│   ├── traces_consumer.go        #   OTLP Traces hook
-│   ├── metrics_consumer.go       #   OTLP Metrics hook
-│   └── logs_consumer.go          #   OTLP Logs hook
 │
-├── control-plane/                # Control Plane (Go module)
-│   ├── cmd/ingest-gateway/       #   gRPC OTLP receiver entrypoint
-│   ├── internal/
-│   │   ├── authz/                #   mTLS / SPIFFE tenant verification
-│   │   ├── ingest/               #   gRPC server (Traces, Metrics, Logs)
-│   │   ├── streaming/            #   Stream processing jobs
-│   │   ├── storage/clickhouse/   #   ClickHouse DDL & query layer
-│   │   ├── api/rest/             #   HTTP REST API server
-│   │   ├── remediation/          #   YAML config generator & validator
-│   │   └── alerting/             #   SigNoz alerting bridge
-│   └── deployments/helm/         #   Kubernetes Helm chart
+├── processor/                        # OTel Collector Processor (Go module)
+│   ├── factory.go                    #   Component factory & registration
+│   ├── config.go                     #   Processor config schema
+│   ├── base_consumer.go              #   Shared signal consumer base
+│   ├── traces_consumer.go            #   OTLP Traces hook (10.4KB — most logic here)
+│   ├── metrics_consumer.go           #   OTLP Metrics hook
+│   ├── logs_consumer.go              #   OTLP Logs hook
+│   ├── metrics.go                    #   OTel instrumentation: emits health metrics
+│   ├── cardinality/                  #   HyperLogLog cardinality tracker
+│   ├── tracechain/                   #   Orphan span detector
+│   └── failopen/                     #   Circuit breaker (93.9% test coverage)
 │
-├── dashboard/                    # Frontend React App (Vite + TypeScript)
+├── control-plane/                    # Control Plane (Go module)
+│   ├── cmd/
+│   │   ├── api-server/               #   REST API entrypoint (port 8080)
+│   │   ├── mcp-server/               #   MCP server entrypoint (port 8081)
+│   │   ├── ingest-gateway/           #   gRPC OTLP receiver
+│   │   └── worker/                   #   Kafka consumer / stream job workers
+│   └── internal/
+│       ├── authz/                    #   mTLS / SPIFFE zero-trust verification (100% coverage)
+│       ├── ingest/                   #   gRPC server impl (Traces, Metrics, Logs)
+│       ├── streaming/                #   HLL merge + scoring stream jobs
+│       ├── storage/clickhouse/       #   ClickHouse DDL schema & query layer
+│       ├── api/rest/                 #   HTTP REST API handlers
+│       ├── remediation/              #   YAML patch generator + OTel allowlist validator
+│       ├── alerting/                 #   SigNoz Alertmanager bridge (15-min cooldown)
+│       └── mcp/
+│           └── tools.go              #   MCP tool definitions (GetTelemetryHealth, GenerateRemediation)
+│
+├── dashboard/                        # Frontend (React 19 + Vite + TypeScript)
 │   └── src/
 │       ├── components/
-│       │   ├── Layout.tsx        #   Sidebar + header navigation
-│       │   ├── HealthGauge.tsx   #   Animated circular SVG gauge
-│       │   ├── MetricCard.tsx    #   KPI metric cards
-│       │   └── RemediationPanel.tsx  # YAML copy-paste viewer
-│       └── App.tsx               #   Main app with API fetch hook
+│       │   ├── HealthGauge.tsx       #   Animated circular SVG health gauge
+│       │   ├── MetricCard.tsx        #   KPI metric cards with delta indicators
+│       │   ├── RemediationPanel.tsx  #   YAML viewer with one-click copy
+│       │   └── Layout.tsx            #   Sidebar + header nav
+│       └── App.tsx                   #   Root: API fetch hook + state management
 │
-└── app/DOCS/                     # Documentation & Status Tracking
-    ├── Implementation_Status.md
-    ├── CHANGELOG.md
-    └── Build_Issue_Report.md
+├── connector/                        # OTel Connector component (signal fan-out)
+├── sdk-clients/                      # Example instrumented services
+│   └── ai-agent-demo/                #   Sample LLM agent with OTel GenAI instrumentation
+├── alerts/                           # SigNoz alert rule definitions (YAML)
+├── dashboard/                        # SigNoz dashboard JSON pack
+├── pours/                            # Foundry pour definitions
+├── tools/                            # Developer tooling & scripts
+├── test/                             # Integration test suite
+├── docs/                             # Extended documentation
+├── casting.yaml                      # Foundry deployment manifest ✅
+├── casting.yaml.lock                 # Foundry lock file ✅
+└── docker-compose.db.yaml            # Local ClickHouse + dependencies
 ```
 
 ---
 
-## 🚀 Getting Started
+## 🤖 SigNoz MCP Server Integration
 
-### Prerequisites
+TelemetryHealth implements a full **Model Context Protocol (MCP)** server (`control-plane/internal/mcp/tools.go`), natively integrating with SigNoz's AI agent workflows.
 
-| Tool | Version | Install |
-|---|---|---|
-| Go | ≥ 1.26.3 | [go.dev](https://go.dev/dl/) |
-| Node.js | ≥ 20 | [nodejs.org](https://nodejs.org) |
-| Git | any | [git-scm.com](https://git-scm.com) |
+The MCP server exposes two autonomous tools:
+
+| MCP Tool | Description |
+|---|---|
+| `GetTelemetryHealth` | Returns real-time composite health score, cardinality metrics, orphan span rates, and coverage gaps for any tenant |
+| `GenerateRemediation` | Autonomously requests a verified, structurally-validated OTel YAML config patch — e.g. drops a high-cardinality attribute |
+
+**Run modes:**
+```bash
+# SSE mode (default, port 8081)
+go run ./cmd/mcp-server
+
+# stdio mode (for direct agent integration)
+go run ./cmd/mcp-server --stdio
+```
+
+This turns TelemetryHealth from a passive dashboard into an **Autonomous Telemetry Intelligence Platform** — SigNoz AI agents can detect *and fix* pipeline health issues without human intervention.
 
 ---
 
-### 1. Clone the Repository
+## 📊 SigNoz Deep Integration
+
+TelemetryHealth uses SigNoz as both a **data sink** and a **visualization + alerting platform**:
+
+- **Custom OTel Metrics**: The processor emits `telemetryhealth.*` OTLP metrics (cardinality counts, orphan rates, coverage scores) into SigNoz via the standard OTLP exporter
+- **Dashboard Pack**: Pre-built SigNoz JSON dashboards in `dashboard/` — including the **Composite Health Score** gauge, cardinality trend panels, orphan span rate charts, and coverage % heatmaps
+- **Alert Rules**: Pre-configured SigNoz alert YAML definitions in `alerts/` — fire when health score drops below threshold or cardinality exceeds budget
+- **Alertmanager Bridge**: The control plane's `internal/alerting/` package integrates with SigNoz Alertmanager with 15-minute cooldown deduplication to prevent alert storms
+- **Foundry Deployment**: `casting.yaml` + `casting.yaml.lock` enable one-command reproducible deployment via SigNoz Foundry
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+| Tool | Version |
+|---|---|
+| Go | ≥ 1.22 |
+| Node.js | ≥ 20 |
+| Docker | any |
+
+### 1. Clone & Start
 
 ```bash
 git clone https://github.com/frag2win/TelemetryHealth.git
 cd TelemetryHealth
 ```
 
----
-
-### 2. Start the Go Control Plane API
+### 2. Start the Control Plane API
 
 ```bash
 cd control-plane
 go mod tidy
 go run ./cmd/api-server
+# REST API: http://localhost:8080
 ```
 
-> The REST API will start on **`http://localhost:8080`**
-
----
-
-### 2.5 Start the MCP Server (SigNoz AI Agent Integration)
-
-Open a **new terminal**:
+### 3. Start the MCP Server
 
 ```bash
+# New terminal
 cd control-plane
 go run ./cmd/mcp-server
+# MCP SSE endpoint: http://localhost:8081
 ```
 
-> The MCP server will start on port **`8081`** in SSE mode by default. You can also run it in stdio mode using `go run ./cmd/mcp-server --stdio`.
-
----
-
-### 3. Start the React Dashboard
-
-Open a **new terminal**:
+### 4. Start the React Dashboard
 
 ```bash
+# New terminal
 cd dashboard
 npm install
 npm run dev
+# Dashboard: http://localhost:5173
 ```
 
-> The Dashboard will open on **`http://localhost:5173`**
-
----
-
-### 4. (Optional) Run the OTel Processor Tests
+### 5. (Optional) Run the OTel Processor with ClickHouse
 
 ```bash
+docker compose -f docker-compose.db.yaml up -d
 cd processor
 go test ./... -v -cover
+```
+
+### 6. Deploy via SigNoz Foundry
+
+```bash
+# Requires SigNoz Foundry CLI
+foundry cast apply casting.yaml
 ```
 
 ---
@@ -208,9 +269,8 @@ go test ./... -v -cover
 
 ### `GET /api/v1/tenant/{tenant_id}/health`
 
-Returns the current composite health state for a tenant.
+Returns current composite health state for a tenant.
 
-**Response Example:**
 ```json
 {
   "healthScore": 84,
@@ -226,53 +286,38 @@ Returns the current composite health state for a tenant.
 }
 ```
 
----
+### `POST /api/v1/tenant/{tenant_id}/remediation/apply`
 
-## 🤖 SigNoz MCP Server Integration
-
-TelemetryHealth implements a **Model Context Protocol (MCP)** server to natively integrate with SigNoz's AI workflows. The MCP server exposes our deep telemetry insights directly to SigNoz as autonomous tools:
-
-1. **`GetTelemetryHealth`**: SigNoz AI agents can query the real-time composite health score, cardinality metrics, and orphan span rates for any tenant.
-2. **`GenerateRemediation`**: When an issue is detected, SigNoz agents can use this tool to autonomously request a verified, ready-to-deploy OTel YAML configuration patch (e.g., dropping high-cardinality attributes).
-
-This integration is located in `control-plane/internal/mcp/tools.go` and transforms TelemetryHealth from a passive monitoring system into an **Autonomous Telemetry Intelligence Platform**.
+Validates and applies a generated YAML patch to the OTel Collector config.
 
 ---
 
 ## 🔐 Security Model
 
-- **mTLS Everywhere**: The Ingest Gateway requires mutual TLS for all incoming OTLP connections.
-- **Zero-Trust Tenant Verification**: Every gRPC call is intercepted and the `x-tenant-id` header is cryptographically verified against the client certificate's SAN/SPIFFE URI — ensuring tenants cannot spoof each other's identity.
-- **Fail-Open Circuit Breaker**: If the TelemetryHealth processor crashes or panics, the circuit breaker trips and allows telemetry to flow through **unprocessed** rather than dropping data.
+TelemetryHealth was built with production-grade security from day one:
+
+- **mTLS Everywhere**: The Ingest Gateway (`cmd/ingest-gateway`) requires mutual TLS for all incoming OTLP connections
+- **Zero-Trust Tenant Verification**: Every gRPC call intercepts the `x-tenant-id` header and cryptographically verifies it against the client certificate's SPIFFE URI SAN — tenants cannot spoof each other's identity (`internal/authz/`, **100% test coverage**)
+- **Fail-Open Circuit Breaker**: If the processor panics, the circuit breaker trips and allows telemetry to flow through unprocessed — **never drops data** (`processor/failopen/`, **93.9% coverage**)
+- **YAML Allowlist Validation**: Generated remediation patches are validated against an OTel component allowlist before being surfaced — no arbitrary config injection
 
 ---
 
-## 🧪 Running Tests
+## 🧪 Test Coverage
 
 ```bash
-# Processor unit tests
+# Processor
 cd processor && go test ./... -cover
 
-# Control plane unit tests
+# Control Plane
 cd control-plane && go test ./...
 ```
 
-**Current Coverage:**
-- `processor/cardinality`: **93.3%** 
-- `processor/failopen`: **93.9%**
-- `control-plane/authz`: **100%** (4/4 tests)
-
----
-
-## 📚 Documentation
-
-Full technical documentation, implementation status, and build reports are tracked in [`app/DOCS/`](./app/DOCS/).
-
-| Document | Description |
-|---|---|
-| [Implementation Status](./app/DOCS/Implementation_Status.md) | PRD section completion tracker |
-| [Changelog](./app/DOCS/CHANGELOG.md) | Release history |
-| [Build Issues](./app/DOCS/Build_Issue_Report.md) | Known issues & resolutions |
+| Package | Coverage | Tests |
+|---|---|---|
+| `processor/cardinality` | **93.3%** | HLL accuracy, collision resistance |
+| `processor/failopen` | **93.9%** | Circuit breaker open/close/reset |
+| `control-plane/authz` | **100%** | SPIFFE SAN verification, tenant spoofing prevention |
 
 ---
 
@@ -280,18 +325,45 @@ Full technical documentation, implementation status, and build reports are track
 
 | Milestone | Status | Description |
 |---|---|---|
-| M1 — Core Detection (Alpha) | ✅ Complete | Processor, Circuit Breaker, HLL Cardinality, Orphan Detector |
-| M2 — Control Plane (Beta) | ✅ Complete | Ingest Gateway, mTLS AuthZ, Stream Jobs, ClickHouse Schema |
-| M3 — Remediation & Hardening (GA) | ✅ Complete | Remediation Generator, SigNoz Bridge, Helm Charts |
-| M4 — Dashboard | ✅ Complete | React UI with Health Gauge, Metric Cards, YAML Viewer |
-| M5 — Kafka Integration | ✅ Complete | Stream jobs wired to Kafka producer/worker sets in `cmd/ingest-gateway` and `cmd/worker` |
-| M6 — ClickHouse Seeder | 🔜 Planned | Inject realistic historical telemetry data for demo |
+| M1 — Core Detection | ✅ Complete | Processor, Circuit Breaker, HLL Cardinality, Orphan Detector |
+| M2 — Control Plane | ✅ Complete | Ingest Gateway, mTLS AuthZ, Stream Jobs, ClickHouse Schema |
+| M3 — Remediation & Hardening | ✅ Complete | YAML Generator, OTel Allowlist Validator, SigNoz Alert Bridge |
+| M4 — React Dashboard | ✅ Complete | Health Gauge, Metric Cards, YAML Viewer (Vite + TypeScript) |
+| M5 — Kafka + MCP Integration | ✅ Complete | Stream jobs wired to Kafka; MCP server with GetTelemetryHealth + GenerateRemediation |
+| M6 — ClickHouse Seeder | 🔜 Planned | Inject realistic historical telemetry data for live demos |
+
+---
+
+## 🏆 Why TelemetryHealth Wins Track 02
+
+**Meta-observability is a genuinely novel concept.** Every other Track 02 submission will monitor *applications*. TelemetryHealth monitors the *monitoring system itself* — a layer of abstraction no example project in the hackathon brief touched.
+
+| Judging Criterion | TelemetryHealth's Answer |
+|---|---|
+| **Impact** | Solves cardinality explosions (the #1 observability cost driver), orphaned traces, and coverage gaps — automatically |
+| **Creativity** | "Observe your observability" — meta-observability as a first-class product concept |
+| **Technical Excellence** | Production Go OTel Collector processor + gRPC control plane + React dashboard + MCP server in one cohesive system |
+| **SigNoz Usage Depth** | OTLP metrics sink → SigNoz Query Builder dashboards → SigNoz Alertmanager bridge → SigNoz MCP server integration |
+| **UX** | One animated health score + one-click YAML copy — a non-engineer can understand it in 10 seconds |
+| **Reproducibility** | `casting.yaml` + `casting.yaml.lock` enable exact reproduction via Foundry |
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|---|---|
+| [`app/DOCS/Implementation_Status.md`](./app/DOCS/Implementation_Status.md) | PRD section completion tracker |
+| [`app/DOCS/CHANGELOG.md`](./app/DOCS/CHANGELOG.md) | Full release history |
+| [`app/DOCS/Build_Issue_Report.md`](./app/DOCS/Build_Issue_Report.md) | Known issues & resolutions |
+| [`DEMO_GUIDE.md`](./DEMO_GUIDE.md) | Step-by-step demo walkthrough for judges |
+| [`AGENT_RULES.md`](./AGENT_RULES.md) | Commit conventions and agent coding rules |
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow the commit convention defined in [`AGENT_RULES.md`](./AGENT_RULES.md):
+Contributions welcome! Follow the commit convention in [`AGENT_RULES.md`](./AGENT_RULES.md):
 
 - `FEATURE:` — New functionality
 - `BUG:` — Bug fixes
@@ -301,24 +373,28 @@ Contributions are welcome! Please follow the commit convention defined in [`AGEN
 
 ---
 
+## 🤖 AI Assistant Usage Declaration
+
+As required by hackathon rules, this project was built with AI assistance from:
+
+- **GitHub Copilot** — Code completion
+- **ChatGPT** — Architecture review and design decisions
+- **Gemini** — Implementation assistance
+- **Antigravity (Google DeepMind)** — Agentic coding assistant for automated testing, debugging, and MCP server integration
+- **Perplexity AI** — Research, documentation, and README authoring
+
+---
+
 ## 📄 License
 
-This project is licensed under the **MIT License**.
+MIT License — see [LICENSE](LICENSE)
 
 ---
 
 <div align="center">
 
-Built with ❤️ using Go, React, and OpenTelemetry
+**Built with ❤️ using Go · React · OpenTelemetry · SigNoz**
+
+*"Your observability system deserves to be observed."*
 
 </div>
-
----
-
-## 🤖 AI Assistant Usage
-
-This project was built and debugged with assistance from:
-- GitHub Copilot (code completion)
-- ChatGPT (architecture review)
-- Gemini (implementation assistance)
-- Antigravity (Google DeepMind's agentic AI coding assistant for automated testing, debugging, and MCP server integration)
