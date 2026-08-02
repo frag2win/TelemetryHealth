@@ -205,8 +205,8 @@ export function Overview({ data, setView, tenantId }: OverviewProps) {
         </div>
       </div>
 
-      {/* Grid containing metric cards reusing Shared component */}
-      <div className="grid4">
+      {/* Grid containing metric cards in 2 balanced rows of 3 columns */}
+      <div className="grid-metrics">
         <Metric
           label="Cardinality alerts"
           value={data.metrics?.cardinality?.value ?? '3'}
