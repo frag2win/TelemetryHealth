@@ -67,17 +67,34 @@ const timeRanges = [
   { id: '7d', label: 'Last 7d' }
 ];
 
-// Immutable static configuration mapping for navigation items
-const navItems = [
-  { id: 'overview', chan: '01', label: 'Overview', ledClass: 'on-a', icon: Gauge },
-  { id: 'cardinality', chan: '02', label: 'Cardinality', ledClass: 'on-r', icon: Columns2 },
-  { id: 'tracechains', chan: '03', label: 'Trace chains', ledClass: 'on-r', icon: Link2 },
-  { id: 'coverage', chan: '04', label: 'Coverage', ledClass: 'on-a', icon: ShieldCheck },
-  { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p', icon: Wrench },
-  { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p', icon: Server },
-  { id: 'topology', chan: '07', label: 'Topology Twin', ledClass: 'on-a', icon: GitBranch },
-  { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a', icon: Activity }
+// Immutable static configuration mapping for navigation items categorized by domain
+const navSections = [
+  {
+    title: 'Core Platform',
+    items: [
+      { id: 'overview', chan: '01', label: 'Overview', ledClass: 'on-a', icon: Gauge },
+      { id: 'tracechains', chan: '03', label: 'Trace chains', ledClass: 'on-r', icon: Link2 },
+      { id: 'topology', chan: '07', label: 'Topology Twin', ledClass: 'on-a', icon: GitBranch }
+    ]
+  },
+  {
+    title: 'Signals',
+    items: [
+      { id: 'cardinality', chan: '02', label: 'Cardinality', ledClass: 'on-r', icon: Columns2 },
+      { id: 'coverage', chan: '04', label: 'Coverage', ledClass: 'on-a', icon: ShieldCheck }
+    ]
+  },
+  {
+    title: 'Intelligence',
+    items: [
+      { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p', icon: Wrench },
+      { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p', icon: Server },
+      { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a', icon: Activity }
+    ]
+  }
 ];
+
+const navItems = navSections.flatMap(section => section.items);
 
 interface NavItemProps {
   id: string;
@@ -325,20 +342,25 @@ function App() {
       {/* Mobile Navigation Dropdown mapping from array */}
       {isMobileMenuOpen && (
         <div className="mobile-nav-menu">
-          {navItems.map(item => (
-            <NavItem
-              key={item.id}
-              id={item.id}
-              chan={item.chan}
-              label={item.label}
-              ledClass={item.ledClass}
-              activeView={activeView}
-              icon={item.icon}
-              onClick={(id) => {
-                setActiveView(id);
-                setIsMobileMenuOpen(false);
-              }}
-            />
+          {navSections.map(section => (
+            <div key={section.title} className="nav-section">
+              <div className="nav-section-title">{section.title}</div>
+              {section.items.map(item => (
+                <NavItem
+                  key={item.id}
+                  id={item.id}
+                  chan={item.chan}
+                  label={item.label}
+                  ledClass={item.ledClass}
+                  activeView={activeView}
+                  icon={item.icon}
+                  onClick={(id) => {
+                    setActiveView(id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                />
+              ))}
+            </div>
           ))}
         </div>
       )}
@@ -352,17 +374,22 @@ function App() {
           <div className="brand-sub">pipeline health monitor</div>
         </div>
         <nav className="nav">
-          {navItems.map(item => (
-            <NavItem
-              key={item.id}
-              id={item.id}
-              chan={item.chan}
-              label={item.label}
-              ledClass={item.ledClass}
-              activeView={activeView}
-              icon={item.icon}
-              onClick={setActiveView}
-            />
+          {navSections.map(section => (
+            <div key={section.title} className="nav-section">
+              <div className="nav-section-title">{section.title}</div>
+              {section.items.map(item => (
+                <NavItem
+                  key={item.id}
+                  id={item.id}
+                  chan={item.chan}
+                  label={item.label}
+                  ledClass={item.ledClass}
+                  activeView={activeView}
+                  icon={item.icon}
+                  onClick={setActiveView}
+                />
+              ))}
+            </div>
           ))}
         </nav>
         <div style={{ padding: '16px', fontSize: '11px', color: 'var(--muted)', borderTop: '1px solid var(--border)', marginTop: 'auto', marginBottom: '16px' }}>

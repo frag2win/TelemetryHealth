@@ -98,25 +98,25 @@ body { display: flex; min-height: 100vh; width: 100%; }
   border-right: 1px solid var(--bezel);
   display: flex;
   flex-direction: column;
-  padding: 24px 12px;
+  padding: 16px 12px;
   position: sticky;
   top: 0;
   height: 100vh;
   overflow-y: auto;
-  gap: var(--space-4);
+  gap: 0;
   transition: background-color 0.3s ease, border-color 0.3s ease;
 }
 
 .brand {
-  padding: 0 8px 28px;
+  padding: 0 8px 12px;
   border-bottom: 1px solid var(--bezel);
-  margin-bottom: 16px;
+  margin-bottom: 8px;
 }
 
 .brand-mark {
   font-family: var(--mono);
   font-size: 13px;
-  letter-spacing: 3px;
+  letter-spacing: 2px;
   font-weight: 600;
   color: var(--paper);
   margin: 0;
@@ -129,8 +129,8 @@ body { display: flex; min-height: 100vh; width: 100%; }
 .brand-sub {
   font-family: var(--mono);
   font-size: 10px;
-  letter-spacing: 1px;
-  margin-top: 6px;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
   color: var(--muted);
   text-transform: uppercase;
 }
@@ -146,10 +146,10 @@ body { display: flex; min-height: 100vh; width: 100%; }
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 9px 10px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   font-size: 12px;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.2px;
   color: var(--muted);
   cursor: pointer;
   background: transparent;
@@ -157,6 +157,16 @@ body { display: flex; min-height: 100vh; width: 100%; }
   text-align: left;
   font-family: var(--sans);
   transition: background 0.15s ease, color 0.15s ease, border-left 0.15s ease;
+}
+
+.nav-section-title {
+  padding: 8px 10px 2px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--muted-2);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-family: var(--mono);
 }
 
 .nav-item:hover {
