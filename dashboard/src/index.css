@@ -186,10 +186,19 @@ body { display: flex; min-height: 100vh; width: 100%; }
 .nav {
   display: flex;
   flex-direction: column;
+  width: 100%;
   gap: 1px;
 }
 
+.nav-section {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
 .nav-item {
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -201,6 +210,7 @@ body { display: flex; min-height: 100vh; width: 100%; }
   cursor: pointer;
   background: transparent;
   border: 1px solid transparent;
+  border-left: 2px solid transparent;
   text-align: left;
   font-family: var(--sans);
   transition: background 0.15s ease, color 0.15s ease, border-left 0.15s ease;
@@ -241,12 +251,12 @@ body { display: flex; min-height: 100vh; width: 100%; }
   justify-content: center;
   gap: 0;
   position: relative;
+  border-left: 3px solid transparent;
 }
 
 .sidebar.collapsed .nav-item.active {
   border-left: 3px solid var(--phosphor);
   background: var(--panel-2);
-  padding-left: 0;
 }
 
 .sidebar.collapsed .nav-item .lbl,
@@ -260,6 +270,7 @@ body { display: flex; min-height: 100vh; width: 100%; }
   right: 4px;
   width: 6px;
   height: 6px;
+  margin-left: 0;
 }
 
 .sidebar.collapsed .signoz-feature-box,
@@ -272,18 +283,26 @@ body { display: flex; min-height: 100vh; width: 100%; }
   color: var(--paper);
 }
 
+.nav-item .icon {
+  flex-shrink: 0;
+}
+
 .nav-item .lbl {
   flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .nav-item .chan {
   font-family: var(--mono);
-  font-size: 9px;
-  width: 18px;
+  font-size: 10px;
+  width: 22px;
   color: var(--muted-2);
   opacity: 0.7;
   text-align: right;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .nav-item .led {
@@ -292,6 +311,7 @@ body { display: flex; min-height: 100vh; width: 100%; }
   border-radius: 50%;
   background: var(--muted-2);
   flex-shrink: 0;
+  margin-left: 4px;
 }
 
 .nav-item .led.on-p {
@@ -318,7 +338,6 @@ body { display: flex; min-height: 100vh; width: 100%; }
   background: var(--panel-2);
   border-color: var(--bezel);
   border-left: 2px solid var(--phosphor);
-  padding-left: 8px;
   color: var(--paper);
 }
 
