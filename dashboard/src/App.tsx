@@ -7,8 +7,9 @@ import { Remediation } from './components/views/Remediation';
 import { AgentTraces } from './components/views/AgentTraces';
 import { DigitalTwin } from './components/views/DigitalTwin';
 import { SigNozIntegration } from './components/views/SigNozIntegration';
+import { Settings as SettingsView } from './components/views/Settings';
 import { SigNozStatusBadge, AlertFiredBanner } from './components/SigNozComponents';
-import { Gauge, Columns2, Link2, ShieldCheck, Wrench, Server, GitBranch, Activity, RotateCw, LayoutDashboard, Download, Moon, Sun, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Gauge, Columns2, Link2, ShieldCheck, Wrench, Server, GitBranch, Activity, RotateCw, LayoutDashboard, Download, Moon, Sun, Menu, X, ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ErrorBanner } from './components/Shared';
 import { ErrorBoundary } from './main';
@@ -49,7 +50,8 @@ const titles: Record<string, string> = {
   remediation: '05 / REMEDIATION',
   agenttraces: '06 / AI AGENTS',
   topology: '07 / TOPOLOGY TWIN',
-  signoz: '08 / SIGNOZ INTEGRATION'
+  signoz: '08 / SIGNOZ INTEGRATION',
+  settings: '09 / SETTINGS'
 };
 
 const tenants = [
@@ -90,6 +92,12 @@ const navSections = [
       { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p', icon: Wrench },
       { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p', icon: Server },
       { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a', icon: Activity }
+    ]
+  },
+  {
+    title: 'Configuration',
+    items: [
+      { id: 'settings', chan: '09', label: 'Settings', ledClass: 'on-a', icon: SettingsIcon }
     ]
   }
 ];
@@ -482,11 +490,8 @@ function App() {
             <span>Export</span>
           </button>
           
-          <button className="btn btn-icon" onClick={() => {
-            const newTheme = theme === 'dark' ? 'light' : 'dark';
-            setTheme(newTheme);
-          }} title="Toggle Visual Style" aria-label="Toggle theme">
-            {theme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
+          <button className="btn btn-icon" onClick={() => setActiveView('settings')} title="Open Settings & Theme Preferences" aria-label="Settings">
+            <SettingsIcon size={16} />
           </button>
 
           {/* Interactive Tenant Switcher */}
@@ -585,6 +590,20 @@ function App() {
               {activeView === 'signoz' && (
                 <ErrorBoundary local>
                   <SigNozIntegration tenantId={selectedTenantId} />
+                </ErrorBoundary>
+              )}
+              {activeView === 'settings' && (
+                <ErrorBoundary local>
+                  <SettingsView
+                    theme={theme}
+                    setTheme={setTheme}
+                    selectedTenantId={selectedTenantId}
+                    setSelectedTenantId={setSelectedTenantId}
+                    timeRange={timeRange}
+                    setTimeRange={setTimeRange}
+                    dataSource={dataSource}
+                    setDataSource={setDataSource}
+                  />
                 </ErrorBoundary>
               )}
             </>
