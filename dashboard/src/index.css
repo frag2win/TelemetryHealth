@@ -98,7 +98,7 @@ body { display: flex; min-height: 100vh; width: 100%; }
   border-right: 1px solid var(--bezel);
   display: flex;
   flex-direction: column;
-  padding: 16px 12px;
+  padding: 0 12px 16px 12px;
   position: sticky;
   top: 0;
   height: 100vh;
@@ -109,11 +109,13 @@ body { display: flex; min-height: 100vh; width: 100%; }
 
 .sidebar.collapsed {
   width: 52px;
-  padding: 0;
+  padding: 0 0 16px 0;
 }
 
 .brand {
   height: 52px;
+  min-height: 52px;
+  max-height: 52px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -121,17 +123,23 @@ body { display: flex; min-height: 100vh; width: 100%; }
   border-bottom: 1px solid var(--bezel);
   margin-bottom: 12px;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .sidebar.collapsed .brand {
   height: 52px;
+  min-height: 52px;
+  max-height: 52px;
+  width: 100%;
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
   padding: 0;
-  margin-bottom: 12px;
+  margin: 0 0 12px 0;
   border-bottom: 1px solid var(--bezel);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .sidebar-edge-toggle-btn {
@@ -164,11 +172,12 @@ body { display: flex; min-height: 100vh; width: 100%; }
 
 .brand-mark {
   font-family: var(--mono);
-  font-size: 13px;
-  letter-spacing: 2px;
+  font-size: 12px;
+  letter-spacing: 1.5px;
   font-weight: 600;
   color: var(--paper);
   margin: 0;
+  line-height: 1.2;
 }
 
 .brand-mark span {
@@ -177,21 +186,29 @@ body { display: flex; min-height: 100vh; width: 100%; }
 
 .brand-sub {
   font-family: var(--mono);
-  font-size: 10px;
+  font-size: 8px;
   letter-spacing: 0.5px;
-  margin-top: 4px;
+  margin-top: 2px;
   color: var(--muted);
   text-transform: uppercase;
-}
-
-.sidebar.collapsed .brand {
-  padding: 0 4px 10px;
-  margin-bottom: 6px;
+  line-height: 1.1;
 }
 
 .sidebar.collapsed .brand-mark {
-  letter-spacing: 0;
+  letter-spacing: 1px;
   font-size: 14px;
+  color: var(--paper);
+  font-weight: 700;
+  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0;
+  line-height: 1;
+}
+
+.sidebar.collapsed .brand-mark span {
   color: var(--phosphor);
 }
 

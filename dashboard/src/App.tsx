@@ -401,7 +401,7 @@ function App() {
 
         <div className="brand">
           <div className="brand-mark">
-            {isSidebarCollapsed ? 'TH' : <>TELEMETRY<span>HEALTH</span></>}
+            {isSidebarCollapsed ? <>T<span>H</span></> : <>TELEMETRY<span>HEALTH</span></>}
           </div>
           {!isSidebarCollapsed && <div className="brand-sub">pipeline health monitor</div>}
         </div>
