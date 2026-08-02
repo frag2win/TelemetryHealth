@@ -8,7 +8,7 @@ import { AgentTraces } from './components/views/AgentTraces';
 import { DigitalTwin } from './components/views/DigitalTwin';
 import { SigNozIntegration } from './components/views/SigNozIntegration';
 import { SigNozStatusBadge, AlertFiredBanner } from './components/SigNozComponents';
-import { Gauge, Columns2, Link2, ShieldCheck, Wrench, Server, GitBranch, Activity, RotateCw, LayoutDashboard, Download, Moon, Sun, Menu, X } from 'lucide-react';
+import { Gauge, Columns2, Link2, ShieldCheck, Wrench, Server, GitBranch, Activity, RotateCw, LayoutDashboard, Download, Moon, Sun, Menu, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ErrorBanner } from './components/Shared';
 import { ErrorBoundary } from './main';
@@ -104,14 +104,16 @@ interface NavItemProps {
   activeView: string;
   icon: LucideIcon;
   onClick: (id: string) => void;
+  isCollapsed?: boolean;
 }
 
 // Converted navItem into a formal React functional component with Nav icon
-function NavItem({ id, chan, label, ledClass, activeView, icon: Icon, onClick }: NavItemProps) {
+function NavItem({ id, chan, label, ledClass, activeView, icon: Icon, onClick, isCollapsed }: NavItemProps) {
   return (
     <button
       className={`nav-item ${activeView === id ? 'active' : ''}`}
       onClick={() => onClick(id)}
+      title={isCollapsed ? `${chan} - ${label}` : undefined}
     >
       <Icon size={16} className="icon" aria-hidden="true" />
       <span className="lbl">{label}</span>
@@ -133,6 +135,17 @@ function App() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(() => {
+    return localStorage.getItem('sidebar_collapsed') === 'true';
+  });
+
+  const toggleSidebar = () => {
+    setIsSidebarCollapsed(prev => {
+      const next = !prev;
+      localStorage.setItem('sidebar_collapsed', String(next));
+      return next;
+    });
+  };
 
   // Sync theme with document class list and localStorage
   useEffect(() => {
@@ -366,12 +379,22 @@ function App() {
       )}
 
       {/* Main Desktop Sidebar */}
-      <aside className="sidebar">
+      <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
         <div className="brand">
-          <div className="brand-mark">
-            TELEMETRY<span>HEALTH</span>
+          <div className="brand-header-row">
+            <div className="brand-mark">
+              {isSidebarCollapsed ? 'TH' : <>TELEMETRY<span>HEALTH</span></>}
+            </div>
+            <button 
+              className="sidebar-toggle-btn" 
+              onClick={toggleSidebar}
+              title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+              aria-label="Toggle Sidebar"
+            >
+              {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            </button>
           </div>
-          <div className="brand-sub">pipeline health monitor</div>
+          {!isSidebarCollapsed && <div className="brand-sub">pipeline health monitor</div>}
         </div>
         <nav className="nav">
           {navSections.map(section => (
@@ -387,37 +410,22 @@ function App() {
                   activeView={activeView}
                   icon={item.icon}
                   onClick={setActiveView}
+                  isCollapsed={isSidebarCollapsed}
                 />
               ))}
             </div>
           ))}
         </nav>
-        <div style={{ padding: '16px', fontSize: '11px', color: 'var(--muted)', borderTop: '1px solid var(--border)', marginTop: 'auto', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--foreground)', marginBottom: '8px' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-              <polyline points="2 17 12 22 22 17"></polyline>
-              <polyline points="2 12 12 17 22 12"></polyline>
-            </svg>
-            <strong>SigNoz Implementation</strong>
-          </div>
-          <ul style={{ paddingLeft: '0', margin: '0', listStyleType: 'none', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {['MCP Server', 'Alertmanager Bridge', 'Custom OTLP Metrics', 'Remediation Engine', 'ClickHouse Storage', 'REST API', 'Foundry Deployment'].map(feature => (
-              <li key={feature} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#22c55e" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"></polyline>
-                </svg>
-                {feature}
-              </li>
-            ))}
-          </ul>
-        </div>
         <div className="sidebar-foot">
-          tenant: {selectedTenantId}
-          <br />
-          region: us-east-1
-          <br />
-          {data?.version ?? 'v1.1.0-ga'}
+          {!isSidebarCollapsed && (
+            <>
+              tenant: {selectedTenantId}
+              <br />
+              region: us-east-1
+              <br />
+              {data?.version ?? 'v1.1.0-ga'}
+            </>
+          )}
         </div>
       </aside>
 
