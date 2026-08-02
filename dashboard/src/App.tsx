@@ -8,8 +8,9 @@ import { AgentTraces } from './components/views/AgentTraces';
 import { DigitalTwin } from './components/views/DigitalTwin';
 import { SigNozIntegration } from './components/views/SigNozIntegration';
 import { Settings as SettingsView } from './components/views/Settings';
+import { LiveTerminal } from './components/views/LiveTerminal';
 import { SigNozStatusBadge, AlertFiredBanner } from './components/SigNozComponents';
-import { Gauge, Columns2, Link2, ShieldCheck, Wrench, Server, GitBranch, Activity, RotateCw, LayoutDashboard, Download, Moon, Sun, Menu, X, ChevronLeft, ChevronRight, Settings as SettingsIcon } from 'lucide-react';
+import { Gauge, Columns2, Link2, ShieldCheck, Wrench, Server, GitBranch, Activity, RotateCw, LayoutDashboard, Download, Moon, Sun, Menu, X, ChevronLeft, ChevronRight, Settings as SettingsIcon, Terminal as TerminalIcon } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { ErrorBanner } from './components/Shared';
 import { ErrorBoundary } from './main';
@@ -51,7 +52,8 @@ const titles: Record<string, string> = {
   agenttraces: '06 / AI AGENTS',
   topology: '07 / TOPOLOGY TWIN',
   signoz: '08 / SIGNOZ INTEGRATION',
-  settings: '09 / SETTINGS'
+  settings: '09 / SETTINGS',
+  terminal: '10 / LIVE TERMINAL'
 };
 
 const tenants = [
@@ -91,7 +93,8 @@ const navSections = [
     items: [
       { id: 'remediation', chan: '05', label: 'Remediation', ledClass: 'on-p', icon: Wrench },
       { id: 'agenttraces', chan: '06', label: 'AI Agents', ledClass: 'on-p', icon: Server },
-      { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a', icon: Activity }
+      { id: 'signoz', chan: '08', label: 'SigNoz', ledClass: 'on-a', icon: Activity },
+      { id: 'terminal', chan: '10', label: 'Live Terminal', ledClass: 'on-p', icon: TerminalIcon }
     ]
   },
   {
@@ -490,6 +493,10 @@ function App() {
             <span>Export</span>
           </button>
           
+          <button className="btn btn-icon" onClick={() => setActiveView('terminal')} title="Open Live Telemetry Terminal" aria-label="Terminal">
+            <TerminalIcon size={16} />
+          </button>
+          
           <button className="btn btn-icon" onClick={() => setActiveView('settings')} title="Open Settings & Theme Preferences" aria-label="Settings">
             <SettingsIcon size={16} />
           </button>
@@ -604,6 +611,11 @@ function App() {
                     dataSource={dataSource}
                     setDataSource={setDataSource}
                   />
+                </ErrorBoundary>
+              )}
+              {activeView === 'terminal' && (
+                <ErrorBoundary local>
+                  <LiveTerminal tenantId={selectedTenantId} setView={setActiveView} />
                 </ErrorBoundary>
               )}
             </>
