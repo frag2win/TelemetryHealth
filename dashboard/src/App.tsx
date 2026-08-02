@@ -389,19 +389,19 @@ function App() {
 
       {/* Main Desktop Sidebar */}
       <aside className={`sidebar ${isSidebarCollapsed ? 'collapsed' : ''}`}>
+        {/* Floating Vertically-Centered Toggle Button on Sidebar Right Edge */}
+        <button 
+          className="sidebar-edge-toggle-btn" 
+          onClick={toggleSidebar}
+          title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
+          aria-label="Toggle Sidebar"
+        >
+          {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+        </button>
+
         <div className="brand">
-          <div className="brand-header-row">
-            <div className="brand-mark">
-              {isSidebarCollapsed ? 'TH' : <>TELEMETRY<span>HEALTH</span></>}
-            </div>
-            <button 
-              className="sidebar-toggle-btn" 
-              onClick={toggleSidebar}
-              title={isSidebarCollapsed ? 'Expand Sidebar' : 'Collapse Sidebar'}
-              aria-label="Toggle Sidebar"
-            >
-              {isSidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-            </button>
+          <div className="brand-mark">
+            {isSidebarCollapsed ? 'TH' : <>TELEMETRY<span>HEALTH</span></>}
           </div>
           {!isSidebarCollapsed && <div className="brand-sub">pipeline health monitor</div>}
         </div>

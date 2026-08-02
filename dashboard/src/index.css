@@ -102,7 +102,7 @@ body { display: flex; min-height: 100vh; width: 100%; }
   position: sticky;
   top: 0;
   height: 100vh;
-  overflow-y: auto;
+  overflow: visible;
   gap: 0;
   transition: width 0.2s cubic-bezier(0.16, 1, 0.3, 1), padding 0.2s ease, background-color 0.3s ease, border-color 0.3s ease;
 }
@@ -118,31 +118,32 @@ body { display: flex; min-height: 100vh; width: 100%; }
   margin-bottom: 8px;
 }
 
-.brand-header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-}
-
-.sidebar-toggle-btn {
+.sidebar-edge-toggle-btn {
+  position: absolute;
+  top: 50%;
+  right: -12px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
   background: var(--panel-2);
   border: 1px solid var(--bezel);
-  color: var(--muted);
-  width: 22px;
-  height: 22px;
-  border-radius: var(--radius-sm);
+  color: var(--paper);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  padding: 0;
-  transition: background 0.15s ease, color 0.15s ease;
+  z-index: 40;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 
-.sidebar-toggle-btn:hover {
-  background: var(--bezel);
-  color: var(--paper);
+.sidebar-edge-toggle-btn:hover {
+  background: var(--phosphor);
+  color: #000;
+  border-color: var(--phosphor);
+  box-shadow: 0 0 12px var(--phosphor);
+  transform: translateY(-50%) scale(1.1);
 }
 
 .brand-mark {
