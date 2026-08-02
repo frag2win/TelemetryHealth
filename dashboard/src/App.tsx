@@ -109,13 +109,14 @@ interface NavItemProps {
 
 // Converted navItem into a formal React functional component with Nav icon
 function NavItem({ id, chan, label, ledClass, activeView, icon: Icon, onClick, isCollapsed }: NavItemProps) {
+  const iconSize = isCollapsed ? 22 : 18;
   return (
     <button
       className={`nav-item ${activeView === id ? 'active' : ''}`}
       onClick={() => onClick(id)}
       title={isCollapsed ? `${chan} - ${label}` : undefined}
     >
-      <Icon size={16} className="icon" aria-hidden="true" />
+      <Icon size={iconSize} className="icon" aria-hidden="true" />
       <span className="lbl">{label}</span>
       <span className="chan">{chan}</span>
       <span className={`led ${ledClass}`}></span>
