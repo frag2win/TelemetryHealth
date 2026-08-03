@@ -263,47 +263,7 @@ func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID stri
 
 	metrics.CompositeScore = telemetry.CalculateHealthScore(metrics.CardinalityMax, metrics.OrphanCount, metrics.ActiveServices, weights)
 
-	// --- FALLBACK MOCK DATA ---
-	// If the tables are completely empty (returning 0), inject cool demo data so the UI looks alive!
-	if metrics.CardinalityMax == 0 && metrics.OrphanCount == 0 {
-		switch tenantID {
-		case "00000000-0000-0000-0000-000000000001": // acme-prod
-			metrics.CardinalityMax = 120450
-			metrics.OrphanCount = 12
-			metrics.ActiveServices = 98
-			metrics.CompositeScore = 92
-			metrics.RemediationIssue = ""
-		case "00000000-0000-0000-0000-000000000002": // acme-staging
-			metrics.CardinalityMax = 89000
-			metrics.OrphanCount = 45
-			metrics.ActiveServices = 76
-			metrics.CompositeScore = 78
-			metrics.RemediationIssue = "High orphan count"
-		case "tenant-alpha":
-			metrics.CardinalityMax = 350000
-			metrics.OrphanCount = 142
-			metrics.ActiveServices = 42
-			metrics.CompositeScore = 45
-			metrics.RemediationIssue = "Cardinality spike detected"
-		case "tenant-beta":
-			metrics.CardinalityMax = 15000
-			metrics.OrphanCount = 2
-			metrics.ActiveServices = 99
-			metrics.CompositeScore = 99
-			metrics.RemediationIssue = ""
-		case "tenant-gamma":
-			metrics.CardinalityMax = 42000
-			metrics.OrphanCount = 8
-			metrics.ActiveServices = 88
-			metrics.CompositeScore = 85
-			metrics.RemediationIssue = ""
-		default:
-			metrics.CardinalityMax = 50000
-			metrics.OrphanCount = 5
-			metrics.ActiveServices = 90
-			metrics.CompositeScore = 88
-		}
-	}
+
 
 	if metrics.CardinalityMax > 1_000_000 {
 		metrics.RemediationIssue = fmt.Sprintf("High cardinality detected: %d unique values", metrics.CardinalityMax)

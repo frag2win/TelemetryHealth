@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -118,7 +119,7 @@ func validateTenantID(w http.ResponseWriter, tenantID string) bool {
 // ── Middleware ────────────────────────────────────────────────────────────────
 
 // corsMiddleware adds CORS headers. The allowed origin is read from CORS_ORIGIN env var.
-// Wildcard '*' is explicitly rejected to prevent security misconfiguration (Improvement #1.3).
+// Wildcard '*' is explicitly rejected in production mode (Improvement #1.3).
 func corsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		allowedStr := os.Getenv("ALLOWED_ORIGINS")
@@ -126,7 +127,11 @@ func corsMiddleware(next http.Handler) http.Handler {
 			allowedStr = os.Getenv("CORS_ORIGIN")
 		}
 		if allowedStr == "" {
-			allowedStr = "*"
+			if strings.ToLower(os.Getenv("ENV")) == "production" {
+				allowedStr = "http://localhost:5173"
+			} else {
+				allowedStr = "*"
+			}
 		}
 		allowedOrigins := strings.Split(allowedStr, ",")
 
@@ -188,7 +193,9 @@ type visitor struct {
 func rateLimitMiddleware(next http.Handler) http.Handler {
 	rlOnce.Do(func() {
 		go func() {
-			for range time.Tick(5 * time.Minute) {
+			ticker := time.NewTicker(5 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
 				rlMu.Lock()
 				for ip, v := range rlVisitors {
 					if time.Since(v.lastSeen) > 5*time.Minute {
@@ -203,7 +210,9 @@ func rateLimitMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ip := r.RemoteAddr
 		if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-			ip = strings.Split(forwarded, ",")[0]
+			ip = strings.TrimSpace(strings.Split(forwarded, ",")[0])
+		} else if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+			ip = host
 		}
 
 		rlMu.Lock()
@@ -270,18 +279,15 @@ func oidcAuthMiddleware(next http.Handler) http.Handler {
 
 		if issuer == "" {
 			if insecureDev == "true" && envMode != "production" {
-				// Secure temporary verification pattern mapping for hackathon sandbox mode
-				authHeader := r.Header.Get("Authorization")
-				if strings.HasPrefix(authHeader, "Bearer health-demo-key-2026") {
-					ctx := context.WithValue(r.Context(), contextKeyActorID, "dev-user")
-					ctx = context.WithValue(ctx, contextKeyActorRole, "Org Admin")
-					next.ServeHTTP(w, r.WithContext(ctx))
-					return
-				}
+				// Insecure dev mode: attach development actor context
+				ctx := context.WithValue(r.Context(), contextKeyActorID, "dev-user")
+				ctx = context.WithValue(ctx, contextKeyActorRole, "Org Admin")
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"error_code":"UNAUTHORIZED","message":"Authentication signature configuration missing or invalid fallback tracking context"}`))
+			w.Write([]byte(`{"error_code":"UNAUTHORIZED","message":"Authentication signature configuration missing"}`))
 			return
 		}
 		// Proceed with standard OIDC cryptographic validation flow...
@@ -460,6 +466,7 @@ func calculateDelta(current, previous uint64) float64 {
 
 // ApplyRemediation logs a remediation apply event with full SOC 2 audit trail.
 func (s *Server) ApplyRemediation(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB payload limit
 	type ApplyRequest struct {
 		TenantID    string `json:"tenantId"`
 		IssueType   string `json:"issueType"`
@@ -617,13 +624,18 @@ func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
-	s.encodeResponse(w, []map[string]interface{}{
-		{"service": "inventory-worker", "status": "silent", "lastSeen": "14m ago"},
-		{"service": "auth-service", "status": "active", "lastSeen": "1s ago"},
-	})
+	if s.healthRepo != nil {
+		metrics, err := s.healthRepo.QueryHealthMetrics(r.Context(), tenantID)
+		if err == nil && metrics != nil {
+			s.encodeResponse(w, map[string]interface{}{
+				"activeServices": metrics.ActiveServices,
+				"window":         metrics.Window,
+			})
+			return
+		}
+	}
+	s.encodeResponse(w, []map[string]interface{}{})
 }
-
-
 
 // GetTenantRootCause returns the causal graph explaining an issue.
 func (s *Server) GetTenantRootCause(w http.ResponseWriter, r *http.Request) {
@@ -632,15 +644,6 @@ func (s *Server) GetTenantRootCause(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	issueID := r.URL.Query().Get("issue_id")
-
-	// Map dashboard issues to benchmark traces for the demo
-	if issueID == "iss-1" {
-		issueID = "benchmark-span-drop"
-	} else if issueID == "iss-2" {
-		issueID = "benchmark-prompt-explosion"
-	} else if issueID == "iss-3" {
-		issueID = "benchmark-vector-timeout"
-	}
 
 	w.Header().Set("Content-Type", "application/json")
 	graph := s.graphEngine.GenerateRootCause(tenantID, issueID)
@@ -654,10 +657,19 @@ func (s *Server) GetTracesOrphans(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
+	if s.healthRepo != nil {
+		metrics, err := s.healthRepo.QueryHealthMetrics(r.Context(), tenantID)
+		if err == nil && metrics != nil {
+			s.encodeResponse(w, map[string]interface{}{
+				"orphanCount": metrics.OrphanCount,
+				"tenantID":    metrics.TenantID,
+			})
+			return
+		}
+	}
 	s.encodeResponse(w, map[string]interface{}{
-		"orphanRate":         "6.2%",
-		"topOrphanedService": "payments-api",
-		"missingParents":     142,
+		"orphanCount": 0,
+		"tenantID":    tenantID,
 	})
 }
 
@@ -691,6 +703,7 @@ func (s *Server) HandleTenantConfigPut(w http.ResponseWriter, r *http.Request) {
 		writeError(w, "DATA_SOURCE_UNCONFIGURED", "ClickHouse repository not configured", http.StatusNotImplemented)
 		return
 	}
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB payload limit
 	var weights telemetry.TenantWeights
 	if err := json.NewDecoder(r.Body).Decode(&weights); err != nil {
 		writeError(w, "INVALID_REQUEST_BODY", "invalid request body: "+err.Error(), http.StatusBadRequest)
@@ -721,6 +734,7 @@ func (s *Server) SimulateFailure(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20) // 1 MB payload limit
 	var req struct {
 		Scenario string `json:"scenario"`
 	}
