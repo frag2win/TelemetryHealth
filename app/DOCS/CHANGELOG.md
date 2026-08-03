@@ -28,6 +28,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- deconstruct server.go God-file and add internal/config loader ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
+
 - remove hardcoded mock pipelines, static fallbacks, and harden API server security ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
 
 - Complete rewrite of dashboard implementing useTenantData hook, AbortController, proxy relative paths, and resolving all audit bugs ([2a0259b](https://github.com/frag2win/TelemetryHealth/commit/2a0259b2ae061a26151a9947761737108ec2a435))
