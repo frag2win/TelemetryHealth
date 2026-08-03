@@ -6,38 +6,27 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- Add centralized configuration loader `internal/config/config.go` with environment variable validation ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
+- Add architectural decision record `docs/adr/ADR-0005-rest-api-modularization.md` ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
 - Pivot to AI Agent Observability for SigNoz hackathon ([d198055](https://github.com/frag2win/TelemetryHealth/commit/d1980555c1b2d32be1b522c7e2a243b52e5e1d02))
-
-- Add interactive service topology graph, nested Gantt waterfalls, YAML sandboxes, and impact simulators ([e0eba10](https://github.com/frag2win/TelemetryHealth/commit/e0eba100a99dc309956719af2d1e3afc6e74e836))
-
-- Overhaul dashboard UI/UX with dynamic selectors, animations, interactive accordions, syntax highlighting, and diff views ([01f34d5](https://github.com/frag2win/TelemetryHealth/commit/01f34d5c72ab3196624094bf90b63e6766e7e2c5))
-
-- Add AnimatedHealthGauge, AI Agent Traces view, and Dark Mode polish ([bb127fa](https://github.com/frag2win/TelemetryHealth/commit/bb127fa0fb7bbbcb624ad5aea32caa86f10f13b0))
-
-- Add OpenAPI/Swagger specs and UI to REST API ([2dab09b](https://github.com/frag2win/TelemetryHealth/commit/2dab09b44fce3bf911adfcf148f964c0041fc20c))
-
-- Add Prometheus /metrics endpoint to control-plane services ([4532f2f](https://github.com/frag2win/TelemetryHealth/commit/4532f2fcb68d2d09348eeb9fdc2bb62fd497c8ee))
-
-- Add cost-optimized single-node AWS Terraform deployment ([e19f0a5](https://github.com/frag2win/TelemetryHealth/commit/e19f0a526ce66d3a6777b325325b836213a1dbef))
-
-### Fixed
-
-- fix O(n^2) processor loop latency and safeguard nil healthRepo ([0bc34be](https://github.com/frag2win/TelemetryHealth/commit/0bc34bea0078c3c26c6d6ebc1659b8791abda0d0))
-
-- Fix #root flex layout for React integration ([08105bd](https://github.com/frag2win/TelemetryHealth/commit/08105bdab67439a468a665cfe9a15d6db06e59e3))
 
 ### Changed
 
-- deconstruct server.go God-file and add internal/config loader ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
+- Deconstruct 1,140-line `server.go` God-file into modular domain handlers (`handlers_health.go`, `handlers_agent.go`, `handlers_config.go`, `handlers_remediation.go`, `middleware.go`, `helpers.go`) ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
+- Normalize Prometheus HTTP metric route pattern labels using Chi route templates ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
+- Chain AI agent reconstruction engines (`behavior`, `decision`, `rootcause`) directly into REST API handlers ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
 
-- remove hardcoded mock pipelines, static fallbacks, and harden API server security ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
+### Removed
 
-- Complete rewrite of dashboard implementing useTenantData hook, AbortController, proxy relative paths, and resolving all audit bugs ([2a0259b](https://github.com/frag2win/TelemetryHealth/commit/2a0259b2ae061a26151a9947761737108ec2a435))
+- Remove hardcoded fallback mock data block from ClickHouse repository (`health_repository.go`) ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
+- Remove hardcoded `"Bearer health-demo-key-2026"` bearer authentication bypass key ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
+- Remove hardcoded `[SIMULATED]` trace returns from MCP client (`client.go`) ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
 
-### Internal
+### Security
 
-- Remove outdated PRD and fixes checklist ([23c1a36](https://github.com/frag2win/TelemetryHealth/commit/23c1a36d5703fb7c5261ffc56f2362da6a8275c6))
+- Reject `*` wildcard CORS origins in production, defaulting strictly to trusted origin `http://localhost:5173` ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
+- Enforce 1MB maximum payload size limit (`http.MaxBytesReader`) across POST/PUT REST endpoints ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
 
-- Remove committed .exe binaries and add .gitignore ([7c222e3](https://github.com/frag2win/TelemetryHealth/commit/7c222e38c2d36789575a94bfbca3dbbd82b740f8))
+### Fixed
 
-- Fix github actions permissions for docs-bot ([9f64431](https://github.com/frag2win/TelemetryHealth/commit/9f64431ffbef197b19f8363510c1dd43a268d9ed))
+- Fix rate limiter memory and goroutine leak by replacing `time.Tick` with `time.NewTicker` and sanitizing IP extraction with `net.SplitHostPort` ([614c6d4](https://github.com/frag2win/TelemetryHealth/commit/614c6d415907e19e1416f98230adfe6d6b6294f3))
