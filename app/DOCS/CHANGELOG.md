@@ -12,6 +12,8 @@ All notable changes to this project will be documented in this file.
 
 ### Changed
 
+- add ADR-0005 for REST modularization and update CHANGELOG.md ([7725257](https://github.com/frag2win/TelemetryHealth/commit/7725257f7602706a81a5f963352b4c257f66c707))
+
 - Deconstruct 1,140-line `server.go` God-file into modular domain handlers (`handlers_health.go`, `handlers_agent.go`, `handlers_config.go`, `handlers_remediation.go`, `middleware.go`, `helpers.go`) ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
 - Normalize Prometheus HTTP metric route pattern labels using Chi route templates ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
 - Chain AI agent reconstruction engines (`behavior`, `decision`, `rootcause`) directly into REST API handlers ([413db49](https://github.com/frag2win/TelemetryHealth/commit/413db49892a7e3d0c8e29d571088387df6eabe40))
