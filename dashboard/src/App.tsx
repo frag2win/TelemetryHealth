@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { getAuthHeaders } from './auth';
 import { Overview } from './components/views/Overview';
 import { Cardinality } from './components/views/Cardinality';
 import { TraceChains } from './components/views/TraceChains';
@@ -217,9 +218,7 @@ function App() {
       // Relative proxy URL path compliance
       const response = await fetch(`/api/v1/tenant/${selectedTenantId}/health`, { 
         signal,
-        headers: {
-          'Authorization': 'Bearer health-demo-key-2026'
-        }
+        headers: getAuthHeaders()
       });
       if (!response.ok) {
         throw new Error(`API Error: ${response.status} ${response.statusText}`);
@@ -321,7 +320,7 @@ function App() {
     setLoading(true);
     try {
       // Concurrently fetch the detailed sub-endpoint data (Imp 8 fix)
-      const headers = { 'Authorization': 'Bearer health-demo-key-2026' };
+      const headers = getAuthHeaders();
       const [agentsRes, orphansRes, coverageRes] = await Promise.all([
         fetch(`/api/v1/tenant/${selectedTenantId}/agents`, { headers }).then(r => r.ok ? r.json() : null),
         fetch(`/api/v1/tenant/${selectedTenantId}/traces/orphans`, { headers }).then(r => r.ok ? r.json() : null),

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { getAuthHeaders } from '../../auth';
 import { Copy, Check, ExternalLink, AlertTriangle, Play } from 'lucide-react';
 import type { RemediationPayload } from '../../App';
 import { Toast } from '../Shared';
@@ -351,7 +352,7 @@ export function Remediation({ apiRemediation, tenantId }: RemediationProps) {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer health-demo-key-2026'
+          ...getAuthHeaders()
         },
         body: JSON.stringify({ issueType, yaml, tenantId })
       });

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { getAuthHeaders } from '../auth';
 import { CheckCircle, XCircle, Loader, Cpu, BarChart2, Wifi, AlertTriangle, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -23,7 +24,7 @@ export function SigNozStatusBadge() {
     const check = async () => {
       try {
         const res = await fetch('/api/v1/signoz/health', {
-          headers: { 'Authorization': 'Bearer health-demo-key-2026' }
+          headers: getAuthHeaders()
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data: SigNozHealthPayload = await res.json();
@@ -195,7 +196,7 @@ export function McpToolsDemo({ tenantId }: McpToolsDemoProps) {
       } else {
         // Fallback to direct REST API when MCP proxy is not available
         const apiRes = await fetch(`/api/v1/tenant/${tenantId}/health`, {
-          headers: { 'Authorization': 'Bearer health-demo-key-2026' }
+          headers: getAuthHeaders()
         });
         const apiData = await apiRes.json();
         setResults(r => ({ ...r, [tool.id]: apiData }));
@@ -407,7 +408,7 @@ export function SigNozConfigPanel() {
 
   useEffect(() => {
     fetch('/api/v1/signoz/config', {
-      headers: { 'Authorization': 'Bearer health-demo-key-2026' }
+      headers: getAuthHeaders()
     })
       .then(r => r.ok ? r.json() : null)
       .then(d => { setConfig(d); setLoading(false); })

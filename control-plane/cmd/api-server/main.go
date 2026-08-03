@@ -9,9 +9,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/frag2win/TelemetryHealth/control-plane/internal/authz"
+	"fmt"
+
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/alerting"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/api/rest"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/authz"
+	"github.com/frag2win/TelemetryHealth/control-plane/internal/config"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/engine"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/storage"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
@@ -21,7 +24,9 @@ import (
 )
 
 func main() {
-	if os.Getenv("ENV") != "production" && os.Getenv("INSECURE_DEV_MODE") == "" {
+	cfg := config.LoadConfig()
+
+	if cfg.Env != "production" && os.Getenv("INSECURE_DEV_MODE") == "" {
 		os.Setenv("INSECURE_DEV_MODE", "true")
 	}
 	// PRD §10 Security, Improvement #2.1: panic immediately if INSECURE_DEV_MODE is set in production.
@@ -49,25 +54,20 @@ func main() {
 	var healthRepo storage.HealthRepository
 	var replayRepo engine.ReplayRepository
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	chHost := os.Getenv("CH_HOST")
-	if chHost == "" {
-		chHost = "127.0.0.1"
-	}
-	chPort := os.Getenv("CH_PORT")
-	if chPort == "" {
-		chPort = "9000"
-	}
-	chAddr := chHost + ":" + chPort
+	chAddr := fmt.Sprintf("%s:%s", cfg.ClickHouseHost, cfg.ClickHousePort)
 
 	client, err := ch.NewClient(
 		ctx,
 		[]string{chAddr},
-		"telemetry_health", "default", "",
+		cfg.ClickHouseDatabase, cfg.ClickHouseUser, cfg.ClickHousePassword,
 		logger,
 	)
 	cancel()
 	if err != nil {
-		logger.Warn("ClickHouse unavailable, using mock data", zap.Error(err))
+		if cfg.Env == "production" {
+			logger.Fatal("ClickHouse unavailable in production — refusing to start with mock data", zap.Error(err))
+		}
+		logger.Warn("ClickHouse unavailable — using mock data (development mode only)", zap.Error(err))
 		mockRepo := mock.NewRepository()
 		healthRepo = mockRepo
 		replayRepo = mockRepo
@@ -81,19 +81,17 @@ func main() {
 	server := rest.NewServer(logger, healthRepo, replayRepo)
 
 	// Initialize and start Telemetry Poller (Alertmanager Bridge)
+	pollerCtx, cancelPoller := context.WithCancel(context.Background())
+	defer cancelPoller()
+
 	bridge := alerting.NewSigNozBridge(logger)
 	poller := alerting.NewTelemetryPoller(logger, healthRepo, bridge, 10*time.Second, 80.0, "00000000-0000-0000-0000-000000000001")
-	poller.Start(context.Background())
+	poller.Start(pollerCtx)
 
 	// Use channel to handle errors from API server start
 	errChan := make(chan error, 1)
 	go func() {
-		port := os.Getenv("PORT")
-		if port == "" {
-			port = ":8080"
-		} else if port[0] != ':' {
-			port = ":" + port
-		}
+		port := fmt.Sprintf(":%d", cfg.Port)
 		if err := server.Start(port); err != nil && err != http.ErrServerClosed {
 			errChan <- err
 		}
@@ -107,6 +105,7 @@ func main() {
 		logger.Error("API server failed on startup", zap.Error(err))
 	case <-sigChan:
 		logger.Info("Shutdown signal received, shutting down API server...")
+		cancelPoller()
 		ctx, cancelCtx := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancelCtx()
 		if err := server.Shutdown(ctx); err != nil {

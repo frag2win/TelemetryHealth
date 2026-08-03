@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:25.5.6
+    container_name: telemetryhealth-clickhouse
+    ports:
+      - "9000:9000"
+      - "8123:8123"
+    environment:
+      - CLICKHOUSE_SKIP_USER_SETUP=1
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redpanda:
+    image: redpandadata/redpanda:v23.2.19
+    container_name: telemetryhealth-redpanda
+    command:
+      - redpanda
+      - start
+      - --smp 1
+      - --memory 1G
+      - --reserve-memory 0M
+      - --overprovisioned
+      - --node-id 0
+      - --kafka-addr PLAINTEXT://0.0.0.0:29092,OUTSIDE://0.0.0.0:9092
+      - --advertise-kafka-addr PLAINTEXT://redpanda:29092,OUTSIDE://localhost:9092
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    healthcheck:
+      test: ["CMD", "rpk", "cluster", "info"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api-server:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    container_name: telemetryhealth-api-server
+    ports:
+      - "8080:8080"
+    environment:
+      - ENV=development
+      - PORT=8080
+      - CH_HOST=clickhouse
+      - CH_PORT=9000
+      - CH_DATABASE=telemetry_health
+      - ALLOWED_ORIGINS=http://localhost:5173
+      - INSECURE_DEV_MODE=true
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+
+  ingest-gateway:
+    build:
+      context: ./control-plane
+      dockerfile: Dockerfile
+    container_name: telemetryhealth-ingest-gateway
+    command: ["/app/ingest-gateway"]
+    ports:
+      - "4317:4317"
+    environment:
+      - ENV=development
+      - KAFKA_BROKERS=redpanda:29092
+      - INSECURE_DEV_MODE=true
+    depends_on:
+      redpanda:
+        condition: service_healthy

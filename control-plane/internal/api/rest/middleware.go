@@ -27,12 +27,16 @@ func corsMiddleware(next http.Handler) http.Handler {
 		if allowedStr == "" {
 			allowedStr = os.Getenv("CORS_ORIGIN")
 		}
+		isProd := strings.ToLower(os.Getenv("ENV")) == "production"
 		if allowedStr == "" {
-			if strings.ToLower(os.Getenv("ENV")) == "production" {
+			if isProd {
 				allowedStr = "http://localhost:5173"
 			} else {
 				allowedStr = "*"
 			}
+		}
+		if isProd && allowedStr == "*" {
+			allowedStr = "http://localhost:5173"
 		}
 		allowedOrigins := strings.Split(allowedStr, ",")
 
@@ -178,6 +182,22 @@ func oidcAuthMiddleware(next http.Handler) http.Handler {
 			w.Write([]byte(`{"error_code":"UNAUTHORIZED","message":"Authentication signature configuration missing"}`))
 			return
 		}
-		next.ServeHTTP(w, r)
+		// OIDC issuer is configured — verify the Bearer token.
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			writeError(w, "UNAUTHORIZED", "Missing or invalid Authorization header", http.StatusUnauthorized)
+			return
+		}
+		rawToken := strings.TrimPrefix(authHeader, "Bearer ")
+
+		actorID, actorRole, err := verifyOIDCToken(r.Context(), issuer, rawToken)
+		if err != nil {
+			writeError(w, "UNAUTHORIZED", "Token verification failed", http.StatusUnauthorized)
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), contextKeyActorID, actorID)
+		ctx = context.WithValue(ctx, contextKeyActorRole, actorRole)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

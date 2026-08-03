@@ -274,10 +274,6 @@ func (r *HealthRepository) QueryHealthMetrics(ctx context.Context, tenantID stri
 	return metrics, nil
 }
 
-// Named wraps clickhouse.Named for query parameterization.
-func Named(name string, value interface{}) interface{} {
-	return ch.Named(name, value)
-}
 
 // QueryAgentTraces queries ClickHouse for spans with gen_ai.* attributes to reconstruct agent traces,
 // falling back to rich mock data if no spans are found.
@@ -406,38 +402,6 @@ func (r *HealthRepository) QueryAgentTraces(ctx context.Context) ([]storage.Agen
 		}
 	}
 
-	// 3. Fallback to rich, realistic traces if database returned nothing or errored out
-	if len(traces) == 0 {
-		traces = []storage.AgentTrace{
-			{
-				ID:                "trace-991",
-				Model:             "gpt-4o",
-				Tokens:            4120,
-				Cost:              0.041,
-				Latency:           "3.2s",
-				HallucinationRisk: "Low",
-				Decisions: []storage.AgentDecision{
-					{Step: "Retrieved 15 similar spans from ClickHouse (gen_ai.system)", Tool: "query_clickhouse", Status: "success"},
-					{Step: "Analyzed cardinality distribution for user_id", Tool: "python_eval", Status: "success"},
-					{Step: "Generated remediation YAML via SigNoz MCP tool", Tool: "generate_yaml", Status: "success"},
-				},
-			},
-			{
-				ID:                "trace-992",
-				Model:             "claude-3-5-sonnet",
-				Tokens:            8450,
-				Cost:              0.025,
-				Latency:           "6.1s",
-				HallucinationRisk: "High",
-				Decisions: []storage.AgentDecision{
-					{Step: "Attempted to query missing index (gen_ai.request.model)", Tool: "query_clickhouse", Status: "error"},
-					{Step: "Retried with full table scan (token limit warning)", Tool: "query_clickhouse", Status: "warning"},
-					{Step: "Formulated remediation with unverified field names", Tool: "generate_yaml", Status: "warning"},
-				},
-			},
-		}
-	}
-
 	return traces, nil
 }
 
@@ -516,8 +480,6 @@ func (r *HealthRepository) LogRemediationEvent(ctx context.Context, tenantID str
 	return nil
 }
 
-// Ensure driver package is used.
-var _ driver.Conn
 
 // QuerySpansByTraceID fetches spans for a given traceID from ClickHouse.
 // Falls back to mock data if no spans are found.

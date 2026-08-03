@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { getAuthHeaders } from '../auth';
 import { Info, ArrowUpRight, ArrowDownRight, Check, AlertTriangle } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { DashboardData } from '../App';
@@ -85,9 +86,7 @@ export function useTenantData<T>(tenantId: string, endpoint: string, fallbackDat
 
     fetch(url, { 
       signal,
-      headers: {
-        'Authorization': 'Bearer health-demo-key-2026'
-      }
+      headers: getAuthHeaders()
     })
       .then((r) => {
         if (!r.ok) throw new Error(`API error: ${r.status} ${r.statusText}`);

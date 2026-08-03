@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getAuthHeaders } from '../../auth';
 import { Play, Clock, CheckCircle, XCircle, AlertTriangle, RefreshCw } from 'lucide-react';
 import { McpToolsDemo, QueryBuilderDemo, SigNozConfigPanel } from '../SigNozComponents';
 
@@ -42,7 +43,7 @@ function ReplayTimeline({ tenantId }: { tenantId: string }) {
       const url = traceId
         ? `/api/v1/tenant/${tenantId}/replay?trace_id=${encodeURIComponent(traceId)}`
         : `/api/v1/tenant/${tenantId}/replay`;
-      const res = await fetch(url, { headers: { 'Authorization': 'Bearer health-demo-key-2026' } });
+      const res = await fetch(url, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ReplayPayload & { loadedAt?: string } = await res.json();
       data.loadedAt = new Date().toLocaleTimeString();

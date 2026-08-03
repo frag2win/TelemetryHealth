@@ -219,11 +219,76 @@ func TestUnconfiguredClickHouse_Returns501(t *testing.T) {
 
 	for _, path := range endpoints {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
-		req.Header.Set("Authorization", "Bearer health-demo-key-2026")
 		w := httptest.NewRecorder()
 		r.ServeHTTP(w, req)
 		if w.Code != http.StatusNotImplemented {
 			t.Errorf("expected 501 Not Implemented for %s when ClickHouse unconfigured, got %d", path, w.Code)
 		}
+	}
+}
+
+func TestCORSMiddleware(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	corsHandler := corsMiddleware(handler)
+
+	// Dev mode — wildcard origin
+	os.Setenv("ENV", "development")
+	os.Unsetenv("ALLOWED_ORIGINS")
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/tenant/acme-prod/health", nil)
+	w := httptest.NewRecorder()
+	corsHandler.ServeHTTP(w, req)
+	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin != "*" {
+		t.Errorf("expected dev mode CORS origin to be '*', got %s", origin)
+	}
+
+	// Production mode — strict origin (rejects wildcard)
+	os.Setenv("ENV", "production")
+	os.Setenv("ALLOWED_ORIGINS", "*")
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/tenant/acme-prod/health", nil)
+	w = httptest.NewRecorder()
+	corsHandler.ServeHTTP(w, req)
+	if origin := w.Header().Get("Access-Control-Allow-Origin"); origin == "*" {
+		t.Errorf("expected production mode CORS origin to reject wildcard '*', got %s", origin)
+	}
+	os.Unsetenv("ENV")
+	os.Unsetenv("ALLOWED_ORIGINS")
+}
+
+func TestOIDCAuthMiddleware_InsecureDevMode(t *testing.T) {
+	var actorID, actorRole string
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		actorID, _ = r.Context().Value(contextKeyActorID).(string)
+		actorRole, _ = r.Context().Value(contextKeyActorRole).(string)
+		w.WriteHeader(http.StatusOK)
+	})
+
+	authHandler := oidcAuthMiddleware(handler)
+
+	// Insecure dev mode active
+	os.Setenv("ENV", "development")
+	os.Setenv("INSECURE_DEV_MODE", "true")
+	os.Unsetenv("OIDC_ISSUER")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/tenant/acme-prod/health", nil)
+	w := httptest.NewRecorder()
+	authHandler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected 200 OK in dev mode, got %d", w.Code)
+	}
+	if actorID != "dev-user" || actorRole != "Org Admin" {
+		t.Errorf("expected dev-user/Org Admin claims, got actorID=%s, actorRole=%s", actorID, actorRole)
+	}
+
+	// Unconfigured issuer without insecure dev mode returns 401
+	os.Setenv("INSECURE_DEV_MODE", "false")
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/tenant/acme-prod/health", nil)
+	w = httptest.NewRecorder()
+	authHandler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized without OIDC issuer or dev mode, got %d", w.Code)
 	}
 }

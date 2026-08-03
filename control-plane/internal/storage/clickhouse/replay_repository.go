@@ -37,16 +37,6 @@ func (r *ClickhouseReplayRepository) GetReplay(ctx context.Context, tenantID, tr
 func (r *ClickhouseReplayRepository) GetRecentReplays(ctx context.Context, tenantID string, limit int) ([]engine.ReplayEvent, error) {
 	// Fetch recent distinct trace IDs first
 	offset := 0
-	switch tenantID {
-	case "00000000-0000-0000-0000-000000000002":
-		offset = 1
-	case "tenant-alpha":
-		offset = 2
-	case "tenant-beta":
-		offset = 3
-	case "tenant-gamma":
-		offset = 4
-	}
 
 	traceRows, err := r.db.Query(ctx, `
 		SELECT traceID

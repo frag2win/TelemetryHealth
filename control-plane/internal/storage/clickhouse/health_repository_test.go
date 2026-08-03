@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	clickhouse "github.com/ClickHouse/clickhouse-go/v2"
 	ch "github.com/frag2win/TelemetryHealth/control-plane/internal/storage/clickhouse"
 	"github.com/frag2win/TelemetryHealth/control-plane/internal/telemetry"
 	"go.uber.org/zap"
@@ -75,9 +76,9 @@ func TestHealthRepository_SafeTraceIDSliceBounds(t *testing.T) {
 func TestHealthRepository_SafeSQLParameters(t *testing.T) {
 	// Verify named parameter syntax
 	tenantID := "12345678-1234-1234-1234-123456789abc' OR '1'='1"
-	named := ch.Named("tenant_id", tenantID)
-	if named == nil {
-		t.Fatal("expected non-nil named parameter")
+	named := clickhouse.Named("tenant_id", tenantID)
+	if named.Name != "tenant_id" {
+		t.Fatal("expected named parameter name to be tenant_id")
 	}
 }
 

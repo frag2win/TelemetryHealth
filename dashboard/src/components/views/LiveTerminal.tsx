@@ -173,6 +173,19 @@ export function LiveTerminal({ tenantId, setView }: LiveTerminalProps) {
                   fontSize: '10px',
                   padding: '2px 6px',
                   borderRadius: '4px',
+                  background: 'rgba(234, 179, 8, 0.15)',
+                  color: '#eab308',
+                  border: '1px solid rgba(234, 179, 8, 0.3)',
+                  fontWeight: 500
+                }}
+              >
+                DEMO SIMULATION
+              </span>
+              <span
+                style={{
+                  fontSize: '10px',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
                   background: isStreaming ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                   color: isStreaming ? '#22c55e' : '#ef4444',
                   fontFamily: 'var(--mono)'

@@ -6,8 +6,6 @@ package rest
 
 import (
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -15,7 +13,6 @@ import (
 	"time"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
-	"golang.org/x/oauth2"
 )
 
 // oidcVerifierCache holds a lazily-initialised OIDC verifier per issuer URL.
@@ -24,15 +21,6 @@ var (
 	oidcVerifierMu    sync.RWMutex
 	oidcVerifierCache map[string]*gooidc.IDTokenVerifier = make(map[string]*gooidc.IDTokenVerifier)
 )
-
-// oidcClaims holds the standard + custom claims we extract from the verified JWT.
-type oidcClaims struct {
-	Sub   string `json:"sub"`
-	Email string `json:"email"`
-	// Custom claim expected from the IdP (can be a standard "roles" claim or a provider-specific one).
-	// Configure with OIDC_ROLE_CLAIM env var (default: "role").
-	Role string
-}
 
 // getOrCreateVerifier lazily creates an OIDC verifier for the given issuer.
 // The verifier is cached after the first successful creation to avoid redundant JWKS fetches.
@@ -136,54 +124,3 @@ func mapToRBACRole(raw string) string {
 		return "Read-Only"
 	}
 }
-
-// parseJWTStructural performs a structural (non-cryptographic) JWT parse to extract claims.
-// This is used ONLY when no OIDC issuer is configured, e.g., in local dev without an IdP.
-// It does NOT verify the signature and MUST NOT be used in production.
-func parseJWTStructural(rawToken string) (actorID, actorRole string) {
-	actorID = "unknown-user"
-	actorRole = "Read-Only"
-
-	parts := strings.Split(rawToken, ".")
-	if len(parts) != 3 {
-		return
-	}
-
-	// Base64url-decode the payload (part[1]).
-	payload := parts[1]
-	// Add padding if needed.
-	switch len(payload) % 4 {
-	case 2:
-		payload += "=="
-	case 3:
-		payload += "="
-	}
-	decoded, err := base64.URLEncoding.DecodeString(payload)
-	if err != nil {
-		return
-	}
-
-	var claims map[string]interface{}
-	if err := json.Unmarshal(decoded, &claims); err != nil {
-		return
-	}
-
-	if sub, ok := claims["sub"].(string); ok && sub != "" {
-		actorID = sub
-	} else if email, ok := claims["email"].(string); ok && email != "" {
-		actorID = email
-	}
-
-	roleClaimKey := os.Getenv("OIDC_ROLE_CLAIM")
-	if roleClaimKey == "" {
-		roleClaimKey = "role"
-	}
-	if role, ok := claims[roleClaimKey].(string); ok {
-		actorRole = mapToRBACRole(role)
-	}
-
-	return
-}
-
-// Ensure oauth2 package is referenced (used transitively by go-oidc).
-var _ = oauth2.NoContext

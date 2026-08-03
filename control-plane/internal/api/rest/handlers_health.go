@@ -80,15 +80,18 @@ func (s *Server) GetCoverage(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if s.healthRepo != nil {
 		metrics, err := s.healthRepo.QueryHealthMetrics(r.Context(), tenantID)
-		if err == nil && metrics != nil {
-			s.encodeResponse(w, map[string]interface{}{
-				"activeServices": metrics.ActiveServices,
-				"window":         metrics.Window,
-			})
+		if err != nil {
+			s.logger.Error("query coverage health metrics failed", zap.Error(err))
+			writeError(w, "DATA_SOURCE_ERROR", "Failed to query coverage metrics", http.StatusServiceUnavailable)
 			return
 		}
+		s.encodeResponse(w, map[string]interface{}{
+			"activeServices": metrics.ActiveServices,
+			"window":         metrics.Window,
+		})
+		return
 	}
-	s.encodeResponse(w, []map[string]interface{}{})
+	writeError(w, "DATA_SOURCE_UNCONFIGURED", "ClickHouse repository not configured", http.StatusNotImplemented)
 }
 
 // GetTracesOrphans returns orphaned trace statistics.
@@ -100,16 +103,16 @@ func (s *Server) GetTracesOrphans(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if s.healthRepo != nil {
 		metrics, err := s.healthRepo.QueryHealthMetrics(r.Context(), tenantID)
-		if err == nil && metrics != nil {
-			s.encodeResponse(w, map[string]interface{}{
-				"orphanCount": metrics.OrphanCount,
-				"tenantID":    metrics.TenantID,
-			})
+		if err != nil {
+			s.logger.Error("query orphans health metrics failed", zap.Error(err))
+			writeError(w, "DATA_SOURCE_ERROR", "Failed to query orphan metrics", http.StatusServiceUnavailable)
 			return
 		}
+		s.encodeResponse(w, map[string]interface{}{
+			"orphanCount": metrics.OrphanCount,
+			"tenantID":    metrics.TenantID,
+		})
+		return
 	}
-	s.encodeResponse(w, map[string]interface{}{
-		"orphanCount": 0,
-		"tenantID":    tenantID,
-	})
+	writeError(w, "DATA_SOURCE_UNCONFIGURED", "ClickHouse repository not configured", http.StatusNotImplemented)
 }
